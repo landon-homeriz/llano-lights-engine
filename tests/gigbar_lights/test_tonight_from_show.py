@@ -122,7 +122,7 @@ def test_the_show_the_live_show_follows_is_tonights_show(tmp_path):
     assert tonight.Tonight.load(tmp_path, doc=doc, prefer="party").show == "party"
     assert tonight.Tonight.load(tmp_path, doc=doc, prefer="gone").show == "party"   # a stale pref falls back
     assert tonight.Tonight.pick_show(doc, "") == "party"          # "A Party" sorts before "AJ Wedding"
-    assert tonight.Tonight.pick_show(doc, "", title="cm wedding") == "aj-wedding"
+    assert tonight.Tonight.pick_show(doc, "", title="aj wedding") == "aj-wedding"
 
 
 def test_a_broken_show_never_costs_the_built_night(tmp_path, monkeypatch):

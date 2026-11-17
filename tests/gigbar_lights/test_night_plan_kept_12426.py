@@ -100,19 +100,19 @@ def test_a_plan_file_that_cannot_be_written_never_stops_a_show_opening(window, m
     def refuse(*a, **k):
         raise PermissionError("the disk said no")
     monkeypatch.setattr(night_plans.NightPlans, "_write", refuse)
-    code, opened = _call(url + "api/shows-open", {"name": "c-m-wedding", "folder": PLAN["folder"]}, token)
+    code, opened = _call(url + "api/shows-open", {"name": "a-j-wedding", "folder": PLAN["folder"]}, token)
     assert code == 200 and opened["night"]["folder"] == PLAN["folder"]           # the window's plan, used as it opens
     assert any(n["kind"] == "folder" for n in opened["needs"])                    # and a folder not here is said
-    assert _call(url + "api/shows-night-remember", {"name": "c-m-wedding", "plan": PLAN}, token)[0] == 500
-    assert _call(url + "api/shows-delete", {"name": "c-m-wedding"}, token)[0] == 200
+    assert _call(url + "api/shows-night-remember", {"name": "a-j-wedding", "plan": PLAN}, token)[0] == 500
+    assert _call(url + "api/shows-delete", {"name": "a-j-wedding"}, token)[0] == 200
 
 
 def test_a_half_written_or_odd_file_is_no_plans(tmp_path):
     f = tmp_path / "night_plans.json"
     store = night_plans.NightPlans(f)
-    for junk in ('{"c-m-wedding": {"folder": "C:\\\\x"', "[1, 2]", '{"c-m-wedding": "folder"}', ""):
+    for junk in ('{"a-j-wedding": {"folder": "C:\\\\x"', "[1, 2]", '{"a-j-wedding": "folder"}', ""):
         f.write_text(junk, encoding="utf-8")
-        assert store.get("c-m-wedding") is None
-    store.put("c-m-wedding", PLAN)                     # and the next keep writes a whole file again
-    assert store.get("c-m-wedding")["folder"] == PLAN["folder"]
+        assert store.get("a-j-wedding") is None
+    store.put("a-j-wedding", PLAN)                     # and the next keep writes a whole file again
+    assert store.get("a-j-wedding")["folder"] == PLAN["folder"]
     assert not (tmp_path / "night_plans.json.tmp").exists()
