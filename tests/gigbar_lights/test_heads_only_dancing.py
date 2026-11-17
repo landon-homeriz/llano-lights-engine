@@ -112,7 +112,9 @@ def test_the_night_names_its_still_steps_its_gentle_dances_and_its_dancing():
     assert tonight.Tonight.plain().still_keys() == set() and tonight.Tonight.plain().gentle_keys() == set()
 
 
-def test_a_dance_filed_under_a_wild_look_moves_the_heads_gently():
+def test_a_dance_filed_under_a_wild_look_holds_the_heads_still_and_lit():
+    """BL #12518 (the couple's rule, 2026-11-16): heads move only on the dance songs; in the first dance
+    and parent dances they stay lit on the floor and hold still. LLANO_LIGHTS_GENTLE_GLIDE=1 is 11-14's glide."""
     night = tonight.Tonight.from_report(NIGHT)
     show_settings.set_gentle_songs("night", night.gentle_keys())
     eng = LooksEngine(settings=filed_wild("Ours", "Dad", "Jump", "Last"))
@@ -124,8 +126,8 @@ def test_a_dance_filed_under_a_wild_look_moves_the_heads_gently():
             lit = max(lit, heads_lit(rig))
             poses.add(tuple(aims(rig)))
             wash = max(wash, max(fx.dim for fx in (*rig.tetras, *rig.sticks)))
-        assert lit > 0, "the heads move on their own in the dances"
-        assert len(poses) > 1, "and they move"
+        assert lit > 0, "the heads stay lit on the couple in the dances"
+        assert len(poses) == 1, "and hold still"
         assert wash > 0.5, "the moment keeps its own look: only the heads are calmed"
         assert eng.showing == "style:wild"
     for title in ("Jump", "Last"):   # Dancing, and the last dance, which counts as Dancing
@@ -283,15 +285,22 @@ def test_the_gentle_pieces_on_their_own():
     base = contract.normalize({**contract.defaults(), "crowd_safe": False})
     cfg = gentle_settings(base)
     for sec in cfg["sections"].values():
-        assert 0.45 <= sec["movers"] <= GENTLE_HEADS and sec["move"]["shape"] == "glide"
-        assert sec["move"]["from"] == "booth" and sec["move"]["to"] == "crowd" and sec["move"]["beats"] == 32
+        assert 0.45 <= sec["movers"] <= GENTLE_HEADS and sec["move"]["shape"] == "hold"
+        assert sec["move"]["from"] == "crowd" and sec["move"]["to"] == "crowd"
     assert base["sections"] != cfg["sections"], "the settings it was given are not changed"
     dark = contract.normalize({**base, "sections": {s: {**v, "movers": 0.0} for s, v in base["sections"].items()}})
     assert all(sec["movers"] >= 0.45 for sec in gentle_settings(dark)["sections"].values()), \
-        "a look that keeps its heads off still moves them in a dance: they move on their own"
+        "a look that keeps its heads off still lights them in a dance"
     rig = default_rig()
     for bar in rig.bars:
         for m in bar.movers:
             m.dim, m.strobe = 1.0, 0.5
     gentle_heads(rig)
     assert heads_lit(rig) == GENTLE_HEADS and all(m.strobe == 0 for bar in rig.bars for m in bar.movers)
+
+
+def test_the_glide_comes_back_with_its_switch(monkeypatch):
+    monkeypatch.setenv("LLANO_LIGHTS_GENTLE_GLIDE", "1")
+    base = contract.normalize({**contract.defaults(), "crowd_safe": False})
+    for sec in gentle_settings(base)["sections"].values():
+        assert sec["move"]["shape"] == "glide" and sec["move"]["from"] == "booth" and sec["move"]["beats"] == 32

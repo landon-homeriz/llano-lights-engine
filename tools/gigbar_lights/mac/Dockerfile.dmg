@@ -1,0 +1,13 @@
+# The disk image tools for mac/dmg.py (Llano BL #12517): Mozilla's libdmg-hfsplus (how Firefox makes its
+# Mac disk images on Linux), pinned to a commit, plus mkfs.hfsplus. Run as tools only; nothing of them ships.
+FROM ubuntu:24.04 AS build
+RUN apt-get update && apt-get install -y --no-install-recommends g++ cmake make curl ca-certificates \
+      libbz2-dev zlib1g-dev liblzma-dev liblzfse-dev && rm -rf /var/lib/apt/lists/*
+ARG LIBDMG=e18579b391950589b9ed16ee630c54ce4319bb29
+RUN curl -sSfL https://github.com/mozilla/libdmg-hfsplus/archive/$LIBDMG.tar.gz | tar xz -C / \
+    && cmake -B /build -DCMAKE_BUILD_TYPE=Release /libdmg-hfsplus-$LIBDMG && make -C /build -j4 dmg-bin hfsplus
+
+FROM ubuntu:24.04
+RUN apt-get update && apt-get install -y --no-install-recommends hfsprogs liblzfse1 libbz2-1.0 liblzma5 zlib1g \
+      && rm -rf /var/lib/apt/lists/*
+COPY --from=build /build/dmg/dmg /build/hfs/hfsplus /usr/local/bin/

@@ -2,6 +2,17 @@
  "product": "llano-lights",
  "releases": [
   {
+   "version": "1.38.0",
+   "built_utc": "2026-11-17T03:33:49Z",
+   "built_ct": "Nov 16, 2026, 9:33 PM CT",
+   "notes": "The first song of each set (Footloose, for the dancing) plays from its first note; Review still offers Llano's cut",
+   "zip": "Llano-Lights-1.38.0.zip",
+   "sha256": "4c3bd0e101bd5194cdd833e6a21e939f618175250f661db084cc92ade0800db9",
+   "size": 43984837,
+   "download": "",
+   "commit": "41080feba115c168f2e404d8814061418a7054a8"
+  },
+  {
    "version": "1.37.0",
    "built_utc": "2026-11-16T07:14:38Z",
    "built_ct": "Nov 16, 2026, 1:14 AM CT",

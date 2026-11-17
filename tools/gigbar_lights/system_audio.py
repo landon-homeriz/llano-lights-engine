@@ -184,6 +184,13 @@ class LoopbackCapture:
         self.kick.set()
 
     def _run(self) -> None:
+        if sys.platform == "darwin":
+            # A Mac has no speaker loopback for soundcard to open (Llano BL #12517); hearing Spotify or
+            # YouTube there needs Core Audio's process tap (macOS 14.2+). Until then the lights follow
+            # Mixxx, and Spotify or Music's song name still reaches the show.
+            self.error = "on a Mac the lights follow Mixxx; they can't hear Spotify or YouTube yet"
+            self.unavailable = True
+            return
         com = False
         try:
             com = _com_init()

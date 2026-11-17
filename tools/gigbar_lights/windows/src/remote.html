@@ -130,6 +130,7 @@ function paired() {
     },
     // What this path cannot do stays in place, grayed, with the reason (his rule, 2026-11-12).
     caps: {hover: "Hover follow is for the laptop's trackpad. On the phone, drag the spot with a finger."},
+    cuesUrl: (q) => "/cues" + q + "#k=" + encodeURIComponent(KEY),   // the cue workspace over the laptop's Wi-Fi (PM #23869)
   });
 }
 window.addEventListener("hashchange", () => { if (readHash()) tryKey(); });

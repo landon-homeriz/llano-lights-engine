@@ -867,8 +867,8 @@ def mixxx_cfg_path() -> Path:
     if sys.platform == "win32":
         return Path(os.environ.get("LOCALAPPDATA", "")) / "Mixxx" / "mixxx.cfg"
     if sys.platform == "darwin":
-        return (Path.home() / "Library/Containers/org.mixxx.mixxx/Data/Library"
-                / "Application Support/Mixxx/mixxx.cfg")
+        from .macos import mixxx_settings_dir  # noqa: PLC0415
+        return mixxx_settings_dir() / "mixxx.cfg"
     return Path.home() / ".mixxx" / "mixxx.cfg"
 
 

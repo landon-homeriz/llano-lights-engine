@@ -131,6 +131,9 @@ def _on_windows() -> bool:
 
 def start(root: Optional[Path] = None, timeout: float = TIMEOUT_S) -> tuple[bool, str]:
     """(started, plain reason when not). Never waits on Windows longer than `timeout` seconds."""
+    if sys.platform == "darwin":   # Llano BL #12517: a Mac can't be this hotspot; the fallback is the plan
+        return False, ("a Mac can't make its own Wi-Fi for the lights. Use your phone's hotspot or a travel "
+                       "router instead: join the Mac and the phone to it")
     if not _on_windows():
         return False, "the laptop's own Wi-Fi only works on Windows"
     try:

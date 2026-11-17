@@ -15,6 +15,22 @@ from zoneinfo import ZoneInfo
 
 HISTORY = Path(__file__).resolve().parent / "releases.json"
 BUILD_INFO = "Llano-Lights/app/tools/gigbar_lights/build_info.py"  # inside the zip
+MAC_APP = "Llano Lights.app"
+MAC_BUILD_INFO = f"{MAC_APP}/Contents/Resources/{BUILD_INFO}"     # inside the Mac zip (mac/build.py)
+# notarytool's ticket, stapled into the bundle: present only once Apple has notarized this exact app
+MAC_TICKET = f"{MAC_APP}/Contents/CodeResources"
+
+
+def _build_info(z: zipfile.ZipFile) -> str:
+    """build_info.py's text from a Windows or a Mac zip; KeyError when neither has it."""
+    names = set(z.namelist())
+    return z.read(MAC_BUILD_INFO if MAC_BUILD_INFO in names else BUILD_INFO).decode()
+
+
+def notarized_in(zip_path: Path) -> bool:
+    """True when the Mac zip's app carries Apple's stapled notarization ticket."""
+    with zipfile.ZipFile(zip_path) as z:
+        return MAC_TICKET in set(z.namelist())
 # Every wheel the README's download line fetches (file names lowercase, dots as underscores). Each
 # one past numpy only fails softly at run time (no Spotify/YouTube follow, no song names, no
 # hotspot, no QR), so a parts folder missing one built 1.15.0 and 1.16.0 without them and nothing
@@ -67,7 +83,7 @@ def build_time_in(zip_path: Path) -> tuple[str, str]:
     """(UTC ISO, Central label) that build.py stamped into this zip; ValueError if it has none."""
     try:
         with zipfile.ZipFile(zip_path) as z:
-            src = z.read(BUILD_INFO).decode()
+            src = _build_info(z)
     except KeyError:
         raise ValueError(f"{zip_path.name} has no build time in it; rebuild it with build.py") from None
     found = dict(re.findall(r"^(BUILT_UTC|BUILT_CT) = '([^']*)'$", src, re.M))
@@ -81,7 +97,7 @@ def build_commit_in(zip_path: Path) -> str:
     build was made from uncommitted changes (the feed must name the exact commit it was built from)."""
     try:
         with zipfile.ZipFile(zip_path) as z:
-            src = z.read(BUILD_INFO).decode()
+            src = _build_info(z)
     except KeyError:
         raise ValueError(f"{zip_path.name} has no build stamp in it; rebuild it with build.py") from None
     m = re.search(r"^BUILT_COMMIT = '([^']*)'$", src, re.M)
@@ -96,7 +112,7 @@ def build_commit_in(zip_path: Path) -> str:
 def build_number_in(zip_path: Path) -> int:
     """The test-channel build number build.py stamped into this zip, 0 for a stable build."""
     with zipfile.ZipFile(zip_path) as z:
-        src = z.read(BUILD_INFO).decode()
+        src = _build_info(z)
     m = re.search(r"^BUILD = (\d+)$", src, re.M)
     return int(m.group(1)) if m and re.search(r"^CHANNEL = 'test'$", src, re.M) else 0
 
@@ -122,10 +138,35 @@ def add_release(history: dict, manifest: dict) -> dict:
     return history
 
 
+def add_mac(history: dict, manifest: dict, dmg: "dict | None" = None) -> dict:
+    """Put a signed Mac build on its version's row as `mac` (Llano BL #12517). The Windows build of
+    that version must already be listed, from the same commit: a Mac build is the same release for
+    the other computer, never a release of its own. dmg = {"name", "sha256", "size"} of the download
+    a new user installs from; the zip is what a Mac copy updates itself with."""
+    row = next((r for r in history["releases"] if r["version"] == manifest["version"]), None)
+    if row is None:
+        raise ValueError(f"{manifest['version']} isn't in releases.json yet: release the Windows build first")
+    if row.get("commit") and manifest.get("commit") and row["commit"] != manifest["commit"]:
+        raise ValueError(f"the Mac build is from {manifest['commit'][:12]}, but {manifest['version']} was released "
+                         f"from {row['commit'][:12]}; build the Mac app from that commit")
+    if row.get("mac"):
+        raise ValueError(f"{manifest['version']} already has a Mac build; bump VERSION for a new one")
+    row["mac"] = {"zip": manifest["zip"], "sha256": manifest["sha256"], "size": manifest["size"],
+                  "built_utc": manifest["built"], "notarized": bool(manifest.get("notarized")), "download": ""}
+    if dmg:
+        row["mac"].update(dmg=dmg["name"], dmg_sha256=dmg["sha256"], dmg_size=dmg["size"])
+    return history
+
+
 def set_download(history: dict, zip_name: str, link: str) -> dict:
     for r in history["releases"]:
         if r["zip"] == zip_name:
             r["download"] = link
+        mac = r.get("mac") or {}
+        if zip_name and zip_name == mac.get("zip"):
+            mac["download"] = link
+        if zip_name and zip_name == mac.get("dmg"):
+            mac["dmg_download"] = link
     return history
 
 
@@ -140,6 +181,9 @@ def render(history: dict) -> str:
         name = "Newest (same link as above)" if i == 0 else r["zip"]
         link = f"[{name}]({r['download']})" if r.get("download") else "not uploaded"
         when = _cell(r["built_ct"]) + ("\\*" if r.get("backfilled") else "")
+        mac = r.get("mac") or {}
+        if mac.get("dmg_download") or mac.get("download"):
+            link += f" · [Mac]({mac.get('dmg_download') or mac['download']})"
         rows.append(f"| **{_cell(r['version'])}** | {when} | {_cell(r['notes'])} | {link} |")
     if any(r.get("backfilled") for r in history["releases"]):
         rows += ["", "\\* From before builds carried their own version and time: numbered afterwards, "

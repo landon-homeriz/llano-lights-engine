@@ -49,7 +49,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from tools.gigbar_lights import __main__ as gl  # noqa: E402
-from tools.gigbar_lights import demo_songs, folder_picker, hotspot, local_mode, moments, settings_contract, show_settings, shows, updater, windows_apps  # noqa: E402
+from tools.gigbar_lights import demo_songs, folder_picker, hotspot, local_mode, macos, moments, settings_contract, show_settings, shows, updater, windows_apps  # noqa: E402
 try:   # the settings sync with llano.app; the open-source engine ships without it and runs laptop-only
     from tools.gigbar_lights import llano_sync  # noqa: E402
 except ImportError:   # ok: offline_link is the same seam with no network behind it
@@ -57,10 +57,12 @@ except ImportError:   # ok: offline_link is the same seam with no network behind
 from tools.gigbar_lights import probe as probes  # noqa: E402
 from tools.gigbar_lights import drive_songs, set_arranger, setup_guide, song_folder  # noqa: E402
 from tools.gigbar_lights import patch_sheet, run_of_show, wedding_night  # noqa: E402
-from tools.gigbar_lights import mixxx_load, night_plans, ports as port_set  # noqa: E402
+from tools.gigbar_lights import cue_workspace, mixxx_load, night_plans, ports as port_set  # noqa: E402
+from tools.gigbar_lights.song_match import candidates as song_keys  # noqa: E402
 from tools.gigbar_lights import stage_glow, studio as studio_mod, studio_peek, tonight as tonight_mod  # noqa: E402
 from tools.gigbar_lights.enttec import EnttecPro, NullOutput, OutputLoop, PluggableOutput, find_port  # noqa: E402
 from tools.gigbar_lights import dmx_outputs  # noqa: E402
+from tools.gigbar_lights import custom_rig, fixture_library  # noqa: E402
 from tools.gigbar_lights.media_session import MediaSessions  # noqa: E402
 from tools.gigbar_lights.looks import LINEUP_SPOTS  # noqa: E402
 from tools.gigbar_lights.mixxx_db import MixxxLibrary  # noqa: E402
@@ -76,6 +78,7 @@ PREVIEW_HTML = HERE / "preview.html"
 APP_HTML = HERE / "app.html"
 REMOTE_HTML = HERE / "remote.html"   # local mode's phone page (1.8.0)
 SHOWS_HTML = HERE / "shows.html"     # Shows: a playlist designed into a whole show, saved by name (1.11.0)
+CUES_HTML = HERE / "cues.html"       # the cue workspace: a song, its parts and the show, full screen (PM #23869)
 # The Light studio (1.20.0, Llano PM #23195): the Live screen, and the one console every screen
 # draws (this window, the phone over Wi-Fi, llano.app/lights), so no screen has buttons another lacks.
 STUDIO_HTML = HERE / "studio.html"
@@ -83,6 +86,7 @@ STUDIO_HTML = HERE / "studio.html"
 # shows Llano Lights' plain "not running" screen with Try again, never Edge's "Hmmm... can't reach this page".
 SW_JS = HERE / "sw.js"
 GUIDE_HTML = HERE / "guide.html"     # the setup guide: cables to a built night, each step checked (1.21, PM #23415)
+RIG_HTML = HERE / "rig.html"         # Your lights: a DJ's own rig from the fixture library (Llano BL #12524)
 STUDIO_JS = HERE / "studio_console.js"
 # the window's title bar and taskbar take the page's icon; without one Edge shows a globe
 ICONS = {"/favicon.ico": ("llano-lights.ico", "image/x-icon"),
@@ -191,6 +195,8 @@ def doctor_report(lay: Layout, bar: int, m: int, rows: list[dict], miss: float) 
 def mixxx_controllers_dir() -> Path:
     if sys.platform == "win32":
         return Path(os.environ.get("LOCALAPPDATA", "")) / "Mixxx" / "controllers"
+    if sys.platform == "darwin":
+        return macos.mixxx_settings_dir() / "controllers"
     return Path.home() / ".mixxx" / "controllers"
 
 
@@ -198,6 +204,8 @@ def app_data_dir() -> Path:
     """Per-user folder for the window profile and the log; never inside the install."""
     if sys.platform == "win32":
         d = Path(os.environ.get("LOCALAPPDATA") or Path.home()) / "Llano Lights"
+    elif sys.platform == "darwin":
+        d = macos.app_data_dir()
     else:
         d = Path.home() / ".local" / "state" / "llano-lights"
     d.mkdir(parents=True, exist_ok=True)
@@ -316,6 +324,17 @@ class Preview:
                     return self._send(b"can't read that file", "text/plain", 404)
                 self._audio(data, AUDIO_TYPES.get(path.suffix.lower(), "application/octet-stream"))
 
+            def _cue_audio(self, key: str):
+                """The song the cue workspace opened (cue_song found it; never a path from the page)."""
+                got = preview.app.cue_files.get(urllib.parse.unquote(key))
+                if got is None or not got[0].is_file():
+                    return self._send(b"not found", "text/plain", 404)
+                try:
+                    data = got[0].read_bytes()
+                except OSError:
+                    return self._send(b"can't read that file", "text/plain", 404)
+                self._audio(data, AUDIO_TYPES.get(got[0].suffix.lower(), "application/octet-stream"))
+
             def _audio(self, data: bytes, ctype: str):
                 start, end = 0, len(data) - 1
                 rng = (self.headers.get("Range") or "").strip()
@@ -380,6 +399,12 @@ class Preview:
                     return self._json(preview.app.guide_public())
                 if preview.app and self.path.split("?")[0] == "/api/studio":   # what the Live screen polls
                     return self._json(preview.app.studio_state())
+                if preview.app and self.path.split("?")[0] == "/api/rig":   # Your lights (BL #12524)
+                    return self._json(preview.app.rig_setup_public())
+                if preview.app and self.path.startswith("/api/rig/search?"):   # the fixture library, by name
+                    from urllib.parse import parse_qs, urlparse
+                    q = (parse_qs(urlparse(self.path).query).get("q") or [""])[0][:80]
+                    return self._json({"results": fixture_library.search(q)})
                 if preview.app and self.path.split("?")[0] == "/api/settings":   # the Live screen's Saved panel
                     code, body = preview.app._local_settings(None)
                     return self._json(body, code)
@@ -422,6 +447,8 @@ class Preview:
                     self._page(APP_HTML)
                 elif preview.app and self.path.split("?")[0] == "/guide":
                     self._page(GUIDE_HTML)
+                elif preview.app and self.path.split("?")[0] == "/rig":
+                    self._page(RIG_HTML)
                 elif preview.app and self.path.split("?")[0] == "/studio":
                     self._page(STUDIO_HTML)
                 elif self.path.split("?")[0] == "/sw.js":   # at the root, so it covers every page (BL #12377)
@@ -448,6 +475,10 @@ class Preview:
                     self._page(SHOWS_HTML)
                 elif preview.app and self.path.startswith("/show-audio/"):
                     self._show_song(self.path.split("?")[0][len("/show-audio/"):])
+                elif preview.app and self.path.split("?")[0] == "/cues":   # the cue workspace (PM #23869)
+                    self._page(CUES_HTML)
+                elif preview.app and self.path.startswith("/cue-audio/"):
+                    self._cue_audio(self.path.split("?")[0][len("/cue-audio/"):])
                 elif preview.app and self.path.startswith("/song-audio/"):
                     self._point_song(self.path.split("?")[0][len("/song-audio/"):])
                 elif self.path.startswith("/demo-songs/"):
@@ -1134,10 +1165,12 @@ def _where(out) -> str:
 def _open_enttec():
     """The lights box for a probe: the ENTTEC Pro, or LLANO_LIGHTS_OUTPUT's box or node (dmx_outputs)."""
     try:
-        if dmx_outputs.from_env() is not None:
+        spec = dmx_outputs.chosen()
+        if spec is not None:
             where = _enttec_port()
             if not where:
-                raise RuntimeError(f"No lights box found for {dmx_outputs.ENV}={os.environ.get(dmx_outputs.ENV)}.")
+                raise RuntimeError(f"No lights box found for the DMX output {spec.kind}"
+                                   f"{':' + spec.target if spec.target else ''}.")
             return dmx_outputs.open_env(where)
         return EnttecPro()
     except RuntimeError as e:
@@ -1170,6 +1203,9 @@ def mode_test(opts) -> int:
     rig = default_rig()
     if preview:
         preview.begin("Test each light", None)
+    own = custom_rig.lights()
+    if own:   # a DJ's own rig from the Setup screen (BL #12524): its lights in patch order
+        return _test_own_rig(own, out, inner, sink, preview)
     try:
         tonight = rig.present(rig_public()["counts"]).fixtures   # the rig picker's lights only (1.13.0)
         for i, fx in enumerate(tonight, 1):
@@ -1182,6 +1218,33 @@ def mode_test(opts) -> int:
             end = time.perf_counter() + 2.0
             while time.perf_counter() < end:
                 sink.send(rig.render())
+                time.sleep(0.025)
+                while preview and not preview.keys.empty():
+                    if preview.keys.get() == "q":
+                        raise Quit
+    except Quit:
+        print("Test stopped.")
+    finally:
+        sink.send(bytes(512))
+        inner.close()
+        if preview:
+            preview.end()
+    return 0
+
+
+def _test_own_rig(own: list, out, inner, sink, preview) -> int:
+    """Test each light on a DJ's own rig: each light white for 2 seconds in patch order (BL #12524)."""
+    try:
+        for i, e in enumerate(own):
+            label = e.get("name") or f"Light {i + 1}"
+            line = f"Light {i + 1} of {len(own)}: {label} (address {int(e['address']):03d}) is white now"
+            print(line)
+            if preview:
+                preview.status = line + ("" if out.connected else " (no lights box plugged in)")
+            frame = bytes(custom_rig.white(own, i))
+            end = time.perf_counter() + 2.0
+            while time.perf_counter() < end:
+                sink.send(frame)
                 time.sleep(0.025)
                 while preview and not preview.keys.empty():
                     if preview.keys.get() == "q":
@@ -1411,7 +1474,7 @@ def mode_manual(opts) -> int:
     try:
         while end is None or time.perf_counter() < end:
             apply_manual(rig, dict(lights))
-            sink.send(rig.render())
+            sink.send(custom_rig.universe(rig))   # a DJ's own rig takes it by role (BL #12524)
             if preview:
                 on = sum(1 for st in list(lights.values()) if st.get("on"))
                 preview.status = (f"{on} light{'s' if on != 1 else ''} on, " if on else "Every light off, ") + where()
@@ -1771,7 +1834,8 @@ class App:
         # Local mode (1.8.0): the phone drives the show over the room's Wi-Fi, no internet.
         self.local = local_mode.LocalServer(local_mode.LocalKey(), self._local_state, self._local_send, page=REMOTE_HTML,
                                             stop=self._local_stop, studio=self.studio_post, go=self.switch_show,
-                                            settings=self._local_settings, console=STUDIO_JS)
+                                            settings=self._local_settings, console=STUDIO_JS,
+                                            cues=self._local_cues, cue_audio=self._cue_path)
         self.run_started = 0.0  # time.monotonic() when the current run began (a Stop from Llano older than it is ignored)
         self.local_on = self._prefs().get("local") is not False
         self.hotspot_on, self.hotspot_note = False, ""
@@ -1791,6 +1855,8 @@ class App:
         self.points = wedding_night.PointsCache(self.settings_file.path.parent / "song_points.json")
         self.point_files: dict = {}          # song key -> its file, as the points action found it
         self._point_index = None             # (folder, when, index_folder) for the points action
+        self.cue_ws = cue_workspace.Workspace()   # songs read for the cue workspace (PM #23869)
+        self.cue_files: dict = {}            # cue key -> (file, Mixxx grid or None) the workspace opened
         self.layouts = LayoutStore()
         show_settings.set_current(self._with_local_layouts(self.settings_file.load()))
         self.reload_night()   # tonight's list: a built night, else the saved show's own night, else the plain order
@@ -1856,6 +1922,14 @@ class App:
         span = (trail[-1][0] - trail[0][0]) / 1000.0
         return {"hz": round((len(trail) - 1) / span, 1) if span > 0 else None,
                 "trail": [row[:1 + len(HEAD_BYTES)] for row in trail]}   # the bytes sent, not the picture's columns
+
+    def _local_cues(self, action: str, msg: dict) -> tuple[int, dict]:
+        """The cue workspace's calls from the phone over Wi-Fi: the same answers the window gets."""
+        return self.post("cues-" + action, msg) if action in ("songs", "song", "lanes") else (404, {"error": "not found"})
+
+    def _cue_path(self, key: str) -> "Path | None":
+        got = self.cue_files.get(key)
+        return got[0] if got else None
 
     def _local_send(self, item: str) -> bool:
         if self.running not in SHOW_MODES or self.preview is None:
@@ -2089,6 +2163,10 @@ class App:
             return self.set_manual(msg)
         if action == "rig":
             return self.set_rig(msg)
+        if action == "rig-lights":
+            return self.set_rig_lights(msg)
+        if action == "rig-output":
+            return self.set_rig_output(msg)
         if action == "manual-off":
             self.manual.clear()
             return 200, {"ok": True}
@@ -2098,6 +2176,12 @@ class App:
             return self.pick_moment(str(msg.get("key") or ""))
         if action == "studio":
             return self.studio_post(msg)
+        if action == "cues-songs":   # the cue workspace (PM #23869)
+            return 200, self.cue_songs()
+        if action == "cues-song":
+            return self.cue_song(msg)
+        if action == "cues-lanes":
+            return self.cue_lanes(msg)
         if action == "settings":   # the Live screen's Saved panel: the same checked ops Llano sends
             return self._local_settings(msg.get("ops") if isinstance(msg.get("ops"), list) else [])
         if action == "studio-peek":
@@ -2530,6 +2614,102 @@ class App:
         self.point_files[pts["key"]] = path
         return {"points": {**pts, "audio": "/song-audio/" + urllib.parse.quote(pts["key"])}}
 
+    # --- the cue workspace (Llano PM #23869) -------------------------------------------------------------
+    # His words 2026-11-17: the Cue timeline tab was "too small, not editable, I can't see it on the screen".
+    # /cues opens one song, full screen: its waveform, beats, parts, the show lane by lane, and his cues to
+    # place and drag. The song's own file plays in the page (no Mixxx needed). Edits go through the same
+    # checked settings change every screen uses (/api/settings), so they reach the lights, the phone and Llano.
+
+    def cue_songs(self) -> dict:
+        """The songs he can open: every saved show's, the one Mixxx is playing, and any with cues of its own."""
+        doc = show_settings.current()
+        out, seen = [], set()
+
+        def add(artist: str, title: str, where: str, track_id: int = 0) -> None:
+            keys = song_keys(artist, title)
+            if not keys or keys[0] in seen:
+                return
+            seen.add(keys[0])
+            table = doc.get("cues") or {}
+            key = next((k for k in keys if table.get(k)), keys[0])
+            out.append({"key": key, "artist": artist, "title": title, "where": where, "track_id": track_id,
+                        "cues": len(table.get(key) or [])})
+
+        live = (self.studio_state().get("live") or {}).get("timeline") if self.running in SHOW_MODES else None
+        if live and live.get("artist") is not None:
+            add(live.get("artist") or "", live.get("title_only") or "", "Playing in Mixxx", int(live.get("track_id") or 0))
+        for name, sh in shows.saved_shows(doc).items():
+            for song in sh.get("songs") or []:
+                add(song.get("artist") or "", song.get("title") or "", sh.get("title") or name)
+        mine = sorted((x for x in out if x["cues"]), key=lambda x: x["title"].lower())
+        return {"songs": mine + [x for x in out if not x["cues"]],
+                "orphans": sorted(k for k in (doc.get("cues") or {}) if k not in {x["key"] for x in out})}
+
+    def _cue_file(self, msg: dict, lib) -> "tuple[Path, object] | None":
+        """(file, Mixxx grid or None) for the song the page asks for: by Mixxx track id, by name in
+        the library, else in a saved show's song folder. Never a path from the page, never a night's cut."""
+        tid = msg.get("track_id")
+        lt = shows.track(lib, int(tid)) if isinstance(tid, int) and not isinstance(tid, bool) and tid > 0 else None
+        if lt is None:
+            lt = shows.LibraryIndex(lib).find(str(msg.get("artist") or ""), str(msg.get("title") or ""))
+            lt = shows.track(lib, lt.track_id) if lt else None
+        if lt is not None and lt.location and lt.location.is_file() and \
+                wedding_night.OUT_PARENT.casefold() not in (p.casefold() for p in lt.location.parts):
+            return lt.location, lt.grid
+        song = {"artist": str(msg.get("artist") or ""), "title": str(msg.get("title") or "")}
+        k = wedding_night.key_of(song)
+        for name in shows.saved_shows():
+            folder = folder_picker.clean((self.night_plans.get(name) or {}).get("folder"))
+            if not folder:
+                continue
+            try:
+                got = wedding_night.index_folder(folder).get(k)
+            except OSError:
+                continue
+            if got and Path(got).is_file():
+                return Path(got), None
+        return None
+
+    def cue_song(self, msg: dict) -> tuple[int, dict]:
+        artist, title = str(msg.get("artist") or "")[:120], str(msg.get("title") or "")[:160]
+        keys = song_keys(artist, title)
+        if not keys:
+            return 400, {"error": "Which song? It needs a title."}
+        found = self._cue_file(msg, MixxxLibrary())
+        if found is None:
+            return 404, {"error": f"{artist} - {title} isn't in Mixxx's library or a show's song folder on this laptop, "
+                                  "so there is nothing to play or draw. Add it to Mixxx (or the show's folder) first."}
+        path, grid = found
+        try:
+            song = self.cue_ws.song(path, grid)
+        except Exception as e:  # noqa: BLE001 -- one unreadable file says so; the page stays up
+            print(f"Cue workspace: {type(e).__name__}: {e}")
+            return 422, {"error": "Llano couldn't read this song's file (" + path.suffix.lstrip(".").upper() + "). "
+                                  "Try another copy of it in Mixxx."}
+        doc = show_settings.current()
+        table = doc.get("cues") or {}
+        key = next((k for k in keys if table.get(k)), keys[0])
+        self.cue_files[key] = (path, grid)
+        cues = tuple(table.get(key) or ()) if cue_workspace.cues_mod.enabled() else ()
+        body = cue_workspace.payload(song, cues, keys, f"{artist} - {title}".strip(" -"),
+                                     self.cue_ws.lanes(song, cues, keys))
+        return 200, {**body, "key": key, "artist": artist, "title": title,
+                     "audio": "/cue-audio/" + urllib.parse.quote(key)}
+
+    def cue_lanes(self, msg: dict) -> tuple[int, dict]:
+        """The lanes and sections again after a change of his cues (the song is already read)."""
+        key = str(msg.get("key") or "")
+        got = self.cue_files.get(key)
+        if got is None:
+            return 404, {"error": "Open the song again."}
+        song = self.cue_ws.song(*got)
+        cues = tuple((show_settings.current().get("cues") or {}).get(key) or ())
+        if not cue_workspace.cues_mod.enabled():
+            cues = ()
+        keys = (key, *[k for k in (msg.get("keys") or []) if isinstance(k, str)][:6])
+        return 200, {"key": key, "cues": list(cues), "sections": cue_workspace.sections(song, cues),
+                     "mine": any(c.get("do") == "section" for c in cues), "lanes": self.cue_ws.lanes(song, cues, keys)}
+
     def _songs_dir(self) -> Path:
         return self.settings_file.path.parent
 
@@ -2925,6 +3105,65 @@ class App:
         except settings_contract.ContractError as e:
             return 400, {"error": str(e)}
         return 200, {"ok": True, "rig": rig_public()}
+
+    def rig_setup_public(self) -> dict:
+        """Your lights (Llano BL #12524): the DJ's own rig with each light's channels, what stops it playing
+        (fixture_profiles.ProfileRig.problems and lights the library can't read), how many parts play each
+        role, the DMX output picked and where it is sending now."""
+        own = custom_rig.lights()
+        out = (show_settings.current().get("rig") or {}).get("output") or ""
+        try:
+            where = _enttec_port()
+        except Exception:  # noqa: BLE001 -- the screen says "not plugged in" either way
+            where = None
+        return {**custom_rig.summary(own), "own": bool(own), "output": out,
+                "output_status": dmx_outputs.status(where), "roles_known": list(settings_contract.RIG_ROLES),
+                "max_lights": settings_contract.MAX_LIGHTS, "library_size": len(fixture_library.index())}
+
+    def set_rig_lights(self, msg: dict) -> tuple[int, dict]:
+        """{"lights": [{profile, mode, address, role, name}, ...]} replaces the DJ's own rig; [] goes back to
+        the twelve GigBAR/Tetra/stick lights. Every light must be one the library has, in one of its modes,
+        at an address 1-512; overlaps are saved and shown as problems (the screen says which). A settings
+        change like any other, so it syncs to llano.app/lights."""
+        lights = msg.get("lights")
+        if not isinstance(lights, list):
+            return 400, {"error": "Say lights: a list of lights"}
+        if len(lights) > settings_contract.MAX_LIGHTS:
+            return 400, {"error": f"Up to {settings_contract.MAX_LIGHTS} lights"}
+        clean = []
+        for i, raw in enumerate(lights, 1):
+            label = (raw.get("name") if isinstance(raw, dict) else "") or f"Light {i}"
+            if isinstance(raw, dict) and isinstance(raw.get("address"), str) and raw["address"].strip().isdigit():
+                raw = {**raw, "address": int(raw["address"])}
+            one = settings_contract._light(raw)
+            if one is None:
+                return 400, {"error": f"{label}: pick a light from the library, its mode, and an address from 1 to 512"}
+            try:
+                fixture_library.resolve(one["profile"]).mode(one["mode"])
+            except Exception as e:  # noqa: BLE001 -- ok: any library file that won't read is this light's 400
+                return 400, {"error": f"{label}: {e.args[0] if isinstance(e, KeyError) and e.args else e}"}
+            clean.append(one)
+        try:
+            self.link.local_change([{"path": "rig.lights", "value": clean}])
+        except settings_contract.ContractError as e:
+            return 400, {"error": str(e)}
+        return 200, {"ok": True, "rig": self.rig_setup_public()}
+
+    def set_rig_output(self, msg: dict) -> tuple[int, dict]:
+        """{"output": "artnet:192.168.1.50"} picks the DMX output (dmx_outputs.parse); "" = the ENTTEC Pro."""
+        spec = str(msg.get("output") or "").strip()
+        if spec:
+            try:
+                dmx_outputs.parse(spec)
+            except ValueError as e:
+                return 400, {"error": str(e)}
+            if not settings_contract.OUTPUT_RE.fullmatch(spec):
+                return 400, {"error": "Use letters, numbers and . : @ % / _ - only"}
+        try:
+            self.link.local_change([{"path": "rig.output", "value": spec}])
+        except settings_contract.ContractError as e:
+            return 400, {"error": str(e)}
+        return 200, {"ok": True, "rig": self.rig_setup_public()}
 
     def lineup(self, bar: str, spot: str) -> tuple[int, dict]:
         """The line-up page (1.11.3): over the show that runs, or on its own when nothing runs
@@ -4234,8 +4473,23 @@ def edge_command(edge: Path, url: str, profile: Path) -> list[str]:
 
 
 def open_window(url: str) -> "subprocess.Popen | None":
-    """An app window (no tabs, no address bar) in Edge, which every Windows 10/11 has;
-    otherwise the default browser. Returns the Edge process to watch, if there is one."""
+    """An app window (no tabs, no address bar) in Edge, which every Windows 10/11 has; on a Mac
+    in Chrome (or Edge, Brave, Chromium) when one is installed (Llano BL #12517); otherwise the
+    default browser. Returns the browser process to watch, if there is one."""
+    if sys.platform == "darwin":
+        found = macos.find_browser()
+        if found:
+            name, exe = found
+            try:
+                return subprocess.Popen(macos.chrome_window_command(exe, url, window_profile(), EDGE_FLAGS),
+                                        cwd=str(app_data_dir()), start_new_session=True,
+                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except OSError as e:
+                print(f"Couldn't open {name} ({e}); using the default browser")
+        print("No Chrome, Edge, Brave or Chromium on this Mac: the window opens in the default browser")
+        if not macos.default_browser_open(url):
+            webbrowser.open(url)
+        return None
     edge = find_edge() if sys.platform == "win32" else None
     if edge:
         try:

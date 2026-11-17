@@ -37,7 +37,10 @@ def find_port() -> Optional[str]:
     from serial.tools import list_ports  # noqa: PLC0415 - optional hardware dependency
 
     candidates = [p for p in list_ports.comports() if p.vid == FTDI_VID and p.pid == FT232R_PID]
-    candidates.sort(key=lambda p: not (p.serial_number or "").upper().startswith("EN"))
+    # A Mac lists each FTDI box twice, /dev/cu.usbserial-EN... and /dev/tty.usbserial-EN...; opening
+    # the tty one waits for a carrier the box never raises, so the cu one goes first (Llano BL #12517).
+    candidates.sort(key=lambda p: (not (p.serial_number or "").upper().startswith("EN"),
+                                   (p.device or "").startswith("/dev/tty.")))
     return candidates[0].device if candidates else None
 
 
@@ -50,7 +53,8 @@ class EnttecPro:
         if not port:
             raise RuntimeError(
                 "No ENTTEC DMX USB Pro found. Plug it in; if Windows shows no COM port for it, "
-                "enable 'Load VCP' for the FTDI device in Device Manager.")
+                "enable 'Load VCP' for the FTDI device in Device Manager. On a Mac it shows as "
+                "/dev/cu.usbserial-EN... with no driver to install.")
         self.port = port
         self._serial = serial.Serial(port, baudrate=57600, timeout=0.1, write_timeout=0.5)
 

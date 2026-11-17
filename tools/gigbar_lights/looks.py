@@ -41,9 +41,10 @@ from typing import Optional
 
 from . import settings_contract as contract
 from . import show_settings, song_match
-from .rig import Rig, active_counts
+from .rig import Rig, active_counts, tonight_counts
 from .settings_contract import STYLE_KEYS
 from . import venue
+from . import cues as cues_mod
 from .show_script import Section
 
 # The part-of-the-night limit (1.20.0, his rule 2026-11-13): cocktail hour and dinner are a soft warm
@@ -120,13 +121,22 @@ def spot_bright() -> bool:
     return (os.environ.get("LLANO_LIGHTS_SPOT_BRIGHT") or "").strip().lower() not in ("0", "off", "false", "no")
 
 GENTLE_MOVE = {"shape": "glide", "from": "booth", "to": "crowd", "size": 0.3, "beats": 32, "spread": "mirror"}
+# The couple's rule for C&M (BL #12518, 2026-11-16): the heads move ONLY on the dance songs; on the slow
+# songs they hold still. The first dance and parent dances keep the heads lit, aimed on the floor where
+# the couple dances, and still. LLANO_LIGHTS_GENTLE_GLIDE=1 puts back the slow glide of 11-14.
+GENTLE_HOLD = {"shape": "hold", "from": "crowd", "to": "crowd", "size": 0.3, "beats": 32, "spread": "mirror"}
+
+
+def _gentle_move() -> dict:
+    glide = (os.environ.get("LLANO_LIGHTS_GENTLE_GLIDE") or "").strip().lower() in ("1", "on", "true", "yes")
+    return dict(GENTLE_MOVE if glide else GENTLE_HOLD)
 
 
 def gentle_settings(cfg: dict) -> dict:
     """`cfg` with the moving heads on one slow glide over the dance floor; the rest of the look as it was."""
     out = dict(cfg)
     out["sections"] = {name: {**sec, "movers": min(GENTLE_HEADS, max(0.45, float(sec.get("movers") or 0.0))),
-                              "move": dict(GENTLE_MOVE)}
+                              "move": _gentle_move()}
                        for name, sec in (cfg.get("sections") or {}).items()}
     return out
 
@@ -360,6 +370,8 @@ class LooksEngine:
     _intent: Optional[list] = field(default=None, repr=False)
     _boxed: Optional[list] = field(default=None, repr=False)
     _spot_frame: bool = field(default=False, repr=False)   # this frame's heads are a roaming spotlight
+    # The song's build-and-drop recipe at this moment (cues.drop_at, BL #12518): (style, color, color2).
+    drop_style: tuple = ("classic", "", "")
 
     def apply_venue(self, layout, counts=None) -> None:
         """Aim, chase order and left/right from where the lights sit (venue.Layout), over the
@@ -593,6 +605,116 @@ class LooksEngine:
             for p in bar.pars:
                 p.red, p.green, p.blue = rgb(hue_b, sat)
 
+    # --- build-and-drop recipes (BL #12518) ---------------------------------------------
+    # His 11-17 note: "blue lights followed by purple strobe followed by white strobe followed by drop
+    # ... it can't be the same thing on every song". "classic" is that recipe and stays the default; a
+    # song's drop cue picks another, each with its own tension, landing and colors (DROP_STYLES):
+    #   slam          builds in the song's color without strobe, the whole last bar black, lands full
+    #                 rig in color (no white): contrast does the work
+    #   color-strobe  the build's strobe chops the washes in the song's color, not white; lands on a
+    #                 color strobe burst
+    #   sweep         a chase runs across the rig, faster each half of the build; lands on a bright sweep
+    #   trade         two colors trade across the whole rig, every two beats then every beat; the two
+    #                 GigBARs split only as an accent (his follow-up: bar-to-bar splits sparingly)
+    #   swell         restraint: no strobe, no dark beat, a warm swell into a glow (the sing-alongs)
+    DARK_BEATS = {"classic": 1.0, "slam": 4.0, "color-strobe": 1.0, "sweep": 1.0, "trade": 1.0, "swell": 0.0}
+
+    def _song_hues(self, hue_a: float, hue_b: float) -> tuple[float, float]:
+        """The recipe's colors for a build or drop: the song's drop cue colors over the palette's. Its
+        second color defaults to a near neighbour (a trade: the opposite hue, for contrast)."""
+        style, c1, c2 = self.drop_style
+        if style == "classic" or not c1 or self.overrides.color is not None or self.overrides.color_hold is not None:
+            return hue_a, hue_b
+        h1, s1, _ = colorsys.rgb_to_hsv(*cues_mod._rgb(c1))
+        if c2:
+            h2 = colorsys.rgb_to_hsv(*cues_mod._rgb(c2))[0]
+        else:
+            h2 = (h1 + (0.5 if style == "trade" else 0.07)) % 1.0
+        self._sat = max(0.55, min(1.0, s1))
+        return h1, h2
+
+    def _uniform(self, rig: Rig, hue: float, level: float) -> None:
+        """Every wash in one color at one level (the slam, a trade's beat)."""
+        self._washes(rig, hue, hue, lambda i: level, lambda i: level)
+        for bar in rig.bars:
+            for p in bar.pars:
+                p.dim = level
+
+    def _sweep_levels(self, rig: Rig, pos: float, width: float = 0.35) -> None:
+        """A chase across the rig: each wash lit by how close its place left to right is to `pos` (0..1)."""
+        n_t, n_s = len(rig.tetras), len(rig.sticks)
+        def near(x):
+            d = min(abs(pos - x), 1.0 - abs(pos - x))
+            return max(0.08, 1.0 - d / width)
+        for i, t in enumerate(rig.tetras):
+            t.dim *= near(self._t(i, n_t))
+        for i, st in enumerate(rig.sticks):
+            st.dim *= near(self._s(i, n_s))
+        nb = len(rig.bars)
+        for k, bar in enumerate(rig.bars):
+            for p in bar.pars:
+                p.dim *= near((k + 0.5) / max(1, nb))
+
+    @staticmethod
+    def _chop(beat: float, per_beat: int, low: float = 0.12) -> float:
+        """A color strobe: the washes on for the first half of each 1/per_beat of a beat, near dark between."""
+        return 1.0 if (beat * per_beat) % 1.0 < 0.5 else low
+
+    def _build_recipe(self, f: Frame, rig: Rig, progress: float, hue_a: float, hue_b: float, base: float) -> bool:
+        """The non-classic builds, over what _build drew. True when it replaced the strobe ramp."""
+        style = self.drop_style[0]
+        beat = f.beat
+        if style == "classic":
+            return False
+        if style == "color-strobe":
+            if progress > 0.5:
+                k = self._chop(beat, 4 if progress > 0.75 else 2)
+                for fx in (*rig.tetras, *rig.sticks, *(p for b in rig.bars for p in b.pars)):
+                    fx.dim *= k
+        elif style == "sweep":
+            per = 4.0 if progress < 0.5 else 2.0 if progress < 0.75 else 1.0   # a sweep a bar, then faster
+            self._sweep_levels(rig, (beat / per) % 1.0)
+        elif style == "trade":
+            per = 2.0 if progress < 0.75 else 1.0
+            hue = hue_a if int(beat // per) % 2 == 0 else hue_b
+            self._uniform(rig, hue, base * (0.6 + 0.4 * pulse(beat / per, 3.0)) * self._k)
+        elif style == "swell":
+            lvl = (0.2 + 0.8 * ease(progress)) * self._k
+            self._washes(rig, hue_a, hue_b, lambda i: lvl, lambda i: lvl * 0.85, amber=0.35)
+            for bar in rig.bars:
+                for p in bar.pars:
+                    p.dim = lvl
+        # slam: _build's own rising pulse in the song's color, no strobe; its whole last bar goes black
+        return True
+
+    def _land(self, f: Frame, rig: Rig, hue_a: float, hue_b: float, sec: dict) -> None:
+        """The first moments of a drop, by recipe (classic's white burst is _drop's own)."""
+        style = self.drop_style[0]
+        if not f.section or style == "classic":
+            return
+        into = f.beat - f.section.start_beat
+        w = sec["wash"]
+        if style == "slam" and into < 2.0:          # full rig, the song's color, no white, no strobe
+            self._uniform(rig, hue_a, 1.0 * w)
+            for bar in rig.bars:
+                for m in bar.movers:
+                    m.dim = 1.0 * sec["movers"]
+        elif style == "color-strobe" and into < 2.0:
+            self._uniform(rig, hue_a, self._chop(f.beat, 4, 0.0) * w)
+        elif style == "sweep" and into < 4.0:          # one bright sweep across the rig each beat of the first bar
+            self._uniform(rig, hue_a, 1.0 * w)
+            self._sweep_levels(rig, into % 1.0, width=0.3)
+        elif style == "trade" and into < 16.0:         # four bars of two colors trading on the beat
+            hue = hue_a if int(f.beat) % 2 == 0 else hue_b
+            self._uniform(rig, hue, (0.55 + 0.45 * pulse(f.beat, 3.0)) * w)
+            if len(rig.bars) >= 2 and into % 8 >= 7.0:   # the accent: the last beat of every second bar splits
+                for k, bar in enumerate(rig.bars):
+                    for p in bar.pars:
+                        p.red, p.green, p.blue = rgb(hue_a if k % 2 == 0 else hue_b, self._sat)
+        elif style == "swell":                         # no burst: warm, open, the heads up to the crowd
+            for t in rig.tetras:
+                t.amber = max(t.amber, 0.3)
+
     # --- section looks --------------------------------------------------------------
 
     def _ambient(self, f: Frame, rig: Rig, kind: str, progress: float, sec: dict) -> None:
@@ -649,7 +771,7 @@ class LooksEngine:
     def _build(self, f: Frame, rig: Rig, progress: float, sec: dict) -> None:
         """Rising tension: beams tilt up, pulse subdivides, intensity climbs (the dark last beat
         before a drop is render()'s)."""
-        hue_a, hue_b = self._palette(f, "build", self._step_index(f, sec))
+        hue_a, hue_b = self._song_hues(*self._palette(f, "build", self._step_index(f, sec)))
         sub = 1 if progress < 0.5 else 2 if progress < 0.75 else 4
         hit = pulse(f.beat * sub, 5.0)
         h = self._depth(hit, sec["pulse"])
@@ -665,6 +787,8 @@ class LooksEngine:
             for m in bar.movers:
                 m.dim = base * sec["movers"]
         self._move(f, rig, sec["move"], progress)  # by default: rise crowd -> ceiling
+        if self._build_recipe(f, rig, progress, hue_a, hue_b, base):
+            return   # a song's own recipe: no blue-UV-white ramp
         if progress > 0.75 and self._cfg["strobe"]["build_ramp"]:  # last quarter: strobe ramps up
             for bar in rig.bars:
                 bar.strobe_white = 0.5 * hit
@@ -676,8 +800,10 @@ class LooksEngine:
 
     def _drop(self, f: Frame, rig: Rig, kind: str, sec: dict, progress: float) -> None:
         """drop / main: saturated palette changing every few bars, chases, movers on the bar."""
-        hue_a, hue_b = self._palette(f, kind, self._step_index(f, sec))
+        hue_a, hue_b = self._song_hues(*self._palette(f, kind, self._step_index(f, sec)))
         beat, p = f.beat, sec["pulse"]
+        if self.drop_style[0] == "swell":
+            p *= 0.5   # a sing-along glows; it does not punch
         w, mvl = sec["wash"], sec["movers"]
         self._k = w   # the section wash: STICK_LIFT leaves it linear
         # Primary wash chases left to right on the beat; secondary alternates pairs.
@@ -699,8 +825,11 @@ class LooksEngine:
                 m.color = 1 + (int(beat // 8) % 7)
                 m.gobo = 1 + (int(beat // 16) % 7)
         self._move(f, rig, sec["move"], progress)  # by default: snap crossed <-> fanned each bar
-        # The drop's first beat: white strobe burst and everything up.
-        if kind == "drop" and f.section and f.beat - f.section.start_beat < 1.0 and self._cfg["drop"]["burst"]:
+        if kind == "drop":
+            self._land(f, rig, hue_a, hue_b, sec)
+        # The drop's first beat: white strobe burst and everything up (the classic recipe's landing).
+        if (kind == "drop" and f.section and f.beat - f.section.start_beat < 1.0 and self._cfg["drop"]["burst"]
+                and self.drop_style[0] == "classic"):
             for bar in rig.bars:
                 bar.strobe_white, bar.strobe_speed = 1.0, 1.0
                 for px in bar.pars:
@@ -863,7 +992,7 @@ class LooksEngine:
         """The frame's look on `rig`, played only on the lights set up tonight (rig.counts):
         the others stay dark and send nothing (Rig.render)."""
         base = self.settings if self.settings is not None else show_settings.current()
-        counts = (base.get("rig") or {}).get("counts")
+        counts = tonight_counts(base)
         if self.venue is not None and active_counts(counts) != self._venue_counts:
             self.apply_venue(self.venue, counts)
         self._aim_before = [(m.pan, m.tilt) for bar in rig.bars for m in bar.movers]
@@ -932,6 +1061,7 @@ class LooksEngine:
         self._k = 1.0   # the linear knobs (wash, drop intensity) in this frame's stick level
         self._full_ok = False   # set on the song-section path below (Full power)
         self._spot_frame = False
+        self.drop_style = ("classic", "", "")
         ov = self.overrides
         if ov.aim_set:   # Line up my lights, one spot (1.16.0): the heads being aimed, nothing else lit
             return self._aim_set(rig, ov.aim_set)
@@ -1006,6 +1136,7 @@ class LooksEngine:
             secs = cfg["sections"]
             sec = secs.get(s.kind) or secs["main"]
             self._full_ok = True   # Full power applies to a song's dancing sections only
+            self.drop_style = cues_mod.drop_at(f.cues, f.secs) if f.cues else ("classic", "", "")
             progress = (f.beat - s.start_beat) / max(1, s.end_beat - s.start_beat)
             if s.kind == "intro" and f.beat - s.start_beat >= LONG_INTRO_BEATS and sec["move"]["shape"] == "hold":
                 # Basi Beta's analyzed intro runs 2 of its 3 minutes: a held intro past 16 bars
@@ -1023,8 +1154,9 @@ class LooksEngine:
                 self._drop(f, rig, s.kind, sec, progress)
             self._effects(rig, sec)
             self._sec_strobe = sec["strobe"]
-            if s.kind == "build" and f.next_section and f.next_section.kind == "drop" and s.end_beat - f.beat <= 1.0:
-                rig.reset()  # one dark beat, so the drop lands
+            dark = self.DARK_BEATS.get(self.drop_style[0], 1.0)
+            if s.kind == "build" and f.next_section and f.next_section.kind == "drop" and s.end_beat - f.beat <= dark:
+                rig.reset()  # dark before the drop lands: a beat, a whole bar for a slam, none for a swell
                 self._hold_aim(rig)
             elif s.kind not in ("intro", "verse", "build", "outro", "breakdown") and not self._full(sec):
                 self._scale_levels(rig, cfg["drop"]["intensity"])   # Full power reads the drop intensity as full

@@ -23,3 +23,49 @@ jobs:
       # wedding-night tests (cut files, holds, the build) run instead of skipping.
       - run: pip install -q pytest numpy==2.4.6 soundfile==0.14.0
       - run: PYTHONPATH=. python -m pytest tests/gigbar_lights/ -q
+
+  # The Mac (Llano BL #12517). The app and its disk image are built on Linux, as a release is
+  # (ad-hoc signed here: no Apple account in CI); a real macOS then mounts the image, checks the
+  # signatures with Apple's codesign, loads both chips, and launches the app. Free here: a public repo.
+  macbuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q ziglang==0.13.0
+      - run: python tools/gigbar_lights/mac/fetch_parts.py "$RUNNER_TEMP/parts"
+      - run: >-
+          LLANO_LIGHTS_MAC_PARTS="$RUNNER_TEMP/parts" RCODESIGN="$RUNNER_TEMP/parts/bin/rcodesign"
+          python tools/gigbar_lights/mac/build.py --dmg --out "$RUNNER_TEMP/out"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-app
+          path: |
+            ${{ runner.temp }}/out/Llano-Lights-*-mac.zip
+            ${{ runner.temp }}/out/Llano-Lights-*-mac.dmg
+          retention-days: 3
+
+  macos:
+    needs: macbuild
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q pytest numpy==2.4.6 soundfile==0.14.0 python-rtmidi pyserial
+      - uses: actions/download-artifact@v4
+        with:
+          name: mac-app
+          path: ${{ runner.temp }}/mac-app
+      - run: >-
+          LLANO_LIGHTS_MAC_APP_ZIP="$(ls "$RUNNER_TEMP"/mac-app/Llano-Lights-*-mac.zip)"
+          LLANO_LIGHTS_MAC_DMG="$(ls "$RUNNER_TEMP"/mac-app/Llano-Lights-*-mac.dmg)"
+          PYTHONPATH=. python -m pytest -q -s
+          tests/gigbar_lights/test_mac_app_smoke.py tests/gigbar_lights/test_macos_smoke.py
+          tests/gigbar_lights/test_macos_12517.py tests/gigbar_lights/test_updater.py
+          tests/gigbar_lights/test_app_server.py tests/gigbar_lights/test_mixxx_load.py

@@ -13,6 +13,13 @@ import pytest
 
 from tools.gigbar_lights import ed25519, updater
 
+
+@pytest.fixture(autouse=True)
+def windows_feed(monkeypatch):
+    """These are the Windows update file's rules; on the macOS runner a copy reads the Mac file
+    and refuses Windows manifests (test_macos_12517.py covers that), so pin the platform here."""
+    monkeypatch.setattr(updater, "PLATFORM", "windows")
+
 SEED = bytes(range(32))
 PUB = ed25519.public_key(SEED)
 URL = "https://example.invalid/dl/k/latest.json"

@@ -973,6 +973,52 @@ def soft_keys(songs: list[ShowSong]) -> set:
     return soft - kept if any(s.moment for s in songs) else soft
 
 
+# The set's drops (BL #12518, his 11-17 notes): "it can't be the same thing on every song"; the blue
+# drop saved for one or two special moments; no two neighbouring dance songs share a drop, and no drop
+# pattern used more than twice. A song's drop is its drop cue (settings_contract DROP_STYLES; none =
+# "classic"); its PATTERN is the style with its colors, so a slam in red and a slam in teal are two.
+MAX_PATTERN_USES = 2
+MAX_CLASSIC = 2
+
+
+def drop_plan(show: dict, cues: Optional[dict]) -> list[dict]:
+    """The show's dance songs in order with the drop each plays: [{i, artist, title, style, colors}].
+    Soft songs and the first and parent dances have no drops and are left out."""
+    from . import cues as cues_mod  # noqa: PLC0415
+    out = []
+    for i, s in enumerate(show.get("songs") or []):
+        part, moment = s.get("part") or "", s.get("moment") or ""
+        if is_soft(part, moment) or moment in GENTLE_MOMENTS or (part and part != "dancing"):
+            continue
+        cs = tuple((cues or {}).get(contract.track_key(s.get("artist") or "", s.get("title") or "")) or ())
+        style, c1, c2 = cues_mod.drop_at(cs, None)
+        out.append({"i": i, "artist": s.get("artist") or "", "title": s.get("title") or "", "style": style,
+                    "colors": (c1, c2) if style != "classic" else ("", "")})
+    return out
+
+
+def drop_repeats(plan: list[dict]) -> list[str]:
+    """What breaks the set's drop rules, one line each ([] = none): two neighbouring dance songs with the
+    same style, a pattern (style and colors) on more than MAX_PATTERN_USES songs, or the classic blue drop on
+    more than MAX_CLASSIC."""
+    out = []
+    for a, b in zip(plan, plan[1:]):
+        if a["style"] == b["style"]:
+            out.append(f"{a['title']} and {b['title']} are neighbours with the same drop ({a['style']})")
+    uses: dict = {}
+    for p in plan:
+        uses.setdefault((p["style"], p["colors"]), []).append(p["title"])
+    for (style, colors), titles in uses.items():
+        if style == "classic":
+            if len(titles) > MAX_CLASSIC:
+                out.append(f"the classic blue drop plays on {len(titles)} songs (at most {MAX_CLASSIC}): "
+                           + ", ".join(titles))
+        elif len(titles) > MAX_PATTERN_USES:
+            out.append(f"the {style} drop in {' and '.join(c for c in colors if c) or 'its colors'} plays on "
+                       f"{len(titles)} songs (at most {MAX_PATTERN_USES}): " + ", ".join(titles))
+    return out
+
+
 def m3u(songs: list[ShowSong], lib: MixxxLibrary) -> str:
     """The show's order as an .m3u8 playlist Mixxx imports (Playlists, Import Playlist). Songs with
     no file on this laptop are listed as comments so the order still reads."""

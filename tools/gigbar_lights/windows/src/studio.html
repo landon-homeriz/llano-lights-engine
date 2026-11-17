@@ -127,6 +127,7 @@ LlanoStudio.mount(document.getElementById("studio"), {
     change: (ops) => call("/api/settings", {ops}),
   },
   caps: {},
+  cuesUrl: (q) => "/cues" + q,   // the cue workspace (Llano PM #23869)
   onState: (s) => {
     const title = "Llano Lights " + s.version + (s.built ? " (built " + s.built + ")" : "");
     if (title !== titled) document.title = titled = title;

@@ -209,9 +209,20 @@ class Tetra6:
                 "dim": self.dim, "strobe": self.strobe}
 
 
+STICK_BASE = 8        # the 8-CH channels that come first in CHANNEL_NAMES["stick"]
+STICK_SEGMENTS = 16   # the Freedom Stick's 48CH/50CH modes: 16 sections, each its own RGB (manual Rev. 5 p.10-12)
+
+
 @dataclass
 class FreedomStick:
-    """Chauvet Freedom Stick in 8-CH mode, reached over D-Fi through the Hub 2."""
+    """Chauvet Freedom Stick, reached over D-Fi through the Hub 2.
+
+    8-CH mode (the default rig block): one color for the whole stick. 48CH or 50CH (BL #12518, his
+    11-16 "the sticks are only doing color"): 16 sections bottom to top, each RGB, so a look can chase,
+    bounce and fill along the stick. `mask` is how lit each section is (0..1, section 1 first) over the
+    stick's color and dim; None is the whole stick. The rig block's channel list picks the mode by
+    naming "seg1.red" .. "seg16.blue" (48CH has no dimmer, so dim is folded into each section's RGB);
+    the 8-CH bytes are still worked out, so an 8-CH stick never reads a mask."""
     name: str
     address: int
     red: float = 0.0
@@ -219,6 +230,7 @@ class FreedomStick:
     blue: float = 0.0
     dim: float = 0.0
     strobe: float = 0.0
+    mask: "list | None" = None
     footprint = 8
     kind = "stick"
 
@@ -226,8 +238,16 @@ class FreedomStick:
         strobe = _in_range(11, 255, self.strobe) if self.strobe > 0 else 0
         # 5 color macro, 7 auto program and 8 speed stay at 0 (no function) so the
         # stick follows our RGB and never runs its own show.
-        return [_byte(self.dim), _byte(self.red), _byte(self.green), _byte(self.blue),
-                0, strobe, 0, 0]
+        return [_byte(self.dim), _byte(self.red), _byte(self.green), _byte(self.blue), 0, strobe, 0, 0]
+
+    def section_bytes(self) -> list[int]:
+        """The 48CH bytes: each section's RGB with the stick's dim and the section's mask folded in."""
+        mask = self.mask if self.mask and len(self.mask) == STICK_SEGMENTS else None
+        out = []
+        for i in range(STICK_SEGMENTS):
+            k = self.dim * (1.0 if mask is None else max(0.0, min(1.0, mask[i])))
+            out += [_byte(self.red * k), _byte(self.green * k), _byte(self.blue * k)]
+        return out
 
     def attributes(self) -> dict:
         # macro, program and speed are held at 0 by the library's override layer, not set here
@@ -280,6 +300,8 @@ class Rig:
 def place(fx, fid: str, cfg: dict) -> list[int]:
     """One fixture's bytes in the order its channel list (the rig block) names them."""
     named = named_bytes(fx)
+    if fx.kind == "stick":   # the 48CH/50CH sections (BL #12518) ride beside the 8-CH bytes
+        named.update(zip(CHANNEL_NAMES["stick"][STICK_BASE:], fx.section_bytes()))
     _head_flags(named, cfg["heads"].get(fid))
     return [int(n[1:]) if n.startswith("=") else named[n] for n in cfg["channels"][fx.kind]]
 
@@ -295,8 +317,10 @@ def profile_mode(kind: str):
     if kind not in _PROFILE_MODES:
         try:
             mode = fixture_profiles.builtin_mode(kind)
-            if mode.ids != CHANNEL_NAMES[kind]:
-                raise ValueError(f"channels {mode.ids} are not {CHANNEL_NAMES[kind]}")
+            # the stick's library mode is its 8-CH one; the 48 section names after it are ours (BL #12518)
+            expected = CHANNEL_NAMES[kind][:STICK_BASE] if kind == "stick" else CHANNEL_NAMES[kind]
+            if mode.ids != expected:
+                raise ValueError(f"channels {mode.ids} are not {expected}")
         except Exception as e:  # noqa: BLE001 -- ok: never dark over a library file; said in the log
             _log.warning("fixture library cannot drive %s (%s); sending the built-in bytes", kind, e)
             mode = None
@@ -407,6 +431,13 @@ def default_rig() -> Rig:
         tetras=[Tetra6(f"Tetra 6 #{i + 1}", 81 + 10 * i) for i in range(6)],
         sticks=[FreedomStick(f"Freedom Stick #{i + 1}", 151 + 10 * i) for i in range(4)],
     )
+
+
+def tonight_counts(settings: dict):
+    """rig.counts as the show plays it: a DJ's own rig (rig.lights, Llano BL #12524) plays every reference
+    light, since custom_rig reads each role off the whole reference rig; else his counts as always."""
+    block = settings.get("rig") or {}
+    return None if block.get("lights") else block.get("counts")
 
 
 def active_counts(counts) -> dict:

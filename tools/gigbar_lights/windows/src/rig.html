@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="llano-token" content="__LLANO_TOKEN__">
+<title>__LLANO_TITLE__</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+<!-- Your lights (Llano BL #12524): a DJ's own rig from the fixture library. Each light is a library
+     profile in one of its modes, at a DMX start address, in a role (wash, movers, effects, strobes); the
+     looks drive roles, so any rig plays the show. Saved in the settings, so it syncs to llano.app/lights. -->
+<style>
+  :root { --bg:#07080b; --panel:#0f1117; --raise:#161924; --line:#232734; --text:#e8eaf0; --dim:#8a90a2; --faint:#5f6577;
+          --accent:#7cf0c8; --warn:#ffb454; --bad:#ff6b6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 "Segoe UI", system-ui, sans-serif; }
+  button, input, select { font:inherit; color:var(--text); background:var(--raise); border:1px solid var(--line);
+                          border-radius:8px; padding:6px 10px; }
+  button { cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.38; cursor:default; }
+  button.primary { background:var(--accent); color:#06120d; border-color:var(--accent); font-weight:600; }
+  button.danger { border-color:var(--bad); color:var(--bad); }
+  input:focus, select:focus { outline:none; border-color:var(--accent); }
+  header { display:flex; align-items:center; gap:14px; padding:10px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header a { color:var(--accent); text-decoration:none; border:1px solid var(--accent); border-radius:8px; padding:5px 12px; }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  main { max-width:1080px; margin:0 auto; padding:16px 18px 40px; display:grid; gap:18px; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; min-width:0; }
+  h2 { font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); font-weight:600; margin:0 0 8px; }
+  .hint { color:var(--faint); font-size:12.5px; margin:0 0 10px; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; font-weight:600; color:var(--dim); font-size:12px; padding:4px 6px; border-bottom:1px solid var(--line); }
+  td { padding:5px 6px; border-bottom:1px solid #1a1d27; vertical-align:middle; }
+  td input.name { width:100%; min-width:110px; }
+  td input.addr { width:72px; }
+  td select { max-width:220px; }
+  td .model { font-size:13px; } td .model small { display:block; color:var(--faint); font-size:11.5px; }
+  .chans { color:var(--dim); font-size:12.5px; white-space:nowrap; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #q { flex:1 1 280px; }
+  #results { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:6px; max-height:340px; overflow-y:auto; }
+  #results li { display:flex; align-items:center; gap:10px; padding:7px 10px; background:var(--raise); border-radius:8px; }
+  #results li span { flex:1; } #results li small { color:var(--faint); }
+  #problems { margin:0; padding-left:18px; color:var(--bad); }
+  #problems:empty { display:none; }
+  .ok { color:var(--accent); }
+  .status { color:var(--dim); font-size:13px; min-height:1.4em; }
+  .status.bad { color:var(--bad); }
+  .empty { color:var(--faint); padding:10px 6px; }
+  .roles span { display:inline-block; margin-right:12px; color:var(--dim); } .roles b { color:var(--text); }
+  .scroll { overflow-x:auto; }
+  @media (max-width:760px) { th.c-chans, td.c-chans { display:none; } main { padding:12px 10px 32px; }
+                             section { padding:12px 10px; } td input.name { min-width:90px; } }
+</style>
+</head>
+<body>
+<header>
+  <a href="/setup" title="Back to Set up">&#8592; Set up</a>
+  <h1>Your lights</h1>
+  <span class="hint" style="margin:0" id="libsize"></span>
+</header>
+<main>
+  <section aria-labelledby="h-rig">
+    <h2 id="h-rig">The lights in your rig</h2>
+    <p class="hint">Set each light's own display to the address and mode in its row. Its role says what the show
+      does with it: <b>wash</b> lights color the room, <b>movers</b> aim and sweep, <b>effects</b> (derbies, lasers)
+      fill the drops, <b>strobes</b> flash on the big moments. With no lights here the show plays the GigBAR rig.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Name</th><th>Light</th><th>Mode</th><th>Address</th><th class="c-chans">Channels</th><th>Role</th><th></th></tr></thead>
+      <tbody id="lights"></tbody>
+    </table></div>
+    <ul id="problems" role="alert" aria-label="What stops this rig playing"></ul>
+    <p class="roles" id="roles"></p>
+    <div class="row">
+      <button class="primary" id="save">Save my rig</button>
+      <button id="revert" title="Throw away the changes since the last save">Undo changes</button>
+      <button class="danger" id="clear" title="Remove every light here and play the GigBAR rig again">Use the GigBAR rig</button>
+      <span class="status" id="savenote" role="status"></span>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-add">
+    <h2 id="h-add">Add a light</h2>
+    <p class="hint">Search the light library by brand or model, like <i>chauvet slimpar</i> or <i>moving head</i>.</p>
+    <div class="row"><input id="q" type="search" placeholder="Search lights" aria-label="Search the light library" autocomplete="off"></div>
+    <ul id="results" aria-label="Lights that match"></ul>
+  </section>
+
+  <section aria-labelledby="h-out">
+    <h2 id="h-out">How the lights are plugged in</h2>
+    <p class="hint">The box or network your lights listen on. A change starts with the next show (Stop, then Start).</p>
+    <div class="row">
+      <select id="outkind" aria-label="DMX output">
+        <option value="">ENTTEC DMX USB Pro, found by itself</option>
+        <option value="enttec">ENTTEC DMX USB Pro on a port</option>
+        <option value="opendmx">Open DMX USB dongle (FTDI) on a port</option>
+        <option value="artnet">Art-Net (network)</option>
+        <option value="sacn">sACN / E1.31 (network)</option>
+        <option value="none">No lights (picture only)</option>
+      </select>
+      <input id="outtarget" placeholder="COM3" aria-label="Port or address" size="18">
+      <input id="outuni" placeholder="Universe" aria-label="Universe" size="8">
+      <button id="outsave">Save output</button>
+    </div>
+    <p class="status" id="outnote" role="status"></p>
+  </section>
+</main>
+<script>
+const TOKEN = document.querySelector('meta[name="llano-token"]').content;
+const ROLES = ["wash", "movers", "effects", "strobes"];
+let saved = [], rows = [], info = {};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+async function post(path, body) {
+  const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json", "X-Llano-Token": TOKEN},
+                               body: JSON.stringify(body)});
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(j.error || `failed (${r.status})`);
+  return j;
+}
+
+function modesOf(r) { return r.modes && r.modes.length ? r.modes : [[r.mode, r.channels || 0]]; }
+function footprint(r) { const m = modesOf(r).find(m => m[0] === r.mode); return m ? m[1] : 0; }
+function changed() { return JSON.stringify(strip(rows)) !== JSON.stringify(strip(saved)); }
+function strip(list) { return list.map(r => ({profile: r.profile, mode: r.mode, address: Number(r.address), role: r.role, name: r.name || ""})); }
+
+function draw() {
+  const tb = $("lights");
+  tb.innerHTML = rows.length ? "" : `<tr><td colspan="7" class="empty">No lights of your own yet: the show plays the GigBAR rig. Add your lights below.</td></tr>`;
+  rows.forEach((r, i) => {
+    const n = footprint(r), a = Number(r.address) || 0;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td><input class="name" maxlength="48" value="${esc(r.name)}" aria-label="Name of light ${i + 1}"></td>
+      <td><span class="model">${esc(r.model || r.profile)}<small>${esc(r.manufacturer)}</small></span></td>
+      <td><select class="mode" aria-label="Mode of light ${i + 1}">${modesOf(r).map(m =>
+          `<option value="${esc(m[0])}"${m[0] === r.mode ? " selected" : ""}>${esc(m[0])} (${m[1]} ch)</option>`).join("")}</select></td>
+      <td><input class="addr" type="number" min="1" max="512" value="${esc(r.address)}" aria-label="Start address of light ${i + 1}"></td>
+      <td class="chans c-chans">${n ? `${a}&ndash;${a + n - 1}` : ""}</td>
+      <td><select class="role" aria-label="Role of light ${i + 1}">${ROLES.map(x => `<option${x === r.role ? " selected" : ""}>${x}</option>`).join("")}</select></td>
+      <td><button class="danger rm" aria-label="Remove light ${i + 1}">Remove</button></td>`;
+    tr.querySelector(".name").oninput = e => { r.name = e.target.value; note(); };
+    tr.querySelector(".mode").onchange = e => { r.mode = e.target.value; draw(); };
+    tr.querySelector(".addr").onchange = e => { r.address = e.target.value; draw(); };
+    tr.querySelector(".role").onchange = e => { r.role = e.target.value; note(); };
+    tr.querySelector(".rm").onclick = () => { rows.splice(i, 1); draw(); };
+    tb.appendChild(tr);
+  });
+  $("problems").innerHTML = (changed() ? localProblems() : (info.problems || [])).map(p => `<li>${esc(p)}</li>`).join("");
+  const roles = info.roles || {};
+  $("roles").innerHTML = info.own && !changed() && !(info.problems || []).length
+    ? `<span class="ok">Ready to play.</span> ` + ROLES.map(x => `<span>${x} <b>${roles[x] || 0}</b></span>`).join("") : "";
+  note();
+}
+
+function localProblems() {   // overlaps and range, before saving (the app checks again on Save)
+  const out = [], taken = {};
+  rows.forEach((r, i) => {
+    const label = r.name || `Light ${i + 1}`, a = Number(r.address), n = footprint(r);
+    if (!Number.isInteger(a) || a < 1 || a + n - 1 > 512) { out.push(`${label}: channels ${a}-${a + n - 1} are outside 1-512`); return; }
+    for (let s = a; s < a + n; s++) { if (taken[s]) { out.push(`${label} overlaps ${taken[s]} at channel ${s}`); break; } }
+    for (let s = a; s < a + n; s++) taken[s] = taken[s] || label;
+  });
+  return out;
+}
+
+function note(text, bad) {
+  const el = $("savenote");
+  el.textContent = text ?? (changed() ? "Not saved yet." : (info.own ? "Saved. The show plays these lights." : ""));
+  el.className = "status" + (bad ? " bad" : "");
+  $("save").disabled = !changed(); $("revert").disabled = !changed(); $("clear").disabled = !info.own && !rows.length;
+}
+
+function nextAddress() { return rows.reduce((m, r) => Math.max(m, (Number(r.address) || 0) + footprint(r)), 1); }
+
+function add(e) {
+  const same = rows.filter(r => r.profile === e.ref).length;
+  rows.push({profile: e.ref, mode: e.modes[0][0], modes: e.modes, address: nextAddress(), role: e.role,
+             name: `${e.model}${same ? " " + (same + 1) : ""}`.slice(0, 48), model: e.model, manufacturer: e.manufacturer});
+  draw();
+}
+
+let searchSeq = 0;
+$("q").oninput = async () => {
+  const seq = ++searchSeq, q = $("q").value.trim(), ul = $("results");
+  if (!q) { ul.innerHTML = ""; return; }
+  const r = await fetch("/api/rig/search?q=" + encodeURIComponent(q)).then(r => r.json()).catch(() => ({results: []}));
+  if (seq !== searchSeq) return;
+  ul.innerHTML = r.results.length ? "" : `<li><span>No light by that name. Try the brand, or fewer words.</span></li>`;
+  r.results.forEach(e => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span>${esc(e.manufacturer)} <b>${esc(e.model)}</b> <small>${esc(e.type)} &middot; ${e.modes.map(m => m[1] + " ch").join(", ")}</small></span><button>Add</button>`;
+    li.querySelector("button").onclick = () => add(e);
+    ul.appendChild(li);
+  });
+};
+
+function load(r) {
+  info = r;
+  saved = r.lights.map(x => ({...x}));
+  rows = r.lights.map(x => ({...x}));
+  $("libsize").textContent = r.library_size ? `${r.library_size.toLocaleString()} lights in the library` : "";
+  showOutput(r.output, r.output_status);
+  draw();
+}
+
+$("save").onclick = async () => {
+  try { load((await post("/api/rig-lights", {lights: strip(rows)})).rig); }
+  catch (e) { note(e.message, true); }
+};
+$("revert").onclick = () => { rows = saved.map(x => ({...x})); draw(); };
+$("clear").onclick = async () => {
+  if (!confirm("Remove every light here and play the GigBAR rig again?")) return;
+  try { load((await post("/api/rig-lights", {lights: []})).rig); } catch (e) { note(e.message, true); }
+};
+
+function showOutput(spec, status) {
+  const [kind, rest = ""] = (spec || "").split(/:(.*)/s);
+  $("outkind").value = spec ? kind : "";
+  let target = rest, uni = "";
+  if (kind === "artnet") { const i = rest.lastIndexOf(":"); if (i > 0 && /^\d+$/.test(rest.slice(i + 1))) { target = rest.slice(0, i); uni = rest.slice(i + 1); } }
+  if (kind === "sacn") { const [u, h = ""] = rest.split("@"); uni = u; target = h; }
+  $("outtarget").value = target; $("outuni").value = uni;
+  outFields();
+  // the status line's "(check ...: test-lights)" names the command line; here it is a button on Set up
+  $("outnote").textContent = "Now: " + (status || "not plugged in").replace(/\s*\(check[^)]*\)/, ". Test each light on Set up shows whether they answer");
+}
+function outFields() {
+  const k = $("outkind").value;
+  $("outtarget").hidden = !["enttec", "opendmx", "artnet", "sacn"].includes(k);
+  $("outuni").hidden = !["artnet", "sacn"].includes(k);
+  $("outtarget").placeholder = k === "artnet" ? "Node address, like 192.168.1.50" : k === "sacn" ? "Node address (blank: multicast)" : "COM3";
+}
+$("outkind").onchange = outFields;
+$("outsave").onclick = async () => {
+  const k = $("outkind").value, t = $("outtarget").value.trim(), u = $("outuni").value.trim();
+  let spec = k;
+  if (k === "enttec" && t) spec += ":" + t;
+  if (k === "opendmx") spec += ":" + t;
+  if (k === "artnet" && (t || u)) spec += ":" + t + (u ? ":" + u : "");
+  if (k === "sacn" && (u || t)) spec += ":" + (u || "1") + (t ? "@" + t : "");
+  try { const r = (await post("/api/rig-output", {output: spec})).rig; info = r; showOutput(r.output, r.output_status); $("outnote").textContent += ". Saved."; }
+  catch (e) { $("outnote").textContent = e.message; }
+};
+
+fetch("/api/rig").then(r => r.json()).then(load).catch(() => note("Couldn't reach the app. Is Llano Lights running?", true));
+</script>
+</body>
+</html>

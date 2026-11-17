@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional, Sequence
@@ -39,7 +40,12 @@ class Section:
 # 2: a cut counts its phrases from its original's first beat (phrase_phase, Llano PM #23787); a cached
 # version-1 script of a cut was counted from the cut's own first beat, so the cache works it out again
 # (ScriptCache.get); a whole song's version-1 script is still right and is kept.
-SCRIPT_VERSION = 2
+# 3: a drop lands where the song reaches its full level (refine_drops, Llano PM #23869): every cached
+# script before it is worked out again, since its drops can sit a phrase or two early.
+SCRIPT_VERSION = 3
+DROP_FULL = 0.9   # a drop lands on the first bar at this share of its loud stretch's peak (refine_drops)
+DROP_SKIP = 0.12  # the bars a drop moves past sit at least this far under its line, on average
+BUILD_BARS = 8    # the bars before a moved drop that play as its build
 
 
 @dataclass
@@ -121,7 +127,78 @@ def label_phrases(bar_energy: Sequence[float], bar_bass: Sequence[float],
             prev.end_beat = end_beat
         else:
             sections.append(Section(kind, start_beat, end_beat, round(p["level"], 3)))
-    return sections
+    if os.environ.get("LLANO_LIGHTS_DROP_REFINE", "1") == "0":   # rollback: the 8-bar labels as before
+        return sections
+    return refine_drops(sections, energy, bass)
+
+
+def refine_drops(sections: list[Section], energy: Sequence[float], bass: Sequence[float]) -> list[Section]:
+    """Move each drop LATER, bar by bar, to where the song really reaches its full level (Llano PM #23869).
+
+    The phrases are 8 bars counted from the first beat, and a loud pre-chorus can lift a whole phrase
+    over the line: on Justin Bieber's Sorry the drop was labeled at 0:39 while the chorus lands at 1:08
+    (bar 28, right after a one-bar dip). Within a drop's loud stretch (the drop and the main sections
+    after it), the drop now starts on the first bar that is at DROP_FULL of the stretch's peak, both on
+    its own and over the four bars from it, when the bars it moves past are clearly quieter
+    (DROP_SKIP). The BUILD_BARS before it play as the build, anything earlier
+    in the stretch as a verse. A drop is never moved earlier, and a stretch already at full level from
+    its first bar is left exactly as it was. `energy` and `bass` are the normalized per-bar values."""
+    lvl = [0.6 * e + 0.4 * b for e, b in zip(energy, bass)]
+    bpb = BEATS_PER_BAR
+
+    def mean(a: int, b: int) -> float:
+        got = lvl[a:b]
+        return sum(got) / len(got) if got else 0.0
+
+    out: list[Section] = []
+    i = 0
+    while i < len(sections):
+        s = sections[i]
+        if s.kind != "drop":
+            out.append(s)
+            i += 1
+            continue
+        j = i + 1
+        while j < len(sections) and sections[j].kind == "main":
+            j += 1
+        r0, r1 = s.start_beat // bpb, min(sections[j - 1].end_beat // bpb, len(lvl))
+        peak = max((mean(b, min(b + 4, r1)) for b in range(r0, r1)), default=0.0)
+        want = DROP_FULL * peak
+        land = next((b for b in range(r0, r1) if lvl[b] >= want and mean(b, min(b + 4, r1)) >= want), r0)
+        # only a real lower stretch is skipped: a drop a hair under the line (I Gotta Feeling's second,
+        # 0.87 against 0.87) stays where the phrase put it
+        if land <= r0 or mean(r0, land) > want - DROP_SKIP:
+            out.extend(sections[i:j])
+            i = j
+            continue
+        drop_end = max(s.end_beat // bpb, land + PHRASE_BARS // 2)
+        drop_end = min(drop_end, r1) if r1 > land else land + 1
+        parts = []
+        build0 = max(r0, land - BUILD_BARS)
+        if build0 > r0:
+            parts.append(("verse", r0, build0))
+        parts += [("build", build0, land), ("drop", land, drop_end)]
+        if drop_end < sections[j - 1].end_beat // bpb:
+            parts.append(("main", drop_end, sections[j - 1].end_beat // bpb))
+        for kind, a, b in parts:
+            sec = Section(kind, a * bpb, b * bpb, round(mean(a, b), 3))
+            prev = out[-1] if out else None
+            if prev is not None and prev.kind == kind and prev.end_beat == sec.start_beat and kind != "drop":
+                prev.end_beat = sec.end_beat
+            else:
+                out.append(sec)
+        i = j
+    # a build the drop moved away from leads into a verse now, so it is a verse
+    tidy: list[Section] = []
+    for k, sec in enumerate(out):
+        nxt = out[k + 1].kind if k + 1 < len(out) else ""
+        if sec.kind == "build" and nxt not in ("build", "drop", "main"):
+            sec = Section("verse", sec.start_beat, sec.end_beat, sec.energy)
+        if tidy and tidy[-1].kind == sec.kind and tidy[-1].end_beat == sec.start_beat and sec.kind != "drop":
+            tidy[-1].end_beat = sec.end_beat
+        else:
+            tidy.append(sec)
+    return tidy
 
 
 # --- audio front end (numpy + soundfile, imported lazily) ---------------------------
@@ -259,7 +336,9 @@ class ScriptCache:
         except (ValueError, KeyError, TypeError):
             return None
         # An older analysis of a night's cut counted its phrases from the cut's own first beat: redone.
-        # A whole song's was counted the same way then as now, so it stays (no re-analysis of a library).
+        # Before version 3 every song's drops could sit early (refine_drops): redone, once, when it loads.
+        if script.version < 3:
+            return None
         if script.version < SCRIPT_VERSION and audio_path is not None and source_zero_s(audio_path) is not None:
             return None
         return script

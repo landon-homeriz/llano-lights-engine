@@ -352,16 +352,39 @@ def from_env() -> Optional[OutputSpec]:
         return None
 
 
+def from_settings() -> Optional[OutputSpec]:
+    """The output picked on the Setup screen (settings rig.output, Llano BL #12524), None when unset. One
+    that doesn't parse is logged and read as unset, like the env var."""
+    try:
+        from . import show_settings  # noqa: PLC0415 -- the command line runs without the app's settings
+        raw = str((show_settings.current().get("rig") or {}).get("output") or "").strip()
+    except Exception:  # noqa: BLE001 -- ok: no settings is the ENTTEC path, as before
+        return None
+    if not raw:
+        return None
+    try:
+        return parse(raw)
+    except ValueError as e:
+        _log.warning("rig.output=%r ignored (%s); looking for the ENTTEC Pro", raw, e)
+        return None
+
+
+def chosen() -> Optional[OutputSpec]:
+    """The output a run uses: LLANO_LIGHTS_OUTPUT when set (a developer's override), else the Setup
+    screen's pick (rig.output), else None (the ENTTEC Pro)."""
+    return from_env() or from_settings()
+
+
 def find_env() -> Optional[str]:
-    """What a run would open: LLANO_LIGHTS_OUTPUT's port or network target, else the ENTTEC Pro's port.
-    The app's one port scan (its window dots, its run and its probe read the same answer)."""
-    spec = from_env()
+    """What a run would open: the chosen output's port or network target (chosen()), else the ENTTEC
+    Pro's port. The app's one port scan (its window dots, its run and its probe read the same answer)."""
+    spec = chosen()
     return spec.find() if spec else find_port()
 
 
 def open_env(where: Optional[str] = None):
-    """Open what find_env() found: LLANO_LIGHTS_OUTPUT's output, else the ENTTEC Pro."""
-    spec = from_env()
+    """Open what find_env() found: the chosen output (chosen()), else the ENTTEC Pro."""
+    spec = chosen()
     return spec.open(where) if spec else EnttecPro(where)
 
 

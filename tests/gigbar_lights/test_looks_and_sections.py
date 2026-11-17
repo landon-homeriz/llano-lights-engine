@@ -9,7 +9,7 @@ from tools.gigbar_lights.looks import Frame, LooksEngine
 from tools.gigbar_lights.mixxx_link import encode_audio, encode_tick, encode_track
 from tools.gigbar_lights.rig import default_rig
 from tools.gigbar_lights.show import DeckTrack, Show
-from tools.gigbar_lights.show_script import ScriptCache, Section, ShowScript, label_phrases
+from tools.gigbar_lights.show_script import SCRIPT_VERSION, ScriptCache, Section, ShowScript, label_phrases
 
 SONG = ShowScript([Section("intro", 0, 32, 0.2), Section("build", 32, 64, 0.5),
                    Section("drop", 64, 96, 0.9), Section("main", 96, 128, 0.9),
@@ -87,7 +87,7 @@ def test_bar_energies_and_analysis_on_synthetic_audio(monkeypatch, tmp_path):
 
 def test_script_cache_round_trip_and_staleness(tmp_path):
     cache = ScriptCache(tmp_path)
-    cache.put(7, SONG)
+    cache.put(7, ShowScript(SONG.sections, SCRIPT_VERSION))   # a version-3 script (refine_drops) is kept
     assert cache.get(7).sections == SONG.sections
     audio = tmp_path / "song.mp3"
     audio.write_bytes(b"x")

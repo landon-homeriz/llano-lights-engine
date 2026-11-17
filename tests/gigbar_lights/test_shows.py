@@ -138,7 +138,7 @@ def test_spotify_playlist_read_from_the_public_embed_page_titles_only():
 
 def test_sections_from_the_cached_analysis_in_seconds_else_estimated(lib, tmp_path):
     cache = ScriptCache(tmp_path / "cache")
-    cache.put(1, ShowScript([Section("intro", 0, 32, 0.2), Section("drop", 32, 96, 0.9), Section("outro", 96, 128, 0.3)]))
+    cache.put(1, ShowScript([Section("intro", 0, 32, 0.2), Section("drop", 32, 96, 0.9), Section("outro", 96, 128, 0.3)], 3))
     s = shows.analyze(shows.ShowSong("Earth, Wind & Fire", "September", track_id=1), lib, cache, read_audio=False)
     assert s.source == "mixxx" and s.playable and s.bpm == 126.0 and s.first_beat_s == 0.5
     assert [x["kind"] for x in s.sections] == ["intro", "drop", "outro"]

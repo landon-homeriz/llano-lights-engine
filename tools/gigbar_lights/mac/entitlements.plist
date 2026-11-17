@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The bundled Python's entitlements under the hardened runtime (mac/build.py, Llano BL #12517).
+     allow-unsigned-executable-memory: ctypes and cffi (soundfile) make small callable stubs at run time.
+     apple-events: asking Spotify and Music what is playing (media_session.py, macos.py).
+     audio-input: hearing what the Mac plays (the Core Audio tap) once system audio comes to the Mac. -->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+  <key>com.apple.security.automation.apple-events</key><true/>
+  <key>com.apple.security.device.audio-input</key><true/>
+</dict>
+</plist>

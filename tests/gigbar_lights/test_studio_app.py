@@ -282,7 +282,7 @@ def test_the_live_screen_is_the_front_page_and_the_classic_window_is_set_up(live
 # llano.app/lights draws this same file (Llano repo: llano-ui/src/pages/lights/studio_console.js) and
 # that repo's test pins the same sha256, so the phone app and the laptop can never draw two consoles.
 # Changing the file means copying it there and changing both pins together.
-CONSOLE_SHA256 = "479f63339df6ca807c1c61f1bc67ca6b2a2d01b772a222256325c78f17a86dd6"
+CONSOLE_SHA256 = "6fbb71a7777240c331dfd4707365dae1a1ca6567956567014215ffb6f8dedb83"
 
 
 def test_the_console_bytes_match_the_pin_shared_with_the_llano_repo():

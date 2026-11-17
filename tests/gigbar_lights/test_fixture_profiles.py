@@ -104,8 +104,11 @@ def test_the_bar_strobes_program_white_and_uv_rules(program, white, uv):
 
 
 def test_the_library_modes_name_the_rig_blocks_channels():
-    for kind in ("gigbar", "tetra", "stick"):
+    for kind in ("gigbar", "tetra"):
         assert rig.profile_mode(kind).ids == CHANNEL_NAMES[kind]
+    # the stick's library mode is its 8-CH one; the 16 sections' RGB names follow it (BL #12518)
+    assert rig.profile_mode("stick").ids == CHANNEL_NAMES["stick"][:rig.STICK_BASE]
+    assert len(CHANNEL_NAMES["stick"]) == rig.STICK_BASE + 3 * rig.STICK_SEGMENTS
 
 
 def test_a_library_that_will_not_load_sends_the_hand_written_bytes(monkeypatch, tmp_path, fresh_library):

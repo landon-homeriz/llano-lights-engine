@@ -13,13 +13,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from . import cues as cues_mod, moments, show_settings, studio as studio_mod, venue
+from . import cues as cues_mod, custom_rig, moments, show_settings, stick_fx, studio as studio_mod, venue
 from .beat_clock import BeatClock, TapTempo, measured_beat
 from .glide import HeadGlide
 from .looks import FIGURES, Frame, LooksEngine
 from .mixxx_db import MixxxLibrary, TrackInfo
 from .mixxx_link import MixxxState
-from .rig import default_rig, head_picture
+from .rig import default_rig, head_picture, tonight_counts
 from .mixxx_link import SYSTEM_DECK
 from .song_match import candidates
 from .show_script import ScriptCache, ShowScript, analyze_track, source_zero_s
@@ -216,14 +216,14 @@ class Show:
             cues = cues_mod.for_song(show_settings.current(), track.keys) if track else ()
             if cues and grid is not None:
                 script = self._cue_script(track, cues, grid, script)
-            section, nxt = script.at(beat) if script else (None, None)
             secs = None
             if grid is not None:
                 file_s = grid.seconds_at(beat)
                 secs = None if file_s is None else file_s - (track.zero_s or 0.0)
-            feel = (cues_mod.feel_at(cues, beat, secs, section, grid, track.zero_s)
-                    if cues and grid is not None else ("", ""))
-            return Frame(beat, deck.bpm, deck.playing, level=deck.level, loop_beats=deck.loop_beats,
+            # a repeat cue plays an earlier stretch's beats again (cues.place, PM #23869)
+            look_beat, section, nxt, feel = cues_mod.place(cues, grid, track.zero_s if track else None,
+                                                           script, beat, secs)
+            return Frame(look_beat, deck.bpm, deck.playing, level=deck.level, loop_beats=deck.loop_beats,
                          section=section, next_section=nxt,
                          track_key=track.info.track_id if track and track.info else deck.track_serial,
                          song=track.song if track else "", song_keys=track.keys if track else (), now=now,
@@ -253,15 +253,17 @@ class Show:
                 rgb_ = studio_mod.parse_color(f.feel[1])
                 ov.color = studio_mod.hue_sat(rgb_) if rgb_ else None
             rig = self.looks.render(f, self.rig)
+            # the sticks' sections chase, bounce and fill on a dancing song (stick_fx, BL #12518)
+            moving = (f.playing and not setup and not (live and self._studio_holds(st)) and self._cues_play()
+                      and not self.looks.limit and not self.looks.is_still(self.looks._cfg or {}))
+            stick_fx.apply(rig, f.section if moving else None, f.beat)
             if cued:
-                cues_mod.apply_feel(rig, f.feel[0])
-                if f.playing:
-                    cues_mod.apply_hit(rig, *cues_mod.hit_at(f.cues, f.secs))
+                cues_mod.dress(rig, f)   # feel, hits, strobe bursts, blackouts (PM #23869)
             follow = False
             if live:
                 # The studio's layers on the lights set up tonight: freeze, the crossfade, spots,
                 # touch-ups and pins, brightness by zone, the buttons he holds; then the guards again.
-                counts = (show_settings.current().get("rig") or {}).get("counts")
+                counts = tonight_counts(show_settings.current())
                 st.layout, st.cfg = self.looks.venue, self.looks._cfg
                 st.post(self.rig.present(counts), now, showing=self.looks.showing, mode=self.looks.mode)
                 self.looks.guard(self.rig.present(counts))
@@ -274,7 +276,7 @@ class Show:
                              snap=self.looks.move_shape == "snap" and not follow,
                              figure=self.looks.move_shape in FIGURES and not follow,
                              follow=studio_mod.spot_gate_steps() if follow else 0.0)
-            return bytes(rig.render())
+            return bytes(custom_rig.universe(rig))   # a DJ's own rig by role, else his twelve (BL #12524)
 
     @staticmethod
     def _studio_holds(st) -> bool:
@@ -375,7 +377,9 @@ class Show:
                 # a beat of the FILE (cue times are file seconds): the grid's tempo, not the pitch fader's
                 bpm = grid.bpm or deck.file_bpm or deck.bpm or 120.0
                 b0 = grid.seconds_at(0)
-                return {"key": key, "title": track.info.label, "zero": round(zero, 3), "length": round(length, 2),
+                return {"key": key, "title": track.info.label, "artist": track.info.artist or "",
+                        "title_only": track.info.title or "", "track_id": track.info.track_id,   # the workspace opens it
+                        "zero": round(zero, 3), "length": round(length, 2),
                         "secs": None if here is None else round(here, 2),
                         "playing": bool(deck.playing), "beat_s": round(60.0 / bpm, 4), "sections": secs,
                         "beat0": None if b0 is None else round(b0 - zero, 3),
@@ -406,7 +410,7 @@ class Show:
                 for head in bar.movers:
                     head.pan, head.tilt = rest
             self.glide.apply(self.rig, now, calm=True)
-            return bytes(self.rig.render())
+            return bytes(custom_rig.universe(self.rig))
 
     def _rest(self) -> tuple:
         """Raw (pan, tilt) the heads rest at: the layout's (venue.Layout.rest_pose, 1.16.7: on the side

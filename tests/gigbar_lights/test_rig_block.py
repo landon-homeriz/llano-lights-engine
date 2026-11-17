@@ -42,7 +42,7 @@ def test_default_addresses_and_channel_counts_match_the_fixture_classes():
     r = rig.default_rig()
     for fid, fx in zip(contract.FIXTURES, r.fixtures):
         assert cfg["addresses"][fid] == fx.address
-        assert len(cfg["channels"][fx.kind]) == fx.footprint == len(contract.CHANNEL_NAMES[fx.kind])
+        assert len(cfg["channels"][fx.kind]) == fx.footprint == len(contract.DEFAULT_CHANNELS[fx.kind])
 
 
 def test_an_address_move_lands_the_bar_at_its_new_start():

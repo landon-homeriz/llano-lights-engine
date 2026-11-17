@@ -72,6 +72,9 @@ def find_mixxx() -> Optional[str]:
                     if exe.is_file():
                         return str(exe)
         return shutil.which("mixxx.exe")
+    if sys.platform == "darwin":
+        from .macos import find_mixxx as mac_mixxx  # noqa: PLC0415
+        return mac_mixxx()
     return shutil.which("mixxx")
 
 
@@ -82,6 +85,9 @@ def open_mixxx() -> bool:
     try:
         if sys.platform == "win32":
             os.startfile(exe)  # noqa: S606 -- Mixxx's own installed program
+        elif sys.platform == "darwin":
+            from .macos import open_app  # noqa: PLC0415
+            return open_app(exe)
         else:
             subprocess.Popen([exe], start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError:

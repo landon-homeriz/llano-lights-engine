@@ -125,8 +125,9 @@ def test_i_gotta_feeling_cut_counts_from_the_bar_mixxx_misses():
 
 
 def test_a_cuts_script_cached_by_the_old_analysis_is_worked_out_again(tmp_path):
-    """A night's cut analyzed by 1.34 counted from the wrong bar: redone. A whole song's old analysis
-    was counted the way it still is: kept, so updating never re-analyzes his whole library."""
+    """A night's cut analyzed by 1.34 counted from the wrong bar: redone. Since version 3 (refine_drops, PM
+    #23869) a whole song's older analysis is redone too, once, so the drop fix reaches every song; from then
+    on it is kept."""
     x, _drop = _song(intro_bars=8, drop_bars=8)
     cut = _cut(tmp_path, x, 4.0)
     whole = tmp_path / "whole.flac"
@@ -136,7 +137,10 @@ def test_a_cuts_script_cached_by_the_old_analysis_is_worked_out_again(tmp_path):
     cache.put(7, old)
     cache.put(8, old)
     assert cache.get(7, cut) is None
-    assert cache.get(8, whole).sections == old.sections
+    assert cache.get(8, whole) is None                              # pre-3 drops could sit early: redone
+    now = ss.ShowScript([ss.Section("drop", 0, 32, 0.9)], ss.SCRIPT_VERSION)
+    cache.put(8, now)
+    assert cache.get(8, whole).sections == now.sections             # and then kept
     cache.put(7, ss.ShowScript([ss.Section("drop", 4, 36, 0.9)], ss.SCRIPT_VERSION))
     assert cache.get(7, cut).sections[0].start_beat == 4
 

@@ -12,6 +12,7 @@ not leave the last song "playing" forever), and an answer older than STALE_S rea
 """
 from __future__ import annotations
 
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -130,6 +131,18 @@ def _read_windows() -> Callable[[], Optional[NowPlaying]]:
     return read
 
 
+def _read_mac() -> Callable[[], Optional[NowPlaying]]:
+    """A Mac has no public now-playing API (Llano BL #12517): Spotify and Music answer AppleScript
+    when they are open (macos.py). The first ask shows the Mac's "control Spotify" permission once."""
+    from . import macos  # noqa: PLC0415
+
+    def read() -> Optional[NowPlaying]:
+        rows = [NowPlaying(artist, title, app, playing) for app, playing, artist, title in macos.read_now_playing()]
+        return choose(rows)
+
+    return read
+
+
 class MediaSessions:
     """Polls the Windows media session on its own thread; `current()` is the newest answer."""
 
@@ -157,7 +170,7 @@ class MediaSessions:
         read = self._reader
         if read is None:
             try:
-                read = _read_windows()
+                read = _read_mac() if sys.platform == "darwin" else _read_windows()
                 self.available = True
             except ImportError:
                 self.error = "can't read Spotify or browser song names (the Windows media library isn't in this install)"

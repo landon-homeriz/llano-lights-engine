@@ -1,4 +1,4 @@
-VERSION = "1.37.0"
+VERSION = "1.40.0"
 # The Light studio Live screen is the front page for everyone from 1.20.0 (Llano PM #23195).
 # LLANO_LIGHTS_STUDIO=0 on the laptop brings the classic window back as the front page.
 STUDIO = True

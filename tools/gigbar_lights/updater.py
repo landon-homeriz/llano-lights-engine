@@ -37,6 +37,13 @@ rollback.py does the same from a "Llano Lights - go back to stable" launcher (St
 the stable folder) that runs the stable copy's code, never the test build's, so it works when the
 test build won't open or crashes at start. A new copy that never comes up is put back by the swap
 itself, as before.
+
+Mac (Llano BL #12517): a Mac copy reads latest-mac.json (test-mac.json on the test channel) in the
+same folder, signed by the same key, whose manifest says `platform: "mac"` and names
+Llano-Lights-<version>-mac.zip: the whole notarized "Llano Lights.app", zipped with ditto. Each copy
+refuses the other platform's file, so Windows' latest.json is unchanged and pulling the Mac file stops
+Mac updates without touching Windows. On a Mac the unit that is swapped is the .app bundle itself
+(its signature seals everything inside it), the same rename dance beside it in /Applications.
 """
 from __future__ import annotations
 
@@ -65,6 +72,12 @@ PRODUCT = "llano-lights"
 # (or LLANO_LIGHTS_UPDATE_URL) at their own latest.json and puts their own key in PUBLIC_KEY.
 UPDATE_URL = ""
 TEST_FEED = "test.json"   # the test channel's update file, in the same folder
+PLATFORM = "mac" if sys.platform == "darwin" else "windows"
+# Each platform's (stable, test) update files, side by side in the one folder (Llano BL #12517).
+FEEDS = {"windows": ("latest.json", TEST_FEED), "mac": ("latest-mac.json", "test-mac.json")}
+MAC_APP = "Llano Lights.app"
+MAC_LAUNCHER = "Contents/MacOS/Llano Lights"
+MAC_INNER = "Contents/Resources/Llano-Lights"   # runtime/ + app/ inside the bundle: install_root()
 PUBLIC_KEY = bytes.fromhex("26fd96604450df9c052039cbc6ea026a5ae58887d59137b761d7ffa6d86e15e3")
 CHECK_TIMEOUT_S = 4.0
 MAX_ZIP_BYTES = 300 * 1024 * 1024
@@ -91,14 +104,20 @@ class Offer:
     commit: str = ""
 
 
-def update_url() -> str:
-    # A test server can stand in; the signature check still uses the baked-in key.
-    return os.environ.get("LLANO_LIGHTS_UPDATE_URL") or UPDATE_URL
+def update_url(platform: str = "") -> str:
+    # A test server can stand in (it names the exact file); the signature check still uses the baked-in key.
+    override = os.environ.get("LLANO_LIGHTS_UPDATE_URL")
+    if override:
+        return override
+    if not UPDATE_URL:   # no feed in this edition: none for any platform
+        return ""
+    return urllib.parse.urljoin(UPDATE_URL, FEEDS[platform or PLATFORM][0])
 
 
-def test_url() -> str:
-    """The test channel's update file: test.json in the stable feed's folder."""
-    return urllib.parse.urljoin(update_url(), TEST_FEED)
+def test_url(platform: str = "") -> str:
+    """The test channel's update file (test.json, test-mac.json) in the stable feed's folder."""
+    base = update_url(platform)
+    return urllib.parse.urljoin(base, FEEDS[platform or PLATFORM][1]) if base else ""
 
 
 def version_tuple(v: str) -> tuple:
@@ -121,7 +140,7 @@ def sign_manifest(manifest: dict, secret: bytes) -> dict:
 
 
 def parse_update_file(raw: bytes, base_url: str, current: str = VERSION,
-                      public_key: bytes = PUBLIC_KEY) -> Optional[Offer]:
+                      public_key: bytes = PUBLIC_KEY, platform: str = "") -> Optional[Offer]:
     """The offer in a downloaded latest.json, None when nothing newer. Raises UpdateError
     for anything that is not a genuine, well-formed update for this product."""
     try:
@@ -141,6 +160,8 @@ def parse_update_file(raw: bytes, base_url: str, current: str = VERSION,
         raise UpdateError("the signed update description is incomplete") from e
     if m.get("product") != PRODUCT:
         raise UpdateError("the update file is for a different product")
+    if (m.get("platform") or "windows") != (platform or PLATFORM):   # a Windows zip never reaches a Mac
+        raise UpdateError("the update file is for another kind of computer, so it was ignored")
     if not isinstance(name, str) or not _ZIP_NAME.fullmatch(name):
         raise UpdateError("the update names an unexpected file")
     if not (isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest)):
@@ -196,9 +217,38 @@ def install_root() -> Path:
 
 
 def is_installed(root: Optional[Path] = None) -> bool:
-    """True for an unpacked Windows build (runtime/ + app/), False for a source checkout."""
+    """True for an unpacked build (runtime/ + app/; on a Mac the folder inside the .app), False for a source checkout."""
     root = root or install_root()
     return (root / "runtime").is_dir() and (root / "app" / "gigbar_app.py").is_file()
+
+
+def app_bundle(root: Optional[Path] = None) -> Optional[Path]:
+    """The .app a Mac copy runs inside (install_root is its Contents/Resources/Llano-Lights), else None."""
+    root = root or install_root()
+    b = root.parents[2] if len(root.parents) > 2 else None
+    return b if b is not None and b.suffix == ".app" and root == b / MAC_INNER else None
+
+
+def swap_root(root: Optional[Path] = None) -> Path:
+    """What an update replaces: the install folder on Windows, the whole .app on a Mac."""
+    root = root or install_root()
+    return app_bundle(root) or root
+
+
+def mac_inner(bundle: Path) -> Path:
+    return bundle / MAC_INNER
+
+
+def mac_update_refusal(bundle: Path) -> str:
+    """Why this .app can't replace itself, in his words; "" when it can. A Mac runs an app opened
+    straight from Downloads (or the disk image) from a read-only copy elsewhere (App Translocation),
+    and an app in a folder he can't write to can't be swapped either."""
+    if "/AppTranslocation/" in str(bundle) or str(bundle).startswith("/Volumes/"):
+        return ("drag Llano Lights into your Applications folder and open it from there; "
+                "a Mac can't update an app opened straight from the download")
+    if not os.access(bundle.parent, os.W_OK):
+        return f"this Mac doesn't let Llano Lights change {bundle.parent}; drag it into Applications"
+    return ""
 
 
 def download(offer: Offer, dest: Path, progress: Callable[[int, int], None] = lambda d, t: None) -> Path:
@@ -260,6 +310,42 @@ def unpack(zpath: Path, staging: Path) -> Path:
     return root
 
 
+def unpack_mac(zpath: Path, staging: Path) -> Path:
+    """Unpack the verified Mac zip into `staging` (the new .app). The names are checked first (one
+    top folder, the .app, nothing that climbs out); then ditto unpacks it, because a signed bundle
+    holds symlinks and modes Python's zipfile drops; then the Mac checks the bundle's signature."""
+    with zipfile.ZipFile(zpath) as z:
+        for info in z.infolist():
+            name = info.filename
+            parts = name.split("/")
+            kind = (info.external_attr >> 16) & 0o170000
+            # mac/build.py writes no links: one in an update could point ditto's later writes outside the app
+            if name.startswith("/") or ".." in parts or parts[0] != MAC_APP or kind == 0o120000:
+                raise UpdateError("the update zip has an unexpected layout; nothing was changed")
+    if staging.exists():
+        shutil.rmtree(staging)
+    work = Path(tempfile.mkdtemp(prefix=".llano-lights-unpack-", dir=staging.parent))
+    try:
+        r = subprocess.run(["/usr/bin/ditto", "-x", "-k", str(zpath), str(work)], capture_output=True, timeout=600)
+        if r.returncode != 0:
+            raise UpdateError("the update couldn't be unpacked; nothing was changed")
+        app = work / MAC_APP
+        if app.is_symlink() or not app.is_dir():
+            raise UpdateError("the update zip has an unexpected layout; nothing was changed")
+        for need in (MAC_LAUNCHER, f"{MAC_INNER}/app/gigbar_app.py"):
+            if not (app / need).is_file():
+                raise UpdateError(f"the update is missing {need}; nothing was changed")
+        # The bundle is whole and unaltered (who made it is the signed manifest's job, already checked)
+        r = subprocess.run(["/usr/bin/codesign", "--verify", "--deep", "--strict", str(app)],
+                           capture_output=True, timeout=300)
+        if r.returncode != 0:
+            raise UpdateError("the downloaded app's signature doesn't check out; nothing was changed")
+        os.rename(app, staging)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return staging
+
+
 # Copied into the temp folder and run by a copy of the CURRENT (known-good) Python there, so the
 # install folder is free to be renamed once the app exits. Standard library only.
 # Whatever happens, it ends with an install folder in place: the old copy is kept until the new
@@ -273,6 +359,8 @@ def unpack(zpath: Path, staging: Path) -> Path:
 SWAP_PROGRAM = r'''
 import json, os, shutil, subprocess, sys, time
 plan = json.load(open(sys.argv[1], encoding="utf-8"))
+if plan.get("mac"):   # all loaded now: on a Mac this Python's own folder is renamed under it. Never on
+    import errno, select, selectors, signal   # Windows: its temp runtime has no select.pyd (BL #12517 review)
 root, new, old, ready = plan["root"], plan["new"], plan["old"], plan["ready"]
 keep, rollback = plan.get("keep"), bool(plan.get("rollback"))
 bad = root + ".failed"
@@ -280,10 +368,14 @@ log = open(plan["log"], "a", encoding="utf-8")
 def say(m):
     log.write(time.strftime("%Y-%m-%d %H:%M:%S ") + m + "\n"); log.flush()
 def start(folder, *flags):
-    exe = os.path.join(folder, "runtime", "pythonw.exe")
+    mac = plan.get("mac")
+    exe = os.path.join(folder, *(["Contents", "MacOS", "Llano Lights"] if mac else ["runtime", "pythonw.exe"]))
     if not os.path.isfile(exe):
         say("nothing to start at " + folder); return None
     try:
+        if mac:   # the .app's own launcher, which runs its Python on its app
+            return subprocess.Popen([exe, *flags], cwd=folder, close_fds=True, start_new_session=True,
+                                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         nt = os.name == "nt"
         return subprocess.Popen([exe, os.path.join(folder, "app", "gigbar_app.py"), *flags],
                                 cwd=os.path.join(folder, "app"), close_fds=True,
@@ -304,6 +396,18 @@ def failed(m):
     why = why or m
 def close_copy(folder):
     """End every program running from folder's runtime (an old copy hung on its way out)."""
+    if plan.get("mac"):   # every process whose program lies inside the old .app (its Python)
+        inside = os.path.join(folder, "Contents") + os.sep
+        try:
+            ps = subprocess.run(["/bin/ps", "-axo", "pid=,comm="], capture_output=True, text=True, timeout=30).stdout
+            for line in ps.splitlines():
+                pid, _, prog = line.strip().partition(" ")
+                if prog.strip().startswith(inside) and pid.isdigit() and int(pid) != os.getpid():
+                    os.kill(int(pid), signal.SIGKILL)
+                    say("closed the old copy's process " + pid)
+        except Exception as e:
+            say(f"could not close the old copy: {e}")
+        return
     if os.name != "nt":
         return
     exe = (os.path.join(folder, "runtime") + "\\").replace("'", "''")
@@ -323,6 +427,14 @@ def comes_up(proc, flag, seconds):
 def box(text):
     """Windows' own message box (this Python has no ctypes: PowerShell shows it)."""
     say("told him: " + text)
+    if plan.get("mac"):
+        try:
+            subprocess.Popen(["/usr/bin/osascript", "-e", "on run argv", "-e",
+                              "display alert \"Llano Lights\" message (item 1 of argv) as warning", "-e", "end run",
+                              text], close_fds=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as e:
+            say(f"could not show the message: {e}")
+        return
     if os.name != "nt":
         return
     env = dict(os.environ, LLANO_BOX=text)
@@ -345,7 +457,8 @@ def fall_back(folder):
         say("it is still starting; leaving it to finish")
         return
     box("Llano Lights couldn't update to " + plan["version"] + " and didn't reopen on its own.\n\n"
-        "Open Llano Lights from the Start menu. Your layouts and calibration are safe.\n\n"
+        "Open Llano Lights from " + ("Applications" if plan.get("mac") else "the Start menu")
+        + ". Your layouts and calibration are safe.\n\n"
         "What happened is in " + plan["log"])
 # One rule: a swap never deletes a copy that could be the last good one. Only the previous copy
 # after the new one is up (a plain update), and a downloaded copy that failed, are ever removed.
@@ -359,6 +472,27 @@ try:
     if os.path.exists(old): shutil.rmtree(old, ignore_errors=True)   # a dead swap's leftover, never a keep
     if os.path.exists(bad): shutil.rmtree(bad, ignore_errors=True)
     say("waiting for Llano Lights to close")
+    if plan.get("mac") and plan.get("pid"):
+        # A Mac renames a running app's folder without complaint, so "the rename failed" can't say the
+        # old copy is still open (Windows' signal): wait for its process, and close it if it hangs, so
+        # the new copy never meets it holding the lock and the lights box (BL #12517 review).
+        def alive(pid):
+            try:
+                os.kill(pid, 0); return True
+            except ProcessLookupError:
+                return False
+            except OSError:
+                return True
+        hang = min(plan.get("hang_s", 20), plan.get("wait_s", 90))
+        deadline = time.time() + hang
+        while alive(plan["pid"]) and time.time() < deadline:
+            time.sleep(0.25)
+        if alive(plan["pid"]):
+            say("the old copy is still open after " + str(hang) + " s; closing it")
+            close_copy(root)
+            deadline = time.time() + 10
+            while alive(plan["pid"]) and time.time() < deadline:
+                time.sleep(0.25)
     if os.path.exists(root):
         hang = min(plan.get("hang_s", 20), plan.get("wait_s", 90))
         moved = rename(root, old, int(hang * 2))
@@ -368,7 +502,7 @@ try:
             time.sleep(2)
             moved = rename(root, old, int(max(plan.get("wait_s", 90) - hang, 10) * 2))
         if not moved:
-            failed("Windows kept the old copy's files open, so the new version couldn't go in")
+            failed(("the Mac" if plan.get("mac") else "Windows") + " kept the old copy's files open, so the new version couldn't go in")
             fall_back(root); sys.exit(1)
         back = old
     else:
@@ -465,6 +599,8 @@ def stage_swap(root: Path, staging: Path, version: str, wait_s: float = 90.0,
     (Windows lets running exe/dll files be read); a rollback copies the stable copy's instead.
     `keep`: move the replaced copy there instead of deleting it."""
     work = Path(tempfile.mkdtemp(prefix="llano-lights-swap-", dir=scratch_dir(root)))
+    if root.suffix == ".app" and (root / MAC_LAUNCHER).is_file():   # a Mac copy swaps its whole bundle
+        return _stage_swap_mac(work, root, staging, version, wait_s, keep, runtime, rollback)
     rt = runtime or root / "runtime"
     for f in rt.iterdir():
         if f.name in _RUNTIME_FILES or re.fullmatch(r"python3\d+\.(dll|zip)", f.name):
@@ -482,13 +618,30 @@ def stage_swap(root: Path, staging: Path, version: str, wait_s: float = 90.0,
     return [str(exe), str(work / "llano_swap.py"), str(work / "plan.json")]
 
 
+def _stage_swap_mac(work: Path, bundle: Path, staging: Path, version: str, wait_s: float,
+                    keep: Optional[Path], runtime: Optional[Path], rollback: bool) -> list[str]:
+    """The Mac swap: the same program, run by the running copy's own Python in place (a Mac lets a
+    running program's folder be renamed; the program loads every module it needs before it does).
+    It swaps whole .app bundles and starts the new one through its launcher."""
+    py = (runtime or mac_inner(bundle) / "runtime") / "bin" / "python3"
+    (work / "llano_swap.py").write_text(SWAP_PROGRAM, encoding="utf-8")
+    plan = {"root": str(bundle), "new": str(staging), "old": str(bundle) + ".old", "version": version,
+            "wait_s": wait_s, "log": str(update_log(mac_inner(bundle))),
+            "started": str(work / "started"), "ready": str(work / "ready"), "ready_s": 120, "hang_s": 20,
+            "keep": str(keep) if keep else None, "rollback": rollback, "mac": True, "pid": os.getpid()}
+    (work / "plan.json").write_text(json.dumps(plan), encoding="utf-8")
+    # -B: no .pyc written. This Python lives inside the signed bundle, and a cache file added there
+    # breaks the seal of the copy kept for Go back (the launcher sends the app's caches elsewhere).
+    return [str(py), "-B", "-E", "-s", str(work / "llano_swap.py"), str(work / "plan.json")]
+
+
 def launch_swap(cmd: list[str], wait_s: float = 15.0) -> None:
     """Start the swap and wait until it says it is alive; raise UpdateError (and leave the
     app running, nothing changed) if it never does."""
     flags = 0x00000008 | 0x00000200 if os.name == "nt" else 0  # DETACHED_PROCESS | NEW_PROCESS_GROUP
-    started = Path(cmd[2]).parent / "started"
+    started = Path(cmd[-1]).parent / "started"   # the command ends: swap program, plan
     try:
-        proc = subprocess.Popen(cmd, cwd=str(Path(cmd[1]).parent), creationflags=flags, close_fds=True,
+        proc = subprocess.Popen(cmd, cwd=str(Path(cmd[-2]).parent), creationflags=flags, close_fds=True,
                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError as e:
         raise UpdateError(f"the installer couldn't start ({e})") from e
@@ -512,6 +665,9 @@ def prepare(offer: Offer, root: Optional[Path] = None,
     root = root or install_root()
     if not is_installed(root):
         raise UpdateError("this copy isn't an installed Llano Lights folder, so it can't update itself")
+    bundle = app_bundle(root)
+    if bundle is not None:
+        return _prepare_mac(offer, root, bundle, progress)
     parent = root.parent
     zpath = download(offer, parent / f".llano-lights-download" / Path(urllib.parse.urlparse(offer.zip_url).path).name,
                      progress)
@@ -526,20 +682,35 @@ def prepare(offer: Offer, root: Optional[Path] = None,
     return stage_swap(root, staging, offer.version, keep=keep)
 
 
+def _prepare_mac(offer: Offer, root: Path, bundle: Path, progress: Callable[[int, int], None]) -> list[str]:
+    why = mac_update_refusal(bundle)
+    if why:
+        raise UpdateError(why)
+    zpath = download(offer, bundle.parent / ".llano-lights-download" / Path(urllib.parse.urlparse(offer.zip_url).path).name,
+                     progress)
+    try:
+        staging = unpack_mac(zpath, Path(str(bundle) + ".new"))
+    finally:
+        zpath.unlink(missing_ok=True)
+    keep = stable_path(root) if CHANNEL == "stable" and offer.channel == "test" else None
+    return stage_swap(bundle, staging, offer.version, keep=keep)
+
+
 # --- going back to stable (no internet, no working test build needed) ---------------------------
 
 ROLLBACK_NAME = "Llano Lights - go back to stable.cmd"
 
 
 def stable_path(root: Optional[Path] = None) -> Path:
-    root = root or install_root()
-    return Path(str(root) + ".stable")
+    """Beside the install folder; on a Mac beside the .app ("Llano Lights.app.stable")."""
+    return Path(str(swap_root(root)) + ".stable")
 
 
 def stable_copy(root: Optional[Path] = None) -> Optional[Path]:
     """The stable copy kept on disk, or None when there is none (or it is not a whole install)."""
+    root = root or install_root()
     p = stable_path(root)
-    return p if is_installed(p) else None
+    return p if is_installed(mac_inner(p) if app_bundle(root) else p) else None
 
 
 def stage_rollback(root: Optional[Path] = None) -> list[str]:
@@ -548,7 +719,8 @@ def stage_rollback(root: Optional[Path] = None) -> list[str]:
     stable = stable_copy(root)
     if stable is None:
         raise UpdateError("there is no stable copy on this laptop to go back to")
-    return stage_swap(root, stable, "the stable copy", runtime=stable / "runtime", rollback=True)
+    inner = mac_inner(stable) if app_bundle(root) else stable
+    return stage_swap(swap_root(root), stable, "the stable copy", runtime=inner / "runtime", rollback=True)
 
 
 def stop_copy(root: Path) -> None:
@@ -609,11 +781,15 @@ def clean_leftovers(root: Optional[Path] = None) -> None:
     root = root or install_root()
     if not is_installed(root):
         return
-    for p in (Path(str(root) + ".old"), root.parent / ".llano-lights-download"):
-        shutil.rmtree(p, ignore_errors=True)
+    top = swap_root(root)
+    for p in (Path(str(top) + ".old"), Path(str(top) + ".failed") if top != root else None,
+              top.parent / ".llano-lights-download"):
+        if p is not None:
+            shutil.rmtree(p, ignore_errors=True)
     if CHANNEL == "stable":   # back on a stable copy: a kept stable copy is stale, and so is its launcher
         shutil.rmtree(stable_path(root), ignore_errors=True)
-        remove_rollback_launchers(root)
+        if top == root:
+            remove_rollback_launchers(root)
     cutoff = time.time() - 600
     for p in scratch_dir(root).glob("llano-lights-swap-*"):
         try:

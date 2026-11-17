@@ -126,15 +126,50 @@ opening SoundSwitch, and the other way round.
 - A night's cut (Build the night) tags where its original's 0:00 sits, so its 8-bar phrases are
   counted from the original's first beat, not the cut's.
 
-## Cue timeline
+## Cue workspace
 
-The Live screen's Cues tab (a fold on the phone) shows the song Mixxx plays: its sections, his cues
-and a red line where it is. Pause in Mixxx on a note and add a White hit, a Big hit (with strobe), a
-section start, or Bigger / Softer / a color for the section it sits in; nudge a cue by a beat or
-0.1 s. Cues are saved per song (settings `cues`, original-recording seconds), play on the next frame,
-land on the same note in a night's cut, and wait for Speaker sync. Any section cue replaces the
-analysis for that song (Edit these sections copies Llano's in to nudge). Never over a blackout, a held
-look, a scene, a moment, or a cocktail-hour/dinner song. `LLANO_LIGHTS_CUES=0` turns cues off.
+Cues on the Live screen's fold (or Studio's) opens the cue workspace (`/cues`, also on the phone over
+the laptop's Wi-Fi): one song full screen with its waveform, the beats and Llano's parts on top, and
+the show lane by lane underneath (wash, strobe, heads, sticks, laser, derby), worked out by the same
+code the lights run (`cue_workspace.lanes`). Tap the song to set the cursor, drag to mark a stretch,
+then pick a marker: Build starts, Drop, Blackout, White-out, Color flash, Strobe burst, Repeat (a
+stretch played again from earlier, in a new color) or Note to Llano (sent to the Conductor on the
+lights room). Markers snap to the nearest beat (Snap to beat), drag by their flag, nudge a beat with
+the arrow keys (0.1 s with Shift), and Delete removes the picked one. Space plays the song from the
+cursor right there, so he can check a marker by ear without Mixxx; the lanes redraw with each change.
+Back to Llano's parts drops his section markers for that song.
+
+Cues are saved per song (settings `cues`, original-recording seconds, 32 KB at most), play on the
+next frame, land on the same note in a night's cut, and wait for Speaker sync. Any section cue
+replaces the analysis for that song. Never over the Blackout button, a held look, a scene, a moment, or a
+cocktail-hour/dinner song. `LLANO_LIGHTS_CUES=0` turns cues off.
+
+Drops land where the song reaches its full level (`show_script.refine_drops`): the 8-bar phrase count
+can label a loud pre-chorus as the drop (Sorry: 0:39), so each drop moves later, bar by bar, to the
+first bar at full level (Sorry: 1:07.8), and the 8 bars before it are the build. It only ever moves a
+drop later. `LLANO_LIGHTS_DROP_REFINE=0` gives the old labels for songs analysed from then on.
+
+A Big hit is the white-out pad's look held a second (every wash and stick section white, heads open,
+the GigBAR strobes bursting); a hit with a color (`"color": "#rrggbb"`) flashes the whole rig in it.
+
+## Freedom Sticks in sections (48CH)
+
+Set each stick to 48CH on its own menu (MENU until `48CH`, ENTER, then the start address) at 151, 199,
+247 and 295, and name the 48CH channels in the rig block (`settings_contract.STICK_MODES["48ch"]`, with
+those addresses). The sticks then chase and bounce a block in verses, fill bottom to top through a
+build (full on the drop), and go fully white on every hit. If a stick fills top-down, list its sections
+from seg16. 8-CH stays the default. `LLANO_LIGHTS_STICK_FX=0` lights every section as one.
+
+A Big hit is the white-out pad's look held a second (every wash and stick section white, heads open,
+the GigBAR strobes bursting); a hit with a color (`"color": "#rrggbb"`) flashes the whole rig in it.
+
+## Freedom Sticks in sections (48CH)
+
+Set each stick to 48CH on its own menu (MENU until `48CH`, ENTER, then the start address) at 151, 199,
+247 and 295, and name the 48CH channels in the rig block (`settings_contract.STICK_MODES["48ch"]`, with
+those addresses). The sticks then chase and bounce a block in verses, fill bottom to top through a
+build (full on the drop), and go fully white on every hit. If a stick fills top-down, list its sections
+from seg16. 8-CH stays the default. `LLANO_LIGHTS_STICK_FX=0` lights every section as one.
 
 ## Fixture library (any DJ's lights)
 
@@ -153,7 +188,8 @@ His 12 lights run through it: the three files in `fixtures/qlcplus` plus their o
 exactly the bytes the hand-written classes in `rig.py` gave (pinned against frames the released
 1.19.3 and 1.37.0 rendered, `tests/gigbar_lights/test_fixture_profiles.py`). Every fixture in both
 libraries imports (all 1,781 QLC+ files and 653 OFL fixtures, checked 2026-11-17).
-`LLANO_LIGHTS_PROFILES=0` sends the hand-written bytes again; so does a library file that won't load.
+A Freedom Stick's library mode is its 8-CH one; in 48CH its 16 sections' bytes are added beside
+those (Llano BL #12518). `LLANO_LIGHTS_PROFILES=0` sends the hand-written bytes again; so does a library file that won't load.
 
 ## Still to check on real gear
 

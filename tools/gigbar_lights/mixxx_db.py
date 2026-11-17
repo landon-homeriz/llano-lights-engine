@@ -30,8 +30,8 @@ def default_db_path() -> Path:
     if sys.platform == "win32":
         return Path(os.environ.get("LOCALAPPDATA", "")) / "Mixxx" / "mixxxdb.sqlite"
     if sys.platform == "darwin":
-        return (Path.home() / "Library/Containers/org.mixxx.mixxx/Data/Library"
-                / "Application Support/Mixxx/mixxxdb.sqlite")
+        from .macos import mixxx_settings_dir  # noqa: PLC0415
+        return mixxx_settings_dir() / "mixxxdb.sqlite"
     return Path.home() / ".mixxx" / "mixxxdb.sqlite"
 
 

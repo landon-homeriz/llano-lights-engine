@@ -190,13 +190,8 @@ var CSS = [
 ".lls .lls-light.on{border-color:var(--blue);background:#0b1826}",
 ".lls-light i{flex:none;width:8px;height:8px;border-radius:50%;background:#2b3040}.lls-light.touch i{background:var(--amber)}.lls-light.pin i{background:var(--violet)}",
 ".lls-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}",
-/* the cue timeline (Llano PM #23787) */
-".lls-tl svg{display:block;width:100%;border-radius:8px;background:#0b0d13;border:1px solid var(--line);touch-action:manipulation;cursor:pointer}",
-".lls-tl .lls-tlhead{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}.lls-tl .lls-tlhead b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
-".lls-tl .lls-tltime{font:600 13px Consolas,monospace;color:var(--mint)}",
-".lls-tl .lls-tlsel{margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--raise)}",
-".lls-tl .lls-sw{width:26px;height:26px;border-radius:50%;border:2px solid #0008}",
-".lls-tl .lls-tllist button{display:block;width:100%;padding:4px 6px;border-radius:6px;font-size:12px}.lls-tl .lls-tllist button.on{background:var(--raise);color:var(--mint)}",
+/* the Cues fold (Llano PM #23869): a link styled as a button */
+".lls a.lls-btn{display:inline-block;text-decoration:none;color:var(--text)}",
 ".lls .lls-btn{border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;background:var(--panel)}",
 ".lls .lls-btn.on{border-color:var(--amber);color:var(--amber)}",
 /* bottom */
@@ -414,7 +409,7 @@ function mount(host, opts) {
   var FOLD = {};
   if (!wide) {
     var folds = doc.createElement("div"); folds.className = "lls-folds";
-    [["heads", "Moving heads"], ["levels", "Brightness and speed"], ["lights", "Touch a light"], ["timeline", "Cue timeline"]].forEach(function (f) {
+    [["heads", "Moving heads"], ["levels", "Brightness and speed"], ["lights", "Touch a light"], ["timeline", "Cues"]].forEach(function (f) {
       var d = doc.createElement("details"); d.className = "lls-livefold"; d.setAttribute("data-fold", f[0]);
       d.innerHTML = '<summary><span>' + f[1] + '</span><span class="lls-foldnow"></span></summary><div></div>';
       folds.appendChild(d); FOLD[f[0]] = d;
@@ -871,158 +866,28 @@ function mount(host, opts) {
   function syncFinish() { if (tap.phase !== "playing") return; syncStop(); tap.phase = "done"; tap.result = syncMeasure(tap.taps); syncRedraw(); }
   function syncCancel() { syncStop(); tap = {phase: "", n: 0, result: null, taps: [], hi0: 0, ctx: null, endT: null}; syncRedraw(); }
 
-  // --- the cue timeline (Llano PM #23787, asked 2026-11-15: push cues forward and back, pause and
-  // see them, dead simple) -----------------------------------------------------------------------
-  // The song Mixxx plays, as the lights know it (Show.timeline): its sections, his cues and where it is.
-  // He plays and pauses in Mixxx; here he drops a cue where it stands and nudges it. Cues are saved
-  // in the settings (`cues`, by song) in the original recording's seconds, so they land on the same
-  // note in a night's cut; the time shown is Mixxx's (original + zero). An edit reaches the lights on
-  // their next frame, on every screen, through the same change path as every saved setting.
-  var TL_KINDS = [["intro", "Intro"], ["verse", "Verse"], ["build", "Build"], ["drop", "Drop"], ["main", "Main"], ["breakdown", "Breakdown"], ["outro", "Outro"]];
-  var TL_KIND_COLOR = {intro: "#2a3550", verse: "#24425a", build: "#5a4a1c", drop: "#6a2440", main: "#5a2a52", breakdown: "#1f3a3a", outro: "#2a2f40"};
-  var TL_ZOOM_S = 6;   // the close-up shows this many seconds each side of the playhead
-  var tlSel = -1, tlSelKey = "", tlMine = null, tlMineAt = 0, tlWhy = "";
-  var TL_DOS = ["hit", "section", "feel"];   // the laptop's order for cues at one instant (settings_contract.song_cues)
-  function tlSort(list) { return list.slice().sort(function (a, b) { return a.at - b.at || TL_DOS.indexOf(a.do) - TL_DOS.indexOf(b.do); }); }
-  function tlHere(tl) {   // where the song is now: a playing song has moved on since the laptop said
-    if (tl.secs == null) return null;
-    var lv = S && S.live, ago = tl.playing && lv && typeof lv.at === "number" ? Date.now() / 1000 - lv.at : 0;
-    return tl.secs + Math.max(0, Math.min(1, ago));
-  }   // the cue picked; his last edit, shown until the laptop has it
+  // --- Cues: the way into the cue workspace (Llano PM #23869). His words 2026-11-17: the Cue timeline here
+  // was "pointless, too small, not editable, I can't see it on the screen. This really needs its own dedicated
+  // workspace to adjust cues." The workspace (/cues, cues.html) is that: the whole song, its parts, the show
+  // lane by lane and his markers. This fold only says which song is playing and opens it there.
   function tlData() { return S && S.live && S.live.timeline; }
-  function tlCues(tl) { return tlMine && tlMine.key === tl.key && Date.now() - tlMineAt < 3000 ? tlMine.cues : (tl.cues || []); }
-  function tlClock(s) { var neg = s < 0; s = Math.abs(s); var m = Math.floor(s / 60), r = s - 60 * m; return (neg ? "-" : "") + m + ":" + (r < 10 ? "0" : "") + r.toFixed(1); }
-  function tlName(c) {
-    if (c.do === "hit") return c.size === 2 ? "Big hit" : "White hit";
-    if (c.do === "section") return (TL_KINDS.filter(function (k) { return k[0] === c.kind; })[0] || ["", c.kind])[1] + " starts";
-    var col = COLORS.filter(function (x) { return x[0] === c.color; })[0];
-    return [c.feel === "bigger" ? "Bigger" : c.feel === "softer" ? "Softer" : "", col ? col[1] : ""].filter(Boolean).join(", ");
-  }
-  function tlSave(tl, list, sel) {
-    list = tlSort(list);
-    tlMine = {key: tl.key, cues: list}; tlMineAt = Date.now();
-    tlSel = sel ? list.indexOf(sel) : -1; tlSelKey = tl.key;
-    cache.timeline = ""; drawTimeline();
-    change([{path: "cues." + tl.key, value: list.length ? list : null}]);
-  }
-  function tlAct(a, e) {
-    var tl = tlData(); if (!tl) return;
-    var list = tlCues(tl).map(function (c) { return Object.assign({}, c); }), here = tlHere(tl), c;
-    if (tlSelKey !== tl.key) tlSel = -1;
-    if (a.pick != null) { tlSel = tlSel === a.pick ? -1 : a.pick; tlSelKey = tl.key; cache.timeline = ""; drawTimeline(); return; }
-    if (a.at === "bar") {   // a tap on the picture: pick the nearest cue to it
-      var svg = e.target.closest("svg"), box = svg.getBoundingClientRect(), x = (e.clientX - box.left) / box.width;
-      var t0 = +svg.getAttribute("data-t0"), t1 = +svg.getAttribute("data-t1"), at = t0 + x * (t1 - t0), best = -1, gap = (t1 - t0) * 0.04;
-      list.forEach(function (q, i) { var d = Math.abs(q.at - at); if (d < gap) { gap = d; best = i; } });
-      tlSel = best; tlSelKey = tl.key; cache.timeline = ""; drawTimeline(); return;
-    }
-    if (a.add) {
-      if (here == null) { toast("Play the song in Mixxx first: the cue goes where it is."); return; }
-      c = Object.assign({at: Math.round(here * 100) / 100, do: a.add}, a.with || {});
-      if (list.length >= 48) { toast("A song holds 48 cues. Remove one first."); return; }
-      list.push(c);
-      var mine = list.some(function (q) { return q !== c && q.do === "section"; });
-      if (a.add === "section" && !mine) {   // his first section: the ones Llano found come with it, to nudge;
-        // the one he just placed moves Llano's nearest of its kind (within 8 s) rather than adding a second
-        var near = null;
-        (tl.sections || []).forEach(function (sx) { if (sx.kind === c.kind && Math.abs(sx.start - c.at) < 8 && (!near || Math.abs(sx.start - c.at) < Math.abs(near.start - c.at))) near = sx; });
-        (tl.sections || []).forEach(function (sx) { if (sx !== near && Math.abs(sx.start - c.at) > 0.5) list.push({at: Math.max(0, sx.start), do: "section", kind: sx.kind}); });
-        toast("Your sections now replace Llano's. Llano's are copied in so you can nudge them.", 6000);
-      }
-      if (list.length > 48) { toast("That would be more than 48 cues on this song. Remove some first."); return; }
-      tlSave(tl, list, c); return;
-    }
-    if (a.copy) {   // Edit these sections: Llano's, as his to nudge
-      (tl.sections || []).forEach(function (sx) { list.push({at: Math.max(0, sx.start), do: "section", kind: sx.kind}); });
-      if (list.length > 48) { toast("Llano's sections would take this song past 48 cues. Remove some first."); return; }
-      tlSave(tl, list, null); toast("Llano's sections are yours now: pick one and nudge it.", 5000); return;
-    }
-    if (a.clearSecs) { tlSave(tl, list.filter(function (q) { return q.do !== "section"; }), null); toast("Back to Llano's sections.", 4000); return; }
-    c = list[tlSel]; if (!c) return;
-    if (a.nudge) c.at = Math.max(0, Math.round((c.at + a.nudge * (a.beats ? tl.beat_s : 1)) * 100) / 100);
-    else if (a.to === "here") { if (here == null) return; c.at = Math.round(here * 100) / 100; }
-    else if (a.del) { list.splice(tlSel, 1); tlSave(tl, list, null); return; }
-    else if (a.set) Object.assign(c, a.set);
-    tlSave(tl, list, c);
-  }
-  // an edit needs the change path (T.change); without it the button stays, grayed with the reason (tlWhy)
-  function tlBtn(a, label, extra) { return gate('<button class="lls-btn" data-tl="' + esc(JSON.stringify(a)) + '"' + (extra || "") + '>' + label + '</button>', tlWhy); }
-  function tlPicture(tl, list, t0, t1, h, big) {
-    var W = 1000, x = function (t) { return ((t - t0) / (t1 - t0)) * W; }, out = [];
-    (tl.sections || []).forEach(function (sx) {
-      if (sx.end < t0 || sx.start > t1) return;
-      var a = Math.max(0, x(sx.start)), b = Math.min(W, x(sx.end));
-      out.push('<rect x="' + a.toFixed(1) + '" y="0" width="' + Math.max(1, b - a).toFixed(1) + '" height="' + h + '" fill="' + (TL_KIND_COLOR[sx.kind] || "#222") + '"/>');
-    });
-    if (big && tl.beat_s > 0.2) {   // beat ticks, so a nudge of one beat reads
-      var b0 = tl.beat0 || 0, first = Math.ceil((t0 - b0) / tl.beat_s);
-      for (var k = first; b0 + k * tl.beat_s <= t1; k++) { var bx = x(b0 + k * tl.beat_s).toFixed(1); out.push('<line x1="' + bx + '" x2="' + bx + '" y1="' + (h - (k % 4 ? 6 : 12)) + '" y2="' + h + '" stroke="#ffffff' + (k % 4 ? "33" : "77") + '"/>'); }
-    }
-    list.forEach(function (c, i) {
-      if (c.at < t0 || c.at > t1) return;
-      var cx = x(c.at).toFixed(1), on = i === tlSel, col = c.do === "hit" ? "#ffffff" : c.do === "section" ? "#7cf0c8" : (c.color || (c.feel === "softer" ? "#6cb8ff" : "#ffb454"));
-      out.push('<line x1="' + cx + '" x2="' + cx + '" y1="' + (c.do === "hit" ? 0 : 14) + '" y2="' + h + '" stroke="' + col + '" stroke-width="' + (on ? 5 : c.size === 2 ? 4 : 2.5) + '"/>');
-      if (on) out.push('<circle cx="' + cx + '" cy="' + (h - 6) + '" r="6" fill="' + col + '"/>');
-    });
-    out.push('<line class="lls-ph" x1="-9" x2="-9" y1="0" y2="' + h + '" stroke="#ff6b6b" stroke-width="3"/>');
-    return '<svg viewBox="0 0 ' + W + ' ' + h + '" preserveAspectRatio="none" style="height:' + h + 'px" data-t0="' + t0 + '" data-t1="' + t1 + '" data-tl="' + esc(JSON.stringify({at: "bar"})) + '">' + out.join("") + '</svg>';
+  function cuesUrl(tl) {
+    if (typeof opts.cuesUrl !== "function") return "";
+    var q = tl && tl.title_only ? "?artist=" + encodeURIComponent(tl.artist || "") + "&title=" + encodeURIComponent(tl.title_only) +
+      (tl.track_id ? "&track_id=" + encodeURIComponent(tl.track_id) : "") : "";
+    return opts.cuesUrl(q);
   }
   function drawTimeline() {
     if (!P.timeline) return;
-    var tl = tlData();
-    tlWhy = T.change ? "" : (caps().cues || "Add and move cues on the laptop, or on the phone over the laptop's Wi-Fi.");
-    if (!tl) {
-      cache.timelineKey = "";
-      put("timeline", P.timeline, '<h3>Cue timeline</h3><p class="lls-note">Play a song in Mixxx with the live show on: its timeline shows here. ' +
-        'Pause where you want a white hit or a change, and add it. Every cue plays on the same note in the night\'s cut.</p>');
-      return;
-    }
-    var list = tlCues(tl), z = tl.zero || 0, here = tlHere(tl), len = tl.length || 0;
-    if (tlSelKey !== tl.key || tlSel >= list.length) tlSel = -1;
-    var t0 = -z, t1 = (len || Math.max(here || 0, 60)) - z;   // the whole file, in the original's seconds
-    // the close-up pages along in 10 s steps, so the panel is rebuilt only when something he sees
-    // changes (a rebuild under a finger swallows the tap); the red line and the clock move in place
-    var page = here == null ? 0 : Math.floor((here + 1) / 10), c0 = page * 10 - 1 - 2, c1 = c0 + 2 * TL_ZOOM_S + 2;
-    var key = JSON.stringify([tl.key, page, here == null, tl.playing, list, tl.sections, tlSel, tl.mine, tlWhy, len, z]);
-    if (cache.timelineKey === key) { tlMove(here, z); return; }
+    var tl = tlData(), url = cuesUrl(tl), n = tl ? (tl.cues || []).length : 0;
+    var key = JSON.stringify([tl && tl.key, tl && tl.title, n, url]);
+    if (cache.timelineKey === key) return;
     cache.timelineKey = key;
-    var sel = list[tlSel], h = '<div class="lls-tlhead"><b title="' + esc(tl.title) + '">' + esc(tl.title) + '</b><span class="lls-tltime">--</span><span class="lls-note">' + (tl.playing ? "playing" : "paused") + '</span></div>';
-    h += tlPicture(tl, list, t0, t1, 34, false);
-    h += '<div style="height:6px"></div>' + tlPicture(tl, list, c0, c1, 56, true);
-    var cur = null, nxt = null;
-    (tl.sections || []).forEach(function (sx) { if (here != null && sx.start <= here && here < sx.end) cur = sx; else if (here != null && sx.start > here && !nxt) nxt = sx; });
-    var kn = function (k) { return (TL_KINDS.filter(function (x) { return x[0] === k; })[0] || ["", k])[1]; };
-    h += '<p class="lls-note" style="margin-top:4px">' + (cur ? "Now: <b>" + esc(kn(cur.kind)) + "</b>" : "") + (nxt ? (cur ? " &middot; " : "") + esc(kn(nxt.kind)) + " at " + tlClock(nxt.start + z) : "") +
-      (cur || nxt ? "<br>" : "") + 'Play and pause in Mixxx; the red line is where the song is. Times are Mixxx\'s.</p>';
-    if (sel) {
-      h += '<div class="lls-tlsel"><div class="lls-row"><span><b>' + esc(tlName(sel)) + '</b> at ' + tlClock(sel.at + z) + '</span></div><div class="lls-btns" style="margin-top:0">' +
-        tlBtn({nudge: -1, beats: 1}, "&minus; 1 beat") + tlBtn({nudge: -0.1}, "&minus; 0.1 s") + tlBtn({nudge: 0.1}, "+ 0.1 s") + tlBtn({nudge: 1, beats: 1}, "+ 1 beat") +
-        tlBtn({to: "here"}, "Move to the red line", here == null ? " disabled" : "") + tlBtn({del: 1}, "Remove") + '</div>';
-      if (sel.do === "hit") h += '<div class="lls-btns">' + tlBtn({set: {size: 1}}, "White hit", sel.size !== 2 ? ' style="outline:1px solid var(--mint)"' : "") + tlBtn({set: {size: 2}}, "Big hit (with strobe)", sel.size === 2 ? ' style="outline:1px solid var(--mint)"' : "") + '</div>';
-      if (sel.do === "section") h += '<div class="lls-btns">' + TL_KINDS.map(function (k) { return tlBtn({set: {kind: k[0]}}, k[1], sel.kind === k[0] ? ' style="outline:1px solid var(--mint)"' : ""); }).join("") + '</div>';
-      h += '</div>';
-    }
-    var off = here == null ? " disabled" : "";
-    h += '<h3 style="margin-top:12px">Add at the red line</h3><div class="lls-btns" style="margin-top:0">' +
-      tlBtn({add: "hit", with: {size: 1}}, "White hit", off) + tlBtn({add: "hit", with: {size: 2}}, "Big hit", off) +
-      tlBtn({add: "feel", with: {feel: "bigger", color: ""}}, "Bigger (this section)", off) + tlBtn({add: "feel", with: {feel: "softer", color: ""}}, "Softer (this section)", off) + '</div>' +
-      '<div class="lls-btns">' + COLORS.filter(function (x) { return x[0]; }).map(function (x) {
-        return gate('<button class="lls-sw" title="' + esc(x[1]) + ' for this section" style="background:' + x[0] + '" data-tl="' + esc(JSON.stringify({add: "feel", with: {feel: "", color: x[0]}})) + '"' + off + '></button>', tlWhy); }).join("") + '</div>' +
-      '<p class="lls-note" style="margin-top:4px">Bigger, Softer and a color play for the whole section they sit in.</p>' +
-      '<h3 style="margin-top:12px">A section starts at the red line</h3><div class="lls-btns" style="margin-top:0">' + TL_KINDS.map(function (k) { return tlBtn({add: "section", with: {kind: k[0]}}, k[1], off); }).join("") + '</div>' +
-      '<div class="lls-btns">' + (list.some(function (q) { return q.do === "section"; }) ? tlBtn({clearSecs: 1}, "Back to Llano's sections") : tlBtn({copy: 1}, "Edit these sections", (tl.sections || []).length ? "" : " disabled")) + '</div>';
-    if (list.length) h += '<h3 style="margin-top:12px">This song\'s cues</h3><div class="lls-tllist">' + list.map(function (c, i) {
-      return '<button class="' + (i === tlSel ? "on" : "") + '" data-tl="' + esc(JSON.stringify({pick: i})) + '">' + tlClock(c.at + z) + ' &middot; ' + esc(tlName(c)) + '</button>'; }).join("") + '</div>';
-    put("timeline", P.timeline, h);
-    tlMove(here, z);
-  }
-  function tlMove(here, z) {   // the red line and the clock, moved in place (no rebuild)
-    var tm = P.timeline.querySelector(".lls-tltime"); if (tm) text(tm, here == null ? "--" : tlClock(here + z));
-    Array.prototype.forEach.call(P.timeline.querySelectorAll("svg"), function (g) {
-      var a = +g.getAttribute("data-t0"), b = +g.getAttribute("data-t1"), ln = g.querySelector(".lls-ph");
-      var px = here == null || here < a || here > b ? -9 : ((here - a) / (b - a)) * 1000;
-      if (ln) { ln.setAttribute("x1", px.toFixed(1)); ln.setAttribute("x2", px.toFixed(1)); }
-    });
+    put("timeline", P.timeline, '<h3>Cues</h3><p class="lls-note">Drops, builds, blackouts, white-outs, color flashes, strobe bursts and notes to Llano, ' +
+      'placed on a big picture of the song with what every light will do under it. The song plays right there, no Mixxx needed.</p>' +
+      (tl ? '<p class="lls-note" style="margin-top:6px">Playing: <b>' + esc(tl.title) + '</b>' + (n ? " &middot; " + n + " marker" + (n === 1 ? "" : "s") : "") + '</p>' : "") +
+      (url ? '<div class="lls-btns"><a class="lls-btn" href="' + esc(url) + '">Open the cue workspace' + (tl ? " on this song" : "") + '</a></div>'
+        : '<p class="why" style="margin-top:8px">' + esc(caps().cues || "Open the cue workspace on the laptop, or on the phone over the laptop's Wi-Fi.") + '</p>'));
   }
 
   function drawSpot() {
@@ -1461,7 +1326,6 @@ function mount(host, opts) {
     if ((n = t.closest("[data-light]"))) { light = light === n.getAttribute("data-light") ? "" : n.getAttribute("data-light"); draw(); return; }
     if ((n = t.closest("[data-hit]"))) { if (caps().hits === "latch") { var nm2 = n.getAttribute("data-hit"); waitOn(n); send({op: "hit", name: nm2, on: st().hits.indexOf(nm2) < 0}); } return; }
     if ((n = t.closest("[data-act]"))) { if (/^(next|run)$/.test(n.getAttribute("data-act"))) waitOn(n);   /* never STOP: it must always take a press */ act(n.getAttribute("data-act"), n); return; }
-    if ((n = t.closest("[data-tl]"))) { if (!n.disabled) tlAct(JSON.parse(n.getAttribute("data-tl")), e); return; }
     if ((n = t.closest("[data-ops]"))) {
       if (n.disabled) return;
       var ops = JSON.parse(n.getAttribute("data-ops"));

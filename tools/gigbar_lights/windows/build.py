@@ -31,7 +31,7 @@ for whl in sorted((PARTS / "wheels").glob("*.whl")):
     "python312.zip\r\n.\r\nLib\\site-packages\r\n..\\app\r\n")
 app = OUT / "app"
 shutil.copytree(REPO / "tools" / "gigbar_lights", app / "tools" / "gigbar_lights",
-                ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "windows"))  # windows/ = this builder + its out/
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "windows", "mac"))  # windows/, mac/ = the builders + their out/
 for f in app_files(W / "src"):
     shutil.copy2(f, app / f.name)
 # gigbar_app.py serves these as /favicon.ico and /icons/*.png: the window's title bar and taskbar icon

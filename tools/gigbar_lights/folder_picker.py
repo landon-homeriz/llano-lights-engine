@@ -22,6 +22,8 @@ import sys
 import threading
 from pathlib import Path
 
+from . import macos
+
 WAIT_S = 15 * 60          # he may browse for a while; a picker left open is given up on after this
 _one = threading.Lock()   # one picker at a time: a second press is answered, never a second window
 
@@ -95,6 +97,10 @@ def _on_windows() -> bool:
     return sys.platform == "win32"
 
 
+def _on_mac() -> bool:
+    return sys.platform == "darwin"   # the Mac's own Choose Folder dialog (macos.py, Llano BL #12517)
+
+
 def _powershell() -> str:
     return str(Path(os.environ.get("SystemRoot") or r"C:\Windows") / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe")
 
@@ -123,13 +129,16 @@ def clean(path: str) -> str:
 
 def pick(title: str = "Choose the folder your songs are in", start: str = "") -> tuple[str, str]:
     """(the folder he chose, "") | ("", "") when he cancelled | ("", why) when no picker could open."""
-    if not _on_windows():
-        return "", "The folder picker only works on Windows. Paste the folder's path instead."
+    if not _on_windows() and not _on_mac():
+        return "", "The folder picker only works on Windows and Mac. Paste the folder's path instead."
     if not _one.acquire(blocking=False):
         return "", "The folder picker is already open. Look for it on the taskbar."
     try:
         start = clean(start)
         start = start if start and Path(start).is_dir() else ""
+        if _on_mac():
+            path, why = macos.pick(macos.PICK_FOLDER, title, start)
+            return (path if path and Path(path).is_dir() else ""), why
         last = ""
         for script in (MODERN, CLASSIC):
             try:
@@ -170,13 +179,16 @@ if ($r -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($d.Fi
 
 def pick_file(title: str = "Choose the song", start: str = "") -> tuple[str, str]:
     """(the file he chose, "") | ("", "") when he cancelled | ("", why) when no picker could open."""
-    if not _on_windows():
-        return "", "The file picker only works on Windows. Paste the song file's path instead."
+    if not _on_windows() and not _on_mac():
+        return "", "The file picker only works on Windows and Mac. Paste the song file's path instead."
     if not _one.acquire(blocking=False):
         return "", "A picker is already open. Look for it on the taskbar."
     try:
         start = clean(start)
         start = start if start and Path(start).is_dir() else str(Path.home() / "Music")
+        if _on_mac():
+            path, why = macos.pick(macos.PICK_FILE, title, start)
+            return (path if path and Path(path).is_file() else ""), why
         try:
             code, out, err = _run(FILE, title[:120], start)
         except subprocess.TimeoutExpired:

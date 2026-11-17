@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="llano-token" content="__LLANO_TOKEN__">
+<title>__LLANO_TITLE__ · Cues</title>
+<link rel="icon" href="/favicon.ico">
+<!-- The cue workspace (Llano PM #23869). His words 2026-11-17: the Cue timeline tab was "pointless, too small,
+     not editable, I can't see it on the screen. This really needs its own dedicated workspace to adjust cues."
+     One song, full screen: its waveform with the beats and parts, the show lane by lane (worked out by the
+     same code the lights run, cue_workspace.lanes), and his markers to drop, drag, delete and play from. -->
+<style>
+  :root { --bg:#07080b; --panel:#0f1117; --raise:#161924; --line:#232734; --text:#e8eaf0; --dim:#8a90a2; --faint:#5f6577;
+          --accent:#7cf0c8; --warn:#ffb454; --bad:#ff6b6b; }
+  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 "Segoe UI", system-ui, sans-serif;
+         display:flex; flex-direction:column; overflow:hidden; -webkit-tap-highlight-color:transparent; }
+  button, select, input, textarea { font:inherit; color:var(--text); }
+  button { background:var(--raise); border:1px solid var(--line); border-radius:8px; padding:7px 12px; cursor:pointer; touch-action:manipulation; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.4; cursor:default; }
+  button.on { border-color:var(--accent); color:var(--accent); background:#0d1a16; }
+  button.primary { background:var(--accent); color:#06120d; border-color:var(--accent); font-weight:600; }
+  button.danger { color:var(--bad); }
+  input, select, textarea { background:var(--bg); border:1px solid var(--line); border-radius:7px; padding:6px 8px; min-width:0; }
+  textarea { width:100%; resize:vertical; min-height:58px; }
+  header { display:flex; align-items:center; gap:12px; padding:8px 14px; border-bottom:1px solid var(--line); flex:none; flex-wrap:wrap; }
+  header a { color:var(--dim); text-decoration:none; white-space:nowrap; } header a:hover { color:var(--accent); }
+  header h1 { font-size:16px; margin:0; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  header .meta { color:var(--dim); font-size:12.5px; white-space:nowrap; }
+  header select { max-width:340px; }
+  .grow { flex:1; }
+  #msg { color:var(--warn); font-size:13px; padding:0 14px; min-height:0; }
+  #msg:not(:empty) { padding:6px 14px; border-bottom:1px solid var(--line); }
+  .bar { display:flex; align-items:center; gap:8px; padding:8px 14px; flex:none; flex-wrap:wrap; border-bottom:1px solid var(--line); }
+  .clock { font:600 18px Consolas, monospace; min-width:92px; }
+  .sep { width:1px; height:24px; background:var(--line); margin:0 4px; }
+  .hint { color:var(--dim); font-size:12.5px; }
+  #stagewrap { flex:1; min-height:280px; position:relative; }
+  #cv { position:absolute; inset:0; width:100%; height:100%; touch-action:none; cursor:crosshair; display:block; }
+  #ov { width:100%; height:34px; display:block; touch-action:none; cursor:grab; border-top:1px solid var(--line); border-bottom:1px solid var(--line); flex:none; }
+  #dock { flex:none; display:grid; grid-template-columns:minmax(0, 1.25fr) minmax(0, 1fr); gap:0; border-top:1px solid var(--line); max-height:42vh; overflow-y:auto; }
+  #dock > div { padding:10px 14px; min-width:0; }
+  #dock > div + div { border-left:1px solid var(--line); }
+  h2 { font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); margin:0 0 8px; font-weight:600; }
+  .types { display:flex; flex-wrap:wrap; gap:6px; }
+  .types button { display:flex; align-items:center; gap:7px; }
+  .types i { width:10px; height:10px; border-radius:3px; display:inline-block; flex:none; }
+  .swatches { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; align-items:center; }
+  .sw { width:30px; height:30px; padding:0; border-radius:50%; border:2px solid var(--line); }
+  .sw.on { border-color:#fff; box-shadow:0 0 0 2px var(--accent); }
+  .row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+  .sel h3 { margin:0; font-size:15px; }
+  .list { margin-top:10px; display:flex; flex-direction:column; gap:3px; max-height:160px; overflow-y:auto; }
+  .list button { text-align:left; padding:4px 8px; background:transparent; border-color:transparent; display:flex; gap:8px; }
+  .list button.on { border-color:var(--accent); }
+  .list button span:first-child { font-family:Consolas, monospace; color:var(--dim); min-width:58px; }
+  #empty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:30px; color:var(--dim); }
+  #busy { position:absolute; right:14px; top:8px; font-size:12px; color:var(--dim); background:var(--panel); padding:3px 8px; border-radius:6px; border:1px solid var(--line); }
+  kbd { font:11px Consolas, monospace; border:1px solid var(--line); border-radius:4px; padding:0 4px; color:var(--dim); }
+  @media (max-width:820px) {
+    header { gap:8px; padding:6px 10px; } header select { max-width:100%; flex:1 1 100%; order:5; }
+    .bar { padding:6px 10px; gap:6px; } .bar .wide { display:none; }
+    #dock { grid-template-columns:1fr; max-height:38vh; }
+    #dock > div + div { border-left:0; border-top:1px solid var(--line); }
+    button { padding:9px 12px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a href="/" id="back">&larr; Live</a>
+  <h1 id="title">Cue workspace</h1>
+  <span class="meta" id="meta"></span>
+  <span class="grow"></span>
+  <select id="pick" aria-label="Song"><option value="">Pick a song&hellip;</option></select>
+</header>
+<div id="msg" role="status"></div>
+<div class="bar">
+  <button id="play" class="primary" title="Play from the cursor (Space)">&#9654; Play</button>
+  <span class="clock" id="clock">0:00.0</span>
+  <span class="hint wide" id="cursorAt"></span>
+  <span class="sep"></span>
+  <button id="zout" title="Zoom out (-)">&minus;</button>
+  <button id="zfit" title="The whole song">Whole song</button>
+  <button id="zin" title="Zoom in (+)">+</button>
+  <span class="sep"></span>
+  <button id="snap" class="on" title="Markers land on the nearest beat">Snap to beat: on</button>
+  <span class="grow"></span>
+  <span class="hint wide">Tap the song to set the cursor, drag to mark a stretch, then pick a marker below. <kbd>Space</kbd> plays.</span>
+</div>
+<div id="stagewrap"><canvas id="cv"></canvas><div id="empty">Pick a song above. It plays right here, no Mixxx needed.</div><div id="busy" hidden></div></div>
+<canvas id="ov" title="The whole song: drag to move along it"></canvas>
+<div id="dock">
+  <div>
+    <h2 id="addHead">Add at the cursor</h2>
+    <div class="types" id="types"></div>
+    <div class="swatches" id="swatches"></div>
+    <p class="hint" id="addHint" style="margin:8px 0 0"></p>
+  </div>
+  <div>
+    <div class="sel" id="sel"></div>
+    <h2 style="margin-top:12px">This song's markers</h2>
+    <div class="list" id="list"></div>
+  </div>
+</div>
+<audio id="audio" preload="auto"></audio>
+<script>
+"use strict";
+// --- where this page talks to: the laptop's own window (token), or the phone over the laptop's Wi-Fi (key) ---
+const TOKEN = (document.querySelector('meta[name="llano-token"]') || {}).content || "";
+const WINDOW = TOKEN && TOKEN.indexOf("__LLANO") !== 0;
+let KEY = "";
+try { KEY = new URLSearchParams(location.hash.slice(1)).get("k") || localStorage.getItem("llano-local-key") || ""; } catch (e) { KEY = ""; }
+async function call(path, body) {
+  const headers = {"Content-Type": "application/json"};
+  if (WINDOW) headers["X-Llano-Token"] = TOKEN; else headers["X-Llano-Key"] = KEY;
+  let r, j = {};
+  try {
+    r = await fetch(path, {method: body ? "POST" : "GET", headers, body: body ? JSON.stringify(body) : undefined, cache: "no-store"});
+    j = await r.json().catch(() => ({}));
+  } catch (e) { return {ok: false, error: "Llano Lights on the laptop is not answering."}; }
+  return r.ok ? {ok: true, ...j} : {...j, ok: false, error: j.error || ("The laptop said " + r.status + ".")};
+}
+const audioUrl = (u) => WINDOW ? u : u + "?k=" + encodeURIComponent(KEY);
+
+// --- what he can drop (settings_contract.cue; the color flash and white-out are hits, BL #12518) ---------------
+const COLORS = [["#ff3030", "Red"], ["#ff9020", "Orange"], ["#ffe030", "Yellow"], ["#30ff60", "Green"], ["#40c8ff", "Light blue"],
+                ["#2040ff", "Blue"], ["#a040ff", "Purple"], ["#ff40c0", "Pink"], ["#ffffff", "White"]];
+const TYPES = [
+  {id: "build", label: "Build starts", tint: "#e9a23b"},
+  {id: "drop", label: "Drop", tint: "#ff4d8d"},
+  {id: "blackout", label: "Blackout", tint: "#3a3f4f", range: true, beats: 1},
+  {id: "whiteout", label: "White-out", tint: "#ffffff"},
+  {id: "flash", label: "Color flash", tint: "#ff40c0", color: true},
+  {id: "strobe", label: "Strobe burst", tint: "#d8e4ff", range: true, beats: 4},
+  {id: "repeat", label: "Repeat, new color", tint: "#7cf0c8", range: true, beats: 16, color: true},
+  {id: "note", label: "Note to Llano", tint: "#ffb454", range: true, beats: 4},
+];
+const KINDS = [["intro", "Intro"], ["verse", "Verse"], ["build", "Build"], ["drop", "Drop"], ["main", "Main"], ["breakdown", "Breakdown"], ["outro", "Outro"]];
+const KIND_COLOR = {intro: "#3d5a80", verse: "#2a9d8f", build: "#e9a23b", drop: "#ff4d8d", main: "#d6336c", breakdown: "#7b5cd6", outro: "#34495e"};
+const DOS = ["hit", "section", "feel", "drop", "blackout", "strobe", "repeat", "note"];   // the laptop's order at one instant
+const MAX_CUES = 48;
+const kindName = (k) => (KINDS.find((x) => x[0] === k) || ["", k])[1];
+const colorName = (c) => (COLORS.find((x) => x[0] === c) || ["", c || ""])[1];
+
+function typeOf(c) {
+  if (c.do === "section") return c.kind === "build" ? "build" : c.kind === "drop" ? "drop" : "section";
+  if (c.do === "hit") return c.color ? "flash" : c.size === 2 ? "whiteout" : "hit";
+  if (c.do === "drop") return "dropstyle";   // how the drops play (BL #12518), not where one starts
+  return c.do;
+}
+function nameOf(c) {
+  const t = typeOf(c);
+  if (t === "build") return "Build starts";
+  if (t === "drop") return "Drop";
+  if (t === "section") return kindName(c.kind) + " starts";
+  if (t === "hit") return "White hit";
+  if (t === "whiteout") return "White-out";
+  if (t === "flash") return "Color flash, " + colorName(c.color);
+  if (t === "blackout") return "Blackout";
+  if (t === "strobe") return "Strobe burst";
+  if (t === "repeat") return "Repeat" + (c.color ? ", " + colorName(c.color) : "");
+  if (t === "note") return "Note: " + (c.text || "");
+  if (t === "dropstyle") return "Drops play " + (c.style || "classic").replace("-", " ");
+  if (c.do === "feel") return [c.feel === "bigger" ? "Bigger" : c.feel === "softer" ? "Softer" : "", c.color ? colorName(c.color) : ""].filter(Boolean).join(", ") + " (this part)";
+  return c.do;
+}
+function tintOf(c) {
+  const t = typeOf(c);
+  if (t === "section") return KIND_COLOR[c.kind] || "#888";
+  if (t === "flash" || (t === "repeat" && c.color)) return c.color;
+  if (c.do === "feel") return c.color || (c.feel === "softer" ? "#6cb8ff" : "#ffb454");
+  if (t === "hit") return "#ffffff";
+  if (t === "dropstyle") return c.color || "#ff4d8d";
+  return (TYPES.find((x) => x.id === t) || {tint: "#aaa"}).tint;
+}
+const ranged = (c) => ["blackout", "strobe", "repeat", "note"].indexOf(c.do) >= 0;
+
+// --- state --------------------------------------------------------------------------------------------------
+const S = {song: null, cues: [], sel: -1, cursor: 0, range: null, t0: 0, pps: 10, snap: true, color: "#ff3030",
+           songs: [], saving: false, lanesBusy: false};
+const $ = (id) => document.getElementById(id);
+const cv = $("cv"), ov = $("ov"), audio = $("audio");
+const clock = (s) => { s = Math.max(0, s || 0); const m = Math.floor(s / 60), r = s - 60 * m; return m + ":" + (r < 10 ? "0" : "") + r.toFixed(1); };
+function msg(t, bad) { $("msg").textContent = t || ""; $("msg").style.color = bad ? "var(--bad)" : "var(--warn)"; if (t && !bad) setTimeout(() => { if ($("msg").textContent === t) $("msg").textContent = ""; }, 6000); }
+const beatS = () => S.song ? 60 / (S.song.bpm || 120) : 0.5;
+
+function snapT(t, force) {
+  const b = S.song && S.song.beats;
+  if (!(S.snap || force) || !b || !b.length) return Math.max(0, Math.round(t * 100) / 100);
+  let lo = 0, hi = b.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (b[m] <= t) lo = m; else hi = m; }
+  return Math.abs(b[lo] - t) <= Math.abs(b[hi] - t) ? b[lo] : b[hi];
+}
+function beatIndex(t) { const b = S.song.beats; let lo = 0; while (lo + 1 < b.length && b[lo + 1] <= t) lo++; return lo; }
+function byBeats(t, n) {   // n beats along from t, on the grid
+  const b = S.song && S.song.beats;
+  if (!b || !b.length) return t + n * beatS();
+  const i = beatIndex(t) + n;
+  return i < 0 ? 0 : i < b.length ? b[i] : b[b.length - 1] + (i - b.length + 1) * beatS();
+}
+
+// --- geometry -----------------------------------------------------------------------------------------------
+let W = 0, H = 0, DPR = 1, touch = false;
+function layout() {
+  const box = cv.getBoundingClientRect();
+  DPR = window.devicePixelRatio || 1; W = box.width; H = box.height;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  const ob = ov.getBoundingClientRect(); ov.width = Math.round(ob.width * DPR); ov.height = Math.round(ob.height * DPR);
+}
+function rows() {
+  const flags = touch ? 30 : 24, secH = 24, laneH = Math.max(17, Math.min(36, Math.floor(H * 0.075)));
+  const lanes = laneH * 6 + 8, wave = Math.max(60, H - secH - flags - lanes);
+  return {secY: 0, secH, flagY: secH, flagH: flags, waveY: secH + flags, waveH: wave, laneY: secH + flags + wave + 8, laneH};
+}
+const xOf = (t) => (t - S.t0) * S.pps;
+const tOf = (x) => S.t0 + x / S.pps;
+function clampView() {
+  if (!S.song) return;
+  const len = S.song.length, minPps = W / Math.max(1, len), maxPps = 400;
+  S.pps = Math.max(minPps, Math.min(maxPps, S.pps));
+  S.t0 = Math.max(0, Math.min(Math.max(0, len - W / S.pps), S.t0));
+}
+function zoom(f, at) {
+  if (!S.song) return;
+  const anchor = at == null ? (audio.paused ? S.cursor : audio.currentTime) : at;
+  const ax = xOf(anchor);
+  S.pps *= f; clampView();
+  S.t0 = anchor - (ax >= 0 && ax <= W ? ax : W / 2) / S.pps; clampView(); draw();
+}
+function fit() { if (!S.song) return; S.pps = W / S.song.length; S.t0 = 0; clampView(); draw(); }
+
+// --- drawing ------------------------------------------------------------------------------------------------
+function draw() {
+  const g = cv.getContext("2d");
+  g.setTransform(DPR, 0, 0, DPR, 0, 0);
+  g.fillStyle = "#07080b"; g.fillRect(0, 0, W, H);
+  if (!S.song) { drawOv(); return; }
+  const R = rows(), song = S.song, t1 = tOf(W);
+  // the parts in force, labeled (his, else Llano's)
+  (song.sections || []).forEach((s) => {
+    if (s.end < S.t0 || s.start > t1) return;
+    const a = Math.max(0, xOf(s.start)), b = Math.min(W, xOf(s.end));
+    g.fillStyle = KIND_COLOR[s.kind] || "#333"; g.globalAlpha = 0.85; g.fillRect(a, R.secY + 2, Math.max(1, b - a - 1), R.secH - 4);
+    g.globalAlpha = 0.10; g.fillRect(a, R.waveY, Math.max(1, b - a), R.waveH); g.globalAlpha = 1;
+    if (b - a > 34) { g.fillStyle = "#fff"; g.font = "600 12px Segoe UI, system-ui"; g.fillText(kindName(s.kind) + (song.mine ? "" : ""), a + 6, R.secY + 16); }
+  });
+  // the waveform: the loudest sample per column, the loudness inside it
+  const pk = song.peaks, ld = song.loud, per = song.peaks_per_s, mid = R.waveY + R.waveH / 2, half = R.waveH / 2 - 4;
+  for (let x = 0; x < W; x++) {
+    const i0 = Math.floor(tOf(x) * per), i1 = Math.max(i0 + 1, Math.floor(tOf(x + 1) * per));
+    let p = 0, l = 0;
+    for (let i = Math.max(0, i0); i < Math.min(pk.length, i1); i++) { if (pk[i] > p) p = pk[i]; if (ld[i] > l) l = ld[i]; }
+    if (!p) continue;
+    const hp = (p / 255) * half, hl = (l / 255) * half;
+    g.fillStyle = "#2f6f86"; g.fillRect(x, mid - hp, 1, hp * 2);
+    g.fillStyle = "#7fd3ee"; g.fillRect(x, mid - hl, 1, hl * 2);
+  }
+  // the beat grid: every beat when they are far enough apart, bars stronger
+  const beats = song.beats || [], bpx = beatS() * S.pps;
+  for (let k = 0; k < beats.length; k++) {
+    const x = xOf(beats[k]); if (x < -1 || x > W + 1) continue;
+    const bar = k % 4 === 0;
+    if (!bar && bpx < 7) continue;
+    if (bar && bpx * 4 < 7) continue;
+    g.fillStyle = bar ? "rgba(255,255,255,.28)" : "rgba(255,255,255,.10)";
+    g.fillRect(Math.round(x), R.waveY, 1, R.waveH + (bar ? 4 : 0));
+    if (bar && bpx * 4 > 38) { g.fillStyle = "#5f6577"; g.font = "10px Consolas, monospace"; g.fillText(String(k / 4 + 1), Math.round(x) + 3, R.waveY + R.waveH - 4); }
+  }
+  // the show, lane by lane
+  const names = song.lane_names || {}, lanes = ["wash", "strobe", "heads", "sticks", "laser", "derby"];
+  lanes.forEach((ln, li) => {
+    const y = R.laneY + li * R.laneH;
+    g.fillStyle = "#0c0e13"; g.fillRect(0, y, W, R.laneH - 2);
+    (song.lanes[ln] || []).forEach((r) => {
+      if (r[1] < S.t0 || r[0] > t1 || r[3] <= 0.02) return;
+      const a = xOf(r[0]), b = xOf(r[1]);
+      g.globalAlpha = 0.25 + 0.75 * r[3]; g.fillStyle = r[2]; g.fillRect(a, y, Math.max(1, b - a), R.laneH - 2);
+    });
+    g.globalAlpha = 1;
+    const label = names[ln] || ln; g.font = "600 11px Segoe UI, system-ui";
+    const w = g.measureText(label).width + 10;
+    g.fillStyle = "rgba(7,8,11,.78)"; g.fillRect(0, y, w, R.laneH - 2); g.fillStyle = "#c9cdd8"; g.fillText(label, 5, y + R.laneH / 2 + 2);
+  });
+  // his stretch being picked
+  if (S.range) {
+    const a = xOf(Math.min(S.range[0], S.range[1])), b = xOf(Math.max(S.range[0], S.range[1]));
+    g.fillStyle = "rgba(124,240,200,.16)"; g.fillRect(a, R.flagY, b - a, H - R.flagY);
+    g.fillStyle = "#7cf0c8"; g.fillRect(a, R.flagY, 1, H - R.flagY); g.fillRect(b, R.flagY, 1, H - R.flagY);
+  }
+  // his markers: a flag with its name, a line down through the song and the lanes, a stretch shaded
+  S.cues.forEach((c, i) => {
+    const x = xOf(c.at), on = i === S.sel, col = tintOf(c);
+    if (ranged(c)) {
+      const b = xOf(c.at + c.len);
+      if (b < 0 || x > W) return;
+      g.globalAlpha = on ? 0.30 : 0.18; g.fillStyle = col; g.fillRect(x, R.waveY, b - x, R.waveH); g.globalAlpha = 1;
+      g.fillStyle = col; g.fillRect(x, R.flagY + R.flagH - 4, b - x, 4);
+      if (on) { g.fillRect(b - 1, R.waveY, 2, R.waveH); g.fillRect(b - 6, R.flagY + 2, 12, R.flagH - 4); g.fillStyle = "#07080b"; g.fillRect(b - 2, R.flagY + 6, 1, R.flagH - 12); g.fillRect(b + 1, R.flagY + 6, 1, R.flagH - 12); }
+      if (c.do === "repeat") {   // where it plays from, dashed
+        const shift = c.at - c.from, fa = xOf(c.from), fb = xOf(c.from + c.len);
+        g.setLineDash([5, 4]); g.strokeStyle = col; g.lineWidth = on ? 2 : 1;
+        g.strokeRect(fa, R.waveY + 2, fb - fa, R.waveH - 4); g.setLineDash([]);
+        if (fb - fa > 60) { g.fillStyle = col; g.font = "11px Segoe UI, system-ui"; g.fillText("plays again " + (shift > 0 ? "→" : ""), fa + 4, R.waveY + 14); }
+      }
+    }
+    if (x < -120 || x > W + 2) return;
+    g.fillStyle = col; g.fillRect(Math.round(x) - (on ? 1 : 0), R.flagY, on ? 3 : 2, H - R.flagY);
+    const label = nameOf(c).slice(0, 40); g.font = (on ? "700 " : "600 ") + "12px Segoe UI, system-ui";
+    const w = Math.min(220, g.measureText(label).width + 12);
+    g.fillStyle = on ? col : "rgba(22,25,36,.95)"; g.fillRect(x, R.flagY + 1, w, R.flagH - 6);
+    g.strokeStyle = col; g.lineWidth = 1; g.strokeRect(x + 0.5, R.flagY + 1.5, w - 1, R.flagH - 7);
+    g.fillStyle = on ? (isLight(col) ? "#07080b" : "#fff") : "#e8eaf0"; g.fillText(label, x + 6, R.flagY + R.flagH / 2 + 1, w - 10);
+  });
+  // the cursor and the playhead
+  const cx = xOf(S.cursor);
+  if (cx >= 0 && cx <= W) { g.fillStyle = "#7cf0c8"; g.fillRect(Math.round(cx), R.waveY, 1, H - R.waveY); g.beginPath(); g.moveTo(cx - 6, R.waveY); g.lineTo(cx + 6, R.waveY); g.lineTo(cx, R.waveY + 8); g.fill(); }
+  const px = xOf(audio.currentTime || 0);
+  if (!audio.paused && px >= 0 && px <= W) { g.fillStyle = "#ff6b6b"; g.fillRect(Math.round(px) - 1, R.secY, 2, H); }
+  drawOv();
+}
+function isLight(hex) { const n = parseInt((hex || "#000").slice(1), 16); return ((n >> 16) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11) > 150; }
+function drawOv() {
+  const g = ov.getContext("2d"), w = ov.width / DPR, h = ov.height / DPR;
+  g.setTransform(DPR, 0, 0, DPR, 0, 0); g.fillStyle = "#0c0e13"; g.fillRect(0, 0, w, h);
+  if (!S.song) return;
+  const len = S.song.length, x = (t) => (t / len) * w;
+  (S.song.sections || []).forEach((s) => { g.fillStyle = KIND_COLOR[s.kind] || "#333"; g.globalAlpha = .55; g.fillRect(x(s.start), 0, Math.max(1, x(s.end) - x(s.start)), h); });
+  g.globalAlpha = 1;
+  const pk = S.song.peaks, per = S.song.peaks_per_s;
+  g.fillStyle = "rgba(127,211,238,.7)";
+  for (let i = 0; i < w; i++) { const a = Math.floor((i / w) * len * per), b = Math.floor(((i + 1) / w) * len * per); let p = 0; for (let k = a; k < b && k < pk.length; k++) p = Math.max(p, pk[k]); const hh = (p / 255) * (h / 2 - 3); g.fillRect(i, h / 2 - hh, 1, hh * 2); }
+  S.cues.forEach((c) => { g.fillStyle = tintOf(c); g.fillRect(x(c.at), 0, 2, h); });
+  g.strokeStyle = "#fff"; g.lineWidth = 1.5; g.strokeRect(x(S.t0) + 0.5, 0.5, Math.max(4, x(S.t0 + W / S.pps) - x(S.t0)) - 1, h - 1);
+  if (!audio.paused) { g.fillStyle = "#ff6b6b"; g.fillRect(x(audio.currentTime) - 1, 0, 2, h); }
+}
+
+// --- pointer: tap sets the cursor, drag marks a stretch (mouse) or moves along (finger), a flag drags its marker ---
+const pts = new Map();
+let drag = null;
+function hitMarker(x, y) {
+  const R = rows();
+  let best = -1, gap = touch ? 16 : 9;
+  S.cues.forEach((c, i) => {
+    // the end of the picked stretch: its grip on the flag row (never the song itself, where a drag marks a new stretch)
+    if (ranged(c) && i === S.sel && y >= R.flagY && y <= R.flagY + R.flagH + 4 && Math.abs(xOf(c.at + c.len) - x) < gap) { best = i; gap = -1; drag = {kind: "len", i}; }
+  });
+  if (gap < 0) return best;
+  if (y < R.flagY || y > R.flagY + R.flagH + (touch ? 10 : 2)) return -1;
+  S.cues.forEach((c, i) => {
+    const cx = xOf(c.at), g2 = cv.getContext("2d"); g2.font = "600 12px Segoe UI, system-ui";
+    const w = Math.min(220, g2.measureText(nameOf(c).slice(0, 40)).width + 12);
+    if (x >= cx - 6 && x <= cx + w) { const d = Math.abs(x - cx); if (best < 0 || d < Math.abs(x - xOf(S.cues[best].at))) best = i; }
+  });
+  if (best >= 0) drag = {kind: "move", i: best};
+  return best;
+}
+cv.addEventListener("pointerdown", (e) => {
+  if (!S.song) return;
+  touch = e.pointerType === "touch";
+  cv.setPointerCapture(e.pointerId);
+  pts.set(e.pointerId, {x: e.offsetX, y: e.offsetY});
+  if (pts.size === 2) {   // pinch
+    const [a, b] = [...pts.values()];
+    drag = {kind: "pinch", d: Math.abs(a.x - b.x) || 1, pps: S.pps, at: tOf((a.x + b.x) / 2)};
+    return;
+  }
+  drag = null;
+  const i = hitMarker(e.offsetX, e.offsetY);
+  if (i >= 0) {
+    S.sel = i; drag.start = S.cues[i].at; drag.startLen = S.cues[i].len; drag.x0 = e.offsetX; drag.moved = false;
+    drawSide(); draw(); return;
+  }
+  drag = {kind: touch ? "pan" : "range", x0: e.offsetX, t0: S.t0, at: tOf(e.offsetX), moved: false};
+});
+cv.addEventListener("pointermove", (e) => {
+  if (!drag || !pts.has(e.pointerId)) return;
+  pts.set(e.pointerId, {x: e.offsetX, y: e.offsetY});
+  if (drag.kind === "pinch" && pts.size === 2) {
+    const [a, b] = [...pts.values()], d = Math.abs(a.x - b.x) || 1;
+    S.pps = drag.pps * d / drag.d; clampView(); S.t0 = drag.at - ((a.x + b.x) / 2) / S.pps; clampView(); draw(); return;
+  }
+  const dx = e.offsetX - drag.x0;
+  if (Math.abs(dx) > 4) drag.moved = true;
+  if (!drag.moved) return;
+  if (drag.kind === "pan") { S.t0 = drag.t0 - dx / S.pps; clampView(); draw(); }
+  else if (drag.kind === "range") { S.range = [snapT(drag.at), snapT(tOf(e.offsetX))]; S.cursor = Math.min(S.range[0], S.range[1]); drawSide(); draw(); }
+  else if (drag.kind === "move") { const c = S.cues[drag.i]; c.at = snapT(Math.max(0, drag.start + dx / S.pps)); if (c.do === "repeat" && c.from >= c.at) c.from = Math.max(0, c.at - c.len); drawSide(); draw(); }
+  else if (drag.kind === "len") { const c = S.cues[drag.i]; c.len = Math.max(0.1, Math.min(120, snapT(c.at + drag.startLen + dx / S.pps) - c.at)); drawSide(); draw(); }
+});
+function pointerEnd(e) {
+  pts.delete(e.pointerId);
+  if (!drag) return;
+  const d = drag; drag = pts.size ? drag : null;
+  if (d.kind === "pinch") { drag = null; return; }
+  if (d.kind === "move" && d.moved) { save("Moved."); return; }
+  if (d.kind === "len" && d.moved) { save("Made longer."); return; }
+  if (d.kind === "move") return;   // a tap on a flag picks that marker
+  if (!d.moved) {   // a tap on the song (the end of a stretch included) moves the cursor
+    if (d.kind === "len") d.at = tOf(d.x0);   // a tap: the cursor goes there; a tap in the lanes or song while playing jumps the music
+    S.range = null; S.cursor = snapT(d.at); S.sel = -1;
+    if (!audio.paused) audio.currentTime = S.cursor;
+    drawSide(); draw();
+  }
+}
+cv.addEventListener("pointerup", pointerEnd);
+cv.addEventListener("pointercancel", pointerEnd);
+cv.addEventListener("wheel", (e) => {
+  if (!S.song) return;
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey || Math.abs(e.deltaY) > Math.abs(e.deltaX) && !e.shiftKey) zoom(Math.exp(-e.deltaY * 0.0022), tOf(e.offsetX));
+  else { S.t0 += (e.deltaX || e.deltaY) / S.pps; clampView(); draw(); }
+}, {passive: false});
+let ovDrag = false;
+function ovMove(e) { if (!S.song) return; const w = ov.getBoundingClientRect().width; S.t0 = (e.offsetX / w) * S.song.length - W / S.pps / 2; clampView(); draw(); }
+ov.addEventListener("pointerdown", (e) => { ovDrag = true; ov.setPointerCapture(e.pointerId); ovMove(e); });
+ov.addEventListener("pointermove", (e) => { if (ovDrag) ovMove(e); });
+ov.addEventListener("pointerup", () => { ovDrag = false; });
+
+// --- making and changing markers ----------------------------------------------------------------------------
+function sorted(list) { return list.slice().sort((a, b) => a.at - b.at || DOS.indexOf(a.do) - DOS.indexOf(b.do)); }
+function addSection(kind, at) {
+  const list = S.cues.map((c) => Object.assign({}, c)), c = {at, do: "section", kind};
+  if (!list.some((q) => q.do === "section")) {   // his first part: Llano's come with it, to move; his replaces Llano's nearest of its kind
+    let near = null;
+    (S.song.auto || []).forEach((sx) => { if (sx.kind === kind && Math.abs(sx.start - at) < 16 && (!near || Math.abs(sx.start - at) < Math.abs(near.start - at))) near = sx; });
+    (S.song.auto || []).forEach((sx) => { if (sx !== near && Math.abs(sx.start - at) > 0.5) list.push({at: Math.max(0, sx.start), do: "section", kind: sx.kind}); });
+    msg("Your parts now replace Llano's for this song. Llano's are copied in so you can drag them.");
+  }
+  list.push(c);
+  return [list, c];
+}
+function add(type) {
+  if (!S.song) return;
+  const r = S.range ? [Math.min(S.range[0], S.range[1]), Math.max(S.range[0], S.range[1])] : null;
+  const at = r ? r[0] : snapT(S.cursor);
+  const ty = TYPES.find((x) => x.id === type);
+  let list = S.cues.map((c) => Object.assign({}, c)), c;
+  if (type === "build" || type === "drop") [list, c] = addSection(type, at);
+  else {
+    if (type === "whiteout") c = {at, do: "hit", size: 2};
+    else if (type === "flash") c = {at, do: "hit", size: 1, color: S.color};
+    else {
+      const len = r && r[1] - r[0] >= 0.1 ? r[1] - r[0] : S.snap ? byBeats(at, ty.beats) - at : ty.beats * beatS();
+      c = {at, do: type, len: Math.round(Math.min(120, len) * 100) / 100};
+      if (type === "repeat") { c.color = S.color; c.from = Math.max(0, Math.round((at - c.len) * 100) / 100); if (c.from >= at) { msg("A repeat plays the stretch before it again: move the cursor later in the song.", true); return; } }
+      if (type === "note") c.text = "";
+    }
+    list.push(c);
+  }
+  if (list.length > MAX_CUES) { msg("A song holds " + MAX_CUES + " markers. Remove one first.", true); return; }
+  S.cues = sorted(list); S.sel = S.cues.indexOf(c); S.range = null;
+  save(type === "note" ? "" : nameOf(c) + " added at " + clock(at) + ".");
+  drawSide(); draw();
+  if (type === "note") setTimeout(() => { const t = $("noteText"); if (t) t.focus(); }, 0);
+}
+function change(fn, why) { const c = S.cues[S.sel]; if (!c) return; fn(c); S.cues = sorted(S.cues); S.sel = S.cues.indexOf(c); save(why); drawSide(); draw(); }
+function remove() { if (S.sel < 0) return; const c = S.cues[S.sel]; S.cues.splice(S.sel, 1); S.sel = -1; save(nameOf(c) + " removed."); drawSide(); draw(); }
+
+let saveTimer = 0, lastSaved = "";
+function save(why) {
+  if (!S.song) return;
+  const list = sorted(S.cues), body = JSON.stringify(list);
+  if (body === lastSaved) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    busy("Saving…");
+    const r = await call("/api/settings", {ops: [{path: "cues." + S.song.key, value: list.length ? list : null}]});
+    if (!r.ok) { busy(""); msg(r.error || "That didn't save.", true); return reload(); }
+    lastSaved = body; if (why) msg(why);
+    lanes();
+  }, 120);
+}
+async function lanes() {   // the show again, with his markers in it
+  busy("Working out the show…");
+  const r = await call("/api/cues-lanes", {key: S.song.key});
+  busy("");
+  if (!r.ok) { msg(r.error, true); return; }
+  S.song.lanes = r.lanes; S.song.sections = r.sections; S.song.mine = r.mine;
+  const keep = S.cues[S.sel]; S.cues = sorted(r.cues || []); S.sel = keep ? S.cues.findIndex((c) => c.at === keep.at && c.do === keep.do) : -1;
+  lastSaved = JSON.stringify(S.cues); drawSide(); draw();
+}
+function busy(t) { $("busy").hidden = !t; $("busy").textContent = t; }
+
+// --- the dock: the marker palette and the selected marker ---------------------------------------------------
+function btn(label, on, extra) { return '<button' + (extra || "") + '>' + label + "</button>"; }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"})[c]); }
+function drawTypes() {
+  $("types").innerHTML = TYPES.map((t) => '<button data-add="' + t.id + '"' + (S.song ? "" : " disabled") + '><i style="background:' + (t.color ? S.color : t.tint) + '"></i>' + t.label + "</button>").join("");
+  $("swatches").innerHTML = '<span class="hint">Color for a flash or a repeat:</span>' + COLORS.map((c) => '<button class="sw' + (c[0] === S.color ? " on" : "") + '" title="' + c[1] + '" data-color="' + c[0] + '" style="background:' + c[0] + '"></button>').join("");
+}
+function drawSide() {
+  const r = S.range ? [Math.min(S.range[0], S.range[1]), Math.max(S.range[0], S.range[1])] : null;
+  $("addHead").textContent = r ? "Add over " + clock(r[0]) + " to " + clock(r[1]) : "Add at the cursor, " + clock(S.cursor);
+  $("cursorAt").textContent = S.song ? (r ? "Stretch " + clock(r[0]) + " to " + clock(r[1]) : "Cursor " + clock(S.cursor)) : "";
+  $("addHint").textContent = S.song ? (r ? "Blackout, Strobe burst, Repeat and Note cover the stretch; the others go at its start."
+    : "Drag across the song (or a lane) to mark a stretch first. A repeat plays the stretch just before it again, in the color you pick.") : "";
+  const c = S.cues[S.sel], el = $("sel");
+  if (!c) { el.innerHTML = '<h2>Selected marker</h2><p class="hint">Tap a marker\'s flag to pick it. Drag a flag to move it' + (S.snap ? " (it lands on a beat)" : "") + "; drag the grip at the end of a picked stretch to make it longer." + (S.song && S.song.mine ? '</p><div class="row"><button data-act="llano-parts">Back to Llano\'s parts</button></div>' : "</p>"); }
+  else {
+    let h = '<h2>Selected marker</h2><h3 style="color:' + esc(tintOf(c)) + '">' + esc(nameOf(c).replace(/^Note: .*/, "Note to Llano")) + "</h3>" +
+      '<div class="hint">at ' + clock(c.at) + (ranged(c) ? " for " + c.len.toFixed(1) + " s, to " + clock(c.at + c.len) : "") + "</div>" +
+      '<div class="row">' + btn("&minus; 1 beat", 0, ' data-act="nudge" data-n="-1" data-beats="1"') + btn("&minus; 0.1 s", 0, ' data-act="nudge" data-n="-0.1"') +
+      btn("+ 0.1 s", 0, ' data-act="nudge" data-n="0.1"') + btn("+ 1 beat", 0, ' data-act="nudge" data-n="1" data-beats="1"') +
+      btn("&#9654; Play from here", 0, ' data-act="play-here"') + btn("Remove", 0, ' class="danger" data-act="remove"') + "</div>";
+    if (ranged(c)) h += '<div class="row"><span class="hint">Length</span>' + btn("&minus; 1 beat", 0, ' data-act="len" data-n="-1"') + btn("+ 1 beat", 0, ' data-act="len" data-n="1"') + btn("+ 1 bar", 0, ' data-act="len" data-n="4"') + "</div>";
+    if (c.do === "repeat") h += '<div class="row"><span class="hint">Plays again from ' + clock(c.from) + "</span>" + btn("&minus; 1 bar", 0, ' data-act="from" data-n="-4"') + btn("+ 1 bar", 0, ' data-act="from" data-n="4"') + "</div>";
+    if (c.do === "repeat" || typeOf(c) === "flash") h += '<div class="swatches">' + COLORS.map((x) => '<button class="sw' + (x[0] === c.color ? " on" : "") + '" title="' + x[1] + '" data-act="recolor" data-color="' + x[0] + '" style="background:' + x[0] + '"></button>').join("") + "</div>";
+    if (c.do === "section") h += '<div class="row">' + KINDS.map((k) => btn(k[1], 0, ' data-act="kind" data-kind="' + k[0] + '"' + (k[0] === c.kind ? ' class="on"' : ""))).join("") + "</div>";
+    if (c.do === "hit") h += '<div class="row">' + btn("White hit", 0, ' data-act="hit" data-size="1"' + (c.size !== 2 && !c.color ? ' class="on"' : "")) + btn("White-out", 0, ' data-act="hit" data-size="2"' + (c.size === 2 && !c.color ? ' class="on"' : "")) + "</div>";
+    if (c.do === "note") h += '<div class="row" style="display:block"><textarea id="noteText" maxlength="160" placeholder="Say what you want here, in your words: “flash red on every snare”">' + esc(c.text) + '</textarea>' +
+      '<div class="row" style="margin-top:6px">' + btn("Send to Llano", 0, ' class="primary" data-act="note-save"') + '<span class="hint">Llano reads it and turns it into cues. The lights don\'t change for a note.</span></div></div>';
+    el.innerHTML = h;
+  }
+  $("list").innerHTML = S.cues.length ? S.cues.map((q, i) => '<button data-pick="' + i + '"' + (i === S.sel ? ' class="on"' : "") + '><span>' + clock(q.at) + '</span><span style="color:' + esc(tintOf(q)) + '">&#9632;</span><span>' + esc(nameOf(q)) + "</span></button>").join("")
+    : '<p class="hint">None yet. ' + (S.song ? "Llano's parts are shown along the top." : "") + "</p>";
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.add) return add(b.dataset.add);
+  if (b.dataset.pick != null) { S.sel = +b.dataset.pick; const c = S.cues[S.sel]; S.cursor = c.at; if (xOf(c.at) < 0 || xOf(c.at) > W) { S.t0 = c.at - W / S.pps / 3; clampView(); } drawSide(); draw(); return; }
+  if (b.dataset.color && !b.dataset.act) { S.color = b.dataset.color; drawTypes(); return; }
+  const a = b.dataset.act; if (!a) return;
+  if (a === "llano-parts") { S.cues = S.cues.filter((c) => c.do !== "section"); S.sel = -1; save("Back to Llano's parts."); drawSide(); draw(); return; }
+  if (a === "remove") return remove();
+  if (a === "play-here") { const c = S.cues[S.sel]; if (c) playFrom(Math.max(0, c.at - 2 * beatS() * 2)); return; }
+  if (a === "nudge") return change((c) => { c.at = Math.max(0, Math.round((b.dataset.beats ? byBeats(c.at, +b.dataset.n) : c.at + +b.dataset.n) * 100) / 100); if (c.do === "repeat" && c.from >= c.at) c.from = Math.max(0, c.at - c.len); }, "");
+  if (a === "len") return change((c) => { c.len = Math.max(0.1, Math.min(120, Math.round((byBeats(c.at + c.len, +b.dataset.n) - c.at) * 100) / 100)); }, "");
+  if (a === "from") return change((c) => { const f = Math.round(byBeats(c.from, +b.dataset.n) * 100) / 100; if (f >= 0 && f < c.at) c.from = f; }, "");
+  if (a === "recolor") return change((c) => { c.color = b.dataset.color; }, "");
+  if (a === "kind") return change((c) => { c.kind = b.dataset.kind; }, "");
+  if (a === "hit") return change((c) => { c.size = +b.dataset.size; delete c.color; }, "");
+  if (a === "note-save") { const t = ($("noteText").value || "").trim().replace(/\s+/g, " ").slice(0, 160); if (!t) { msg("Write the note first.", true); return; } return change((c) => { c.text = t; }, "Sent. Llano will read it and turn it into cues."); }
+});
+$("types").addEventListener("pointerdown", () => {});
+$("snap").onclick = () => { S.snap = !S.snap; $("snap").classList.toggle("on", S.snap); $("snap").textContent = "Snap to beat: " + (S.snap ? "on" : "off"); try { localStorage.setItem("llano-cues-snap", S.snap ? "1" : "0"); } catch (e) {} drawSide(); };
+$("zin").onclick = () => zoom(1.6); $("zout").onclick = () => zoom(1 / 1.6); $("zfit").onclick = fit;
+
+// --- playing the song right here ----------------------------------------------------------------------------
+function playFrom(t) { if (!S.song) return; audio.currentTime = Math.max(0, t); audio.play().catch(() => msg("The song didn't start. Press Play again.", true)); }
+$("play").onclick = () => { if (!S.song) return; if (audio.paused) playFrom(S.range ? Math.min(S.range[0], S.range[1]) : S.cursor); else audio.pause(); };
+audio.addEventListener("play", () => { $("play").innerHTML = "&#10074;&#10074; Pause"; tick(); });
+audio.addEventListener("pause", () => { $("play").innerHTML = "&#9654; Play"; draw(); });
+audio.addEventListener("error", () => { if (S.song) msg("This laptop couldn't play the song's file here. The markers still save.", true); });
+function tick() {
+  $("clock").textContent = clock(audio.currentTime);
+  if (!audio.paused && S.song) {
+    const x = xOf(audio.currentTime);
+    if (!drag && (x > W * 0.85 || x < 0)) { S.t0 = audio.currentTime - W * 0.15 / S.pps; clampView(); }
+    draw(); requestAnimationFrame(tick);
+  }
+}
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("textarea, input, select")) return;
+  if (e.code === "Space") { e.preventDefault(); $("play").click(); }
+  else if ((e.key === "Delete" || e.key === "Backspace") && S.sel >= 0) { e.preventDefault(); remove(); }
+  else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    const n = e.key === "ArrowLeft" ? -1 : 1;
+    if (S.sel >= 0) { e.preventDefault(); change((c) => { c.at = Math.max(0, Math.round((e.shiftKey ? c.at + n * 0.1 : byBeats(c.at, n)) * 100) / 100); }, ""); }
+    else if (S.song) { S.cursor = Math.max(0, e.shiftKey ? S.cursor + n * 0.1 : byBeats(S.cursor, n)); drawSide(); draw(); }
+  }
+  else if (e.key === "+" || e.key === "=") zoom(1.6);
+  else if (e.key === "-") zoom(1 / 1.6);
+  else if (e.key === "Escape") { S.sel = -1; S.range = null; drawSide(); draw(); }
+});
+
+// --- songs --------------------------------------------------------------------------------------------------
+async function loadSongs() {
+  const r = await call("/api/cues-songs", {});
+  if (!r.ok) { msg(r.error, true); return; }
+  S.songs = r.songs || [];
+  const sel = $("pick");
+  sel.innerHTML = '<option value="">Pick a song…</option>' + S.songs.map((s, i) => '<option value="' + i + '">' +
+    esc((s.artist ? s.artist + " - " : "") + s.title) + (s.cues ? " · " + s.cues + " marker" + (s.cues === 1 ? "" : "s") : "") + (s.where === "Playing in Mixxx" ? " · playing" : "") + "</option>").join("");
+  const q = new URLSearchParams(location.search);
+  const want = q.get("title") ? {artist: q.get("artist") || "", title: q.get("title"), track_id: +q.get("track_id") || 0} : null;
+  if (want) { const i = S.songs.findIndex((s) => s.title === want.title && s.artist === want.artist); if (i >= 0) sel.value = String(i); open(want); }
+}
+async function open(s) {
+  if (!s) return;
+  audio.pause();
+  busy("Reading the song… (a few seconds the first time)");
+  $("empty").textContent = "Reading " + ((s.artist ? s.artist + " - " : "") + s.title) + "…"; $("empty").hidden = false;
+  const r = await call("/api/cues-song", {artist: s.artist, title: s.title, track_id: s.track_id || 0});
+  busy("");
+  if (!r.ok) { $("empty").textContent = r.error; S.song = null; drawTypes(); drawSide(); draw(); return; }
+  $("empty").hidden = true;
+  S.song = r; S.cues = sorted(r.cues || []); S.sel = -1; S.range = null; S.cursor = 0; lastSaved = JSON.stringify(S.cues);
+  const label = (r.artist ? r.artist + " - " : "") + r.title;
+  $("title").textContent = label; document.title = label + " · Cues";
+  $("meta").textContent = Math.round(r.bpm) + " BPM · " + clock(r.length) + (r.grid === "estimated" ? " · beats worked out from the sound (not in Mixxx)" : "");
+  audio.src = audioUrl(r.audio);
+  const u = new URL(location.href); u.searchParams.set("artist", r.artist); u.searchParams.set("title", r.title); history.replaceState(null, "", u);
+  fit(); drawTypes(); drawSide(); draw();
+}
+async function reload() { const s = S.song; if (s) await open({artist: s.artist, title: s.title}); }
+$("pick").onchange = () => { const s = S.songs[+$("pick").value]; if ($("pick").value !== "") open(s); };
+
+try { S.snap = localStorage.getItem("llano-cues-snap") !== "0"; } catch (e) { S.snap = true; }
+$("snap").classList.toggle("on", S.snap); $("snap").textContent = "Snap to beat: " + (S.snap ? "on" : "off");
+window.addEventListener("resize", () => { layout(); clampView(); draw(); });
+if ("ontouchstart" in window) touch = true;
+layout(); drawTypes(); drawSide(); draw(); loadSongs();
+</script>
+</body>
+</html>

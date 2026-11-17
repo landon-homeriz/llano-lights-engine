@@ -87,14 +87,17 @@ def test_cues_stay_under_their_size_cap():
 # --- the engine ---------------------------------------------------------------------------------
 
 def test_a_white_hit_holds_then_fades():
+    # BL #12518: a 1 holds 0.5 s and is gone at 0.9 s; a 2 (the white-out) holds 1 s, gone at 1.8 s,
+    # the strobes bursting through its first 0.6 s
     cs = ({"at": 10.0, "do": "hit", "size": 1}, {"at": 20.0, "do": "hit", "size": 2})
-    assert cues_mod.hit_at(cs, 9.99) == (0.0, False)
-    assert cues_mod.hit_at(cs, 10.1) == (1.0, False)
-    lvl, _ = cues_mod.hit_at(cs, 10.475)
+    assert cues_mod.hit_at(cs, 9.99) == (0.0, False, "")
+    assert cues_mod.hit_at(cs, 10.1) == (1.0, False, "")
+    lvl = cues_mod.hit_at(cs, 10.7)[0]
     assert 0.4 < lvl < 0.6
-    assert cues_mod.hit_at(cs, 10.6)[0] == pytest.approx(0.0, abs=1e-9)
-    assert cues_mod.hit_at(cs, 20.2) == (1.0, True)     # the big one strobes
-    assert cues_mod.hit_at(cs, 20.7)[1] is False
+    assert cues_mod.hit_at(cs, 10.9)[0] == pytest.approx(0.0, abs=1e-9)
+    assert cues_mod.hit_at(cs, 20.2) == (1.0, True, "")     # the big one strobes
+    assert cues_mod.hit_at(cs, 20.9) == (1.0, False, "")    # and is still full white
+    assert cues_mod.hit_at(cs, 21.8)[0] == pytest.approx(0.0, abs=1e-9)
 
 
 def test_his_sections_replace_the_analysis_and_a_cut_lands_them_on_the_same_beat():

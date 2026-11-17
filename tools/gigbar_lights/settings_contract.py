@@ -114,17 +114,37 @@ MAX_SHOW_LOOKS = 6
 # The cue timeline (Llano PM #23787, the 2026-11-15 ask: push cues forward and back, pause and see them,
 # dead simple). A song's own cues, by track key, in seconds into the ORIGINAL recording (a night's cut
 # plays them at the same musical spot: set_cuts writes where the original's 0:00 sits). A cue is one of
-#   {"at": s, "do": "hit", "size": 1|2}: a white hit on that instant (2 = the biggest, with a strobe burst);
+#   {"at": s, "do": "hit", "size": 1|2, "color": "#rrggbb" (optional)}: a hit on that instant: white, or the
+#       whole rig in that color (a color flash); 2 is a white-out, the white-out pad's look held about a
+#       second with a strobe burst (BL #12518);
 #   {"at": s, "do": "section", "kind": SECTIONS}: a section starts here; any section cue means his list
 #       replaces the analysis for that song;
 #   {"at": s, "do": "feel", "feel": CUE_FEELS, "color": "#rrggbb" | ""}: the stretch (section) holding
 #       `at` plays bigger or softer and/or in that color; the last one in a stretch wins.
+# The cue workspace (Llano PM #23869, his words 2026-11-17: "this really needs its own dedicated workspace
+# to adjust cues") adds stretches he can see on the song, each with `len` (seconds, how long it lasts):
+#   {"at": s, "do": "blackout", "len": s}: everything dark;
+#   {"at": s, "do": "strobe", "len": s}: the pars and strobes flash on every beat at full;
+#   {"at": s, "do": "repeat", "len": s, "from": s, "color": "#rrggbb" | ""}: the show plays again what it
+#       played from `from` (the same beats, bar for bar), in that color: a build that answers the one before;
+#   {"at": s, "do": "note", "text": "...", "len": s}: his words to Llano about that spot (no light change);
+#       Llano reads them and turns them into cues.
+#   {"at": s, "do": "drop", "style": DROP_STYLES, "color": "#rrggbb" (optional), "color2": "#rrggbb"
+#       (optional)}: how every build and drop from `at` on plays (BL #12518, his 11-17 "it can't be the
+#       same thing on every song"): its tension, its landing and its colors. A song with none plays
+#       "classic" (blue build, UV and white strobe, a dark beat, a white burst), the look every song had.
 # Kept per song, not per show, so a cue follows the recording into every show and into plain Mixxx
 # play, and a nudge reaches the lights on the next frame (the engine reads the settings in force).
 MAX_CUE_SONGS = 120
 MAX_CUES = 48
-MAX_CUES_BYTES = 24 * 1024   # all songs' cues as stored; 120 songs of 6 cues is about 16 KB
-CUE_DOS = ("hit", "section", "feel")
+# all songs' cues as stored; 120 songs of 6 cues is about 16 KB. 32 KB (PM #23869: a song worked in the
+# workspace carries its sections, hits and notes) keeps 16 full shows, 24 layouts and the rest under
+# Llano's document limit (store.MAX_DOC_BYTES, 1280 KB).
+MAX_CUES_BYTES = 32 * 1024
+CUE_DOS = ("hit", "section", "feel", "drop", "blackout", "strobe", "repeat", "note")
+DROP_STYLES = ("classic", "slam", "color-strobe", "sweep", "trade", "swell")
+CUE_MAX_LEN = 120.0   # seconds a stretch (blackout, strobe, repeat, note) may last
+CUE_NOTE_CHARS = 160
 CUE_FEELS = ("bigger", "softer", "")
 CUE_COLOR_RE = re.compile(r"#[0-9a-f]{6}")
 
@@ -141,14 +161,35 @@ CHANNEL_NAMES = {
        "strobe.program", "strobe.white", "strobe.uv", "strobe.speed")
     + tuple(f"head{h}.{c}" for h in (1, 2) for c in _HEAD),
     "tetra": ("red", "green", "blue", "amber", "dim", "strobe"),
-    "stick": ("dim", "red", "green", "blue", "macro", "strobe", "program", "speed"),
+    "stick": ("dim", "red", "green", "blue", "macro", "strobe", "program", "speed")
+    + tuple(f"seg{i}.{c}" for i in range(1, 17) for c in ("red", "green", "blue")),
 }
+# The channel list each kind starts with: the modes the rig was planned in (Freedom Stick 8-CH). The
+# stick's section names are for its 48CH mode (16 sections x RGB) and 50CH (the same, then strobe and
+# dim). rig.channels.stick may name a mode ("8ch", "48ch", "50ch"): normalize expands it to that
+# mode's list (STICK_MODES), so switching a stick's mode is one word (BL #12518). A hand list may
+# reorder or drop names (section names in reverse order flip which end section 1 is), but it never
+# mixes the 8-channel whole-stick names with section names: a stick is in one mode or the other.
+DEFAULT_CHANNELS = {"gigbar": CHANNEL_NAMES["gigbar"], "tetra": CHANNEL_NAMES["tetra"],
+                    "stick": CHANNEL_NAMES["stick"][:8]}
+STICK_MODES = {"8ch": CHANNEL_NAMES["stick"][:8], "48ch": CHANNEL_NAMES["stick"][8:],
+               "50ch": CHANNEL_NAMES["stick"][8:] + ("strobe", "dim")}
 MAX_FOOTPRINT = 64
 HEAD_FLAGS = ("pan_invert", "tilt_invert", "pan_tilt_swap")
 # How many of each light tonight (BL #11606, the rig picker): the show, layout, calibration and DMX
 # output use only the first N of each kind; addresses never move. Saved rigs are counts by name.
 COUNT_MAX = {"bars": 2, "tetras": 6, "sticks": 4}
 MAX_SAVED_RIGS = 12
+# A DJ's own rig (Llano BL #12524): lights picked from the fixture library on the Setup screen, each
+# {profile, mode, address, role, name}. Empty = his twelve lights above, exactly as before; any light
+# here = the show plays this rig instead, its looks addressed by role. `profile` is a library ref
+# ("qlcplus:Chauvet/Chauvet-SlimPAR-56.qxf", or a bundled file's bare name); `output` is the DMX output
+# spec (enttec, enttec:COM3, opendmx:COM4, artnet:<host>[:<universe>], sacn[:<universe>[@<host>]],
+# none), "" = look for the ENTTEC Pro as always.
+MAX_LIGHTS = 48
+RIG_ROLES = ("wash", "movers", "effects", "strobes")
+PROFILE_RE = re.compile(r"(?:qlcplus:[A-Za-z0-9_ ()+&',.-]{1,40}/)?[A-Za-z0-9_ ()+&',.-]{1,120}\.qxf")
+OUTPUT_RE = re.compile(r"(?:enttec|opendmx|artnet|sacn|none)(?::[A-Za-z0-9 ./:@%_-]{1,100})?")
 # A palette or saved-layout name: the shape the app's venue.slug() produces (lowercase words
 # joined by single hyphens; 48 characters leaves room for a "-2" collision suffix) and never
 # a Windows device name, because a layout name becomes a file name on the laptop.
@@ -228,7 +269,7 @@ DEFAULTS = {
     "rig": {
         "addresses": {"bar1": 1, "bar2": 41, **{f"tetra{i}": 71 + 10 * i for i in range(1, 7)},
                       **{f"stick{i}": 141 + 10 * i for i in range(1, 5)}},
-        "channels": {k: list(v) for k, v in CHANNEL_NAMES.items()},
+        "channels": {k: list(v) for k, v in DEFAULT_CHANNELS.items()},
         "heads": {b: {"swap_heads": False, **{f"head{h}": {f: False for f in HEAD_FLAGS} for h in (1, 2)}}
                   for b in ("bar1", "bar2")},
         "calibration": {"pan_range": 540.0, "tilt_range": 180.0, "tilt_down": 0.5},
@@ -236,6 +277,8 @@ DEFAULTS = {
         "saved": {},
         "numbering": {"tetra": "left", "stick": "left"},
         "sync_ms": 0,
+        "lights": [],
+        "output": "",
     },
 }
 
@@ -305,8 +348,9 @@ FIELDS = {
     "styles": "saved looks by name (at most 12), each {" + ", ".join(STYLE_KEYS) + ", note}",
     "songs": "which saved style a song plays, by track key (lowercase artist and title joined by hyphens)",
     "style_in_use": "the saved style last made the default show (a label; the settings themselves are the show)",
-    "shows": "saved song line-ups by name (at most 16), each {title, note, looks: {at most 6 of the show's "
-             "own looks by name, each a partial style laid over the house show}, songs: [at most 60 {artist, "
+    "shows": f"saved song line-ups by name (at most {MAX_SHOWS}), each {{title, note, looks: {{at most "
+             f"{MAX_SHOW_LOOKS} of the show's own looks by name, each a partial style laid over the house show}}, "
+             f"songs: [at most {MAX_SHOW_SONGS} {{artist, "
              "title, look (one of the show's looks, a saved style name, a built-in look: "
              + ", ".join(BUILTIN_LOOKS) + ", or \"\" for the house show), why (one line on why it plays that "
              "look), secs (length), bpm, and optionally part (" + ", ".join(SHOW_PARTS) + "), moment (" + \
@@ -315,13 +359,23 @@ FIELDS = {
              "end_at (seconds into the song file where its cut for the night starts and ends, when he set them; "
              "absent = Llano's suggestion)}] in play order}",
     "cues": "each song's cue timeline by track key (at most 120 songs, 48 cues each): a list of {at (seconds "
-            "into the original recording), do: hit (with size 1 or 2: a white hit, 2 the biggest) | section (with "
+            "into the original recording), do: hit (with size 1 or 2: a white hit, 2 a white-out; optional color "
+            "\"#rrggbb\" makes it a color flash) | section (with "
             "kind: " + ", ".join(SECTIONS) + "; any section cue replaces the analysis for that song) | feel (with "
-            "feel: bigger or softer or \"\", and color \"#rrggbb\" or \"\": the section holding it plays that way)}",
+            "feel: bigger or softer or \"\", and color \"#rrggbb\" or \"\": the section holding it plays that way) | "
+            "drop (with style: " + ", ".join(DROP_STYLES) + ", optional color and color2 \"#rrggbb\": how every "
+            "build and drop from there on plays; none = classic) | "
+
+            "blackout | strobe (with len, seconds: dark, or pars and strobes on every beat) | repeat (with len, from "
+            "(seconds) and color: the show from `from` again in that color) | note (with text, at most 160 "
+            "characters, and len: his words to Llano about that spot)}",
     "rig.addresses": "each light's DMX start address 1..512, by id: " + ", ".join(FIXTURES),
     "rig.channels": "each fixture type's channels in the order the fixture reads them (gigbar, tetra, stick), "
-                    "by name, or \"=N\" for a fixed byte; names per type: "
-                    + "; ".join(f"{k}: {' '.join(v)}" for k, v in CHANNEL_NAMES.items()),
+                    "by name, or \"=N\" for a fixed byte (stick may instead name its mode: 8ch, 48ch or 50ch); names per type: "
+                    + "; ".join(f"{k}: {' '.join(v)}" for k, v in CHANNEL_NAMES.items())
+                    + ". A Freedom Stick in its 48CH mode is seg1.red seg1.green seg1.blue .. seg16.blue (section 1 "
+                    "first; list them from seg16 to flip the stick), 50CH adds strobe and dim after them; 8-CH is the "
+                    "default",
     "rig.heads": "per GigBAR (bar1, bar2): swap_heads (the engine's head 1 drives the channels of head 2 and "
                  "back), and head1/head2 each {" + ", ".join(HEAD_FLAGS) + "} true/false, applied to the DMX "
                  "bytes under any calibration",
@@ -335,6 +389,11 @@ FIELDS = {
     "rig.calibration": "defaults for every head without its own: pan_range 90..720 degrees (manual 540), "
                        "tilt_range 45..360 (manual 180), tilt_down 0..1 (the raw tilt that points a hung head "
                        "straight down, 0.5)",
+    "rig.lights": "a DJ's own rig from the fixture library, at most 48 lights in patch order, each {profile (library "
+                  "ref, e.g. qlcplus:Chauvet/Chauvet-SlimPAR-56.qxf), mode (the library's mode name), address "
+                  "1..512, role (" + ", ".join(RIG_ROLES) + "), name}; empty = the twelve GigBAR/Tetra/stick lights",
+    "rig.output": "the DMX output: enttec, enttec:COM3, opendmx:COM4, artnet:<host>[:<universe>], "
+                  "sacn[:<universe>[@<host>]] or none; empty = find the ENTTEC Pro",
 }
 
 
@@ -639,10 +698,37 @@ def cue(v) -> "dict | None":
     out = {"at": round(float(at), 2), "do": do}
     if do == "hit":
         out["size"] = 2 if v.get("size") == 2 else 1
+        color = v.get("color").lower() if isinstance(v.get("color"), str) else ""
+        if CUE_COLOR_RE.fullmatch(color):
+            out["color"] = color
     elif do == "section":
         if v.get("kind") not in SECTIONS:
             return None
         out["kind"] = v["kind"]
+    elif do == "drop":
+        if v.get("style") not in DROP_STYLES:
+            return None
+        out["style"] = v["style"]
+        for k in ("color", "color2"):
+            c = v.get(k).lower() if isinstance(v.get(k), str) else ""
+            if CUE_COLOR_RE.fullmatch(c):
+                out[k] = c
+    elif do in ("blackout", "strobe", "repeat", "note"):
+        ln = v.get("len")
+        ln = float(ln) if isinstance(ln, (int, float)) and not isinstance(ln, bool) and math.isfinite(ln) else 1.0
+        out["len"] = round(max(0.1, min(CUE_MAX_LEN, ln)), 2)
+        if do == "repeat":
+            fr = v.get("from")
+            if isinstance(fr, bool) or not isinstance(fr, (int, float)) or not (0 <= fr <= 3600) or fr >= at:
+                return None
+            out["from"] = round(float(fr), 2)
+            color = v.get("color").lower() if isinstance(v.get("color"), str) else ""
+            out["color"] = color if CUE_COLOR_RE.fullmatch(color) else ""
+        if do == "note":
+            text = _text(v.get("text"), CUE_NOTE_CHARS)
+            if not text:
+                return None
+            out["text"] = text
     else:
         feel = v.get("feel") if v.get("feel") in CUE_FEELS else ""
         color = v.get("color").lower() if isinstance(v.get("color"), str) else ""
@@ -704,10 +790,15 @@ def look_style(name: str, styles: dict, base, show_looks: "dict | None" = None) 
     return None
 
 
+_STICK_WHOLE = ("red", "green", "blue", "macro", "program", "speed")   # the 8CH-only names
+
+
 def _channel_list(v, kind: str) -> list:
     names = CHANNEL_NAMES[kind]
+    if kind == "stick" and isinstance(v, str) and v.strip().lower() in STICK_MODES:
+        return list(STICK_MODES[v.strip().lower()])
     if not isinstance(v, list) or not 1 <= len(v) <= MAX_FOOTPRINT:
-        return list(names)
+        return list(DEFAULT_CHANNELS[kind])
     out = []
     for x in v:
         if isinstance(x, str) and x in names:
@@ -715,13 +806,36 @@ def _channel_list(v, kind: str) -> list:
         elif isinstance(x, str) and re.fullmatch(r"=(\d{1,3})", x) and int(x[1:]) <= 255:
             out.append(f"={int(x[1:])}")
         else:
-            return list(names)   # one unknown name: the whole list is suspect, keep the known order
+            return list(DEFAULT_CHANNELS[kind])   # one unknown name: the whole list is suspect, keep the known order
+    if kind == "stick" and any(x.startswith("seg") for x in out) and any(x in _STICK_WHOLE for x in out):
+        return list(DEFAULT_CHANNELS[kind])   # two modes at once: no stick reads that, keep the known order
     return out
 
 
 def _counts(v) -> dict:
     v = v if isinstance(v, dict) else {}
     return {k: _int(v.get(k), 0, hi, hi) for k, hi in COUNT_MAX.items()}
+
+
+def _light(v) -> "dict | None":
+    """One light of a DJ's own rig, or None when it is not one (dropped, never guessed)."""
+    if not isinstance(v, dict):
+        return None
+    profile, mode, name = v.get("profile"), v.get("mode"), v.get("name")
+    if not isinstance(profile, str) or ".." in profile or not PROFILE_RE.fullmatch(profile):
+        return None
+    if not isinstance(mode, str) or not mode.strip() or len(mode) > 96:
+        return None
+    if isinstance(v.get("address"), bool) or not isinstance(v.get("address"), int) or not 1 <= v["address"] <= 512:
+        return None
+    return {"profile": profile, "mode": mode.strip(), "address": v["address"],
+            "role": _choice(v.get("role"), RIG_ROLES, "wash"),
+            "name": " ".join(name.split())[:48].rstrip() if isinstance(name, str) else ""}
+
+
+def _lights(v) -> list:
+    out = [x for x in (_light(i) for i in (v if isinstance(v, list) else [])) if x]
+    return out[:MAX_LIGHTS]
 
 
 def _rig(v) -> dict:
@@ -752,6 +866,9 @@ def _rig(v) -> dict:
         "numbering": {k: (num.get(k) if num.get(k) in ("left", "right") else d)
                       for k, d in dv["numbering"].items()},
         "sync_ms": _int(v.get("sync_ms"), 0, SYNC_MAX_MS, 0),
+        "lights": _lights(v.get("lights")),
+        "output": v["output"].strip() if isinstance(v.get("output"), str) and OUTPUT_RE.fullmatch(v["output"].strip())
+        else "",
     }
 
 

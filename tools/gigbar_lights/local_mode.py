@@ -43,6 +43,8 @@ from . import settings_contract as contract
 LOCAL_PORTS = ports.LOCAL_PORTS   # 8790-8799 on the laptop (ports.py)
 KEYS = set("bsth+-")             # the show keys a phone may send (scenes go through /api/scene)
 MAX_POST = 1024
+AUDIO_TYPES = {".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".aac": "audio/aac", ".wav": "audio/wav", ".flac": "audio/flac",
+               ".ogg": "audio/ogg", ".opus": "audio/ogg", ".aiff": "audio/aiff", ".aif": "audio/aiff"}
 MAX_SETTINGS_POST = 256 * 1024   # a saved layout is the biggest settings change
 PAGE = Path(__file__).resolve().parent / "windows" / "src" / "remote.html"   # a source copy; the app passes its own
 APP_ORIGINS = ("https://llano.app",)
@@ -112,12 +114,17 @@ class LocalServer:
     def __init__(self, key: LocalKey, state: Callable[[], dict], send: Callable[[str], bool], page: Path = PAGE,
                  stop: Optional[Callable[[], dict]] = None, studio: Optional[Callable[[dict], tuple]] = None,
                  go: Optional[Callable[[str], tuple]] = None, settings: Optional[Callable[[Optional[list]], tuple]] = None,
-                 console: Optional[Path] = None):
+                 console: Optional[Path] = None, cues: Optional[Callable[[str, dict], tuple]] = None,
+                 cue_audio: Optional[Callable[[str], Optional[Path]]] = None):
         self.key, self.state, self.send, self.page = key, state, send, page
         self.stop_show = stop   # Stop the show (1.15.0): the window's own Stop, so it frees a stuck run too
         # The Light studio (1.20.0): each returns (http code, body), the app's own answers and words.
         self.studio, self.go, self.settings = studio, go, settings
         self.console = console if console is not None else page.with_name("studio_console.js")
+        # The cue workspace on the phone (Llano PM #23869): its page, its three calls ("songs", "song",
+        # "lanes", the app's own answers) and the song it opened, read by key only (never a path).
+        self.cues, self.cue_audio = cues, cue_audio
+        self.cue_page = page.with_name("cues.html")
         self.server: Optional[ThreadingHTTPServer] = None
         self.port = 0
 
@@ -182,6 +189,19 @@ class LocalServer:
                         return self._send(srv.console.read_bytes(), "text/javascript; charset=utf-8")
                     except OSError:
                         return self._send(b"missing from this copy", "text/plain", 500)
+                if path == "/cues" and srv.cues is not None:   # the page holds no secret; its calls need the key
+                    try:
+                        html = srv.cue_page.read_text(encoding="utf-8").replace("__LLANO_TITLE__", "Llano Lights")
+                    except OSError:
+                        return self._send(b"page missing", "text/plain", 500)
+                    return self._send(html.encode(), "text/html; charset=utf-8")
+                if path.startswith("/cue-audio/") and srv.cue_audio is not None:
+                    from urllib.parse import parse_qs, unquote, urlparse  # noqa: PLC0415
+                    k = (parse_qs(urlparse(self.path).query).get("k") or [""])[0]   # an <audio> sends no headers
+                    if not secrets.compare_digest(k, srv.key.get()):
+                        return self._json({"error": "this phone has an old key or none"}, 403)
+                    got = srv.cue_audio(unquote(path[len("/cue-audio/"):]))
+                    return self._audio(got)
                 if path == "/api/state":
                     if self._keyed():
                         self._json(srv.state())
@@ -195,10 +215,57 @@ class LocalServer:
                     return
                 self._send(b"not found", "text/plain", 404)
 
+            def _audio(self, got: Optional[Path]):
+                """A song file with byte ranges, so the phone's player can seek."""
+                try:
+                    data = got.read_bytes() if got is not None else None
+                except OSError:
+                    data = None
+                if data is None:
+                    return self._send(b"not found", "text/plain", 404)
+                start, end = 0, len(data) - 1
+                rng = (self.headers.get("Range") or "").strip()
+                if rng.startswith("bytes="):
+                    a, _, b = rng[6:].split(",")[0].partition("-")
+                    try:
+                        start, end = (int(a), min(int(b) if b else end, end)) if a else (max(0, len(data) - int(b)), end)
+                    except ValueError:
+                        start, end = 0, len(data) - 1
+                    if start > end or start >= len(data):
+                        self.send_response(416)
+                        self.send_header("Content-Range", f"bytes */{len(data)}")
+                        self.end_headers()
+                        return
+                body = data[start:end + 1]
+                self.send_response(206 if rng.startswith("bytes=") else 200)
+                self.send_header("Content-Type", AUDIO_TYPES.get(got.suffix.lower(), "application/octet-stream"))
+                self.send_header("Accept-Ranges", "bytes")
+                if rng.startswith("bytes="):
+                    self.send_header("Content-Range", f"bytes {start}-{end}/{len(data)}")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self._cors()
+                self.end_headers()
+                try:
+                    self.wfile.write(body)
+                except OSError:   # the player let go mid-file (a seek): nothing to do
+                    pass
+
             def do_POST(self):
                 if not self._keyed():
                     return
                 path = self.path.split("?")[0]
+                if path.startswith("/api/cues-") and srv.cues is not None:   # the cue workspace (PM #23869)
+                    try:
+                        n = int(self.headers.get("Content-Length") or 0)
+                        msg = json.loads(self.rfile.read(n)) if 0 < n <= MAX_POST else {}
+                    except (ValueError, OSError):
+                        msg = {}
+                    try:
+                        code, body = srv.cues(path[len("/api/cues-"):], msg if isinstance(msg, dict) else {})
+                    except Exception as e:  # noqa: BLE001 -- ok: the phone hears why, the server keeps serving
+                        return self._json({"error": f"That didn't go through on the laptop: {e}"}, 500)
+                    return self._json(body if isinstance(body, dict) else {}, code)
                 try:
                     n = int(self.headers.get("Content-Length") or 0)
                     most = MAX_SETTINGS_POST if path == "/api/settings" else MAX_POST
