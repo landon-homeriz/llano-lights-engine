@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Llano Lights: install on your PC</title>
+<style>
+  @page { size: Letter; margin: 0.25in 0.45in; }
+  body { font: 8.8pt/1.24 "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #15171c; margin: 0; }
+  h1 { font-size: 17pt; margin: 0 0 2px; }
+  .sub { color: #555b66; margin: 0 0 9px; }
+  ol { margin: 0; padding-left: 22px; }
+  li { margin: 0 0 3px; padding-left: 4px; }
+  li b.t { display: block; font-size: 10.4pt; }
+  .box { border: 1px solid #d5d9e0; border-radius: 6px; padding: 5px 10px; margin: 4px 0 0; background: #f6f7f9; }
+  .keys { columns: 3; font-size: 9pt; margin-top: 3px; }
+  code { font-family: Consolas, monospace; font-size: 9.6pt; background: #eef0f3; padding: 0 3px; border-radius: 3px; }
+  a { color: #0b5cad; }
+  .small { font-size: 9pt; color: #555b66; }
+</style></head><body>
+<h1>Llano Lights: install on your PC</h1>
+<p class="sub">About 10 minutes, once. You don't need the lights yet: the app shows all 12 of them on screen. After this, new versions install themselves.</p>
+<ol>
+  <li><b class="t">Unzip it.</b>Right-click the <b>Llano-Lights</b> zip and pick <b>Properties</b>. If you see an <b>Unblock</b> box at the bottom, tick it and click OK. Then right-click the zip again, pick <b>Extract All</b>, and put it in your Documents folder.</li>
+  <li><b class="t">Run Setup once.</b>Open the new <b>Llano-Lights</b> folder and double-click <b>Setup</b>. If Windows asks whether to run it, click <b>Run</b> (or <b>More info</b>, then <b>Run anyway</b>). Setup adds <b>Llano Lights</b> to your Start menu and desktop, puts the Mixxx files where Mixxx looks for them, and opens the app.</li>
+  <li><b class="t">Watch the demo.</b>In the Llano Lights window, click <b>Demo</b> on the left. Pick one of the three free songs and the 12 lights play along with the real music: calm in the quiet parts, building with the song, then strobes, lasers and moving heads at the drop. Click <b>Stop</b> at the top right to end it. No Mixxx or lights needed for this. The <b>Your setup</b> list on the left shows what is found; a grey dot is something you haven't set up yet, which is fine for now.</li>
+  <li><b class="t">Install loopMIDI (free).</b>Download it from <a href="https://www.tobias-erichsen.de/software/loopmidi.html">tobias-erichsen.de/software/loopmidi.html</a> and install it. Open it, type <b>Llano Mixxx</b> in the "New port-name" box at the bottom left, and click the <b>+</b> button. Leave loopMIDI running (it sits by the clock). To have it start with Windows, right-click its icon by the clock and tick <b>Autostart</b>.</li>
+  <li><b class="t">Turn on the link in Mixxx.</b>Install Mixxx 2.5 from <a href="https://mixxx.org/download/">mixxx.org/download</a> if you don't have it. Open Mixxx (close and reopen it if it was already open), go to <b>Options &gt; Preferences &gt; Controllers</b>, and click <b>Llano Mixxx</b> on the left. Set <b>Load Mapping</b> to <b>Llano Light Link</b>, tick <b>Enabled</b>, and click OK.</li>
+  <li><b class="t">Try it with Mixxx.</b>In Llano Lights, click <b>Mixxx, no lights</b> and play a track in Mixxx. The lights on screen follow your music's beat, and the line above them names the deck you're playing. Crossfade to the other deck and the lights follow it.</li>
+  <li><b class="t">Optional: teach it your songs.</b>Click <b>Find song sections</b> once and it works out where each song's intro, build and drop are. Run it again after adding new music. Songs it hasn't done still get good looks that follow the beat.</li>
+  <li><b class="t">When the lights arrive.</b>Close SoundSwitch if it's open (only one program can use the DMX box at a time). Plug in the ENTTEC box; <b>ENTTEC lights box</b> turns green in Your setup. Click <b>Test each light</b> to light each fixture in turn, then <b>Live show</b> for the real thing.</li>
+</ol>
+<div class="box"><b>Show Designer.</b> Click <b>Show Designer</b>, then pick a room layout (small room or wedding hall, Tetras across the front or uplighting the walls) or drag each light, the booth and the dance floor to where they'll really stand. The view from above and the view from the dance floor play the show as it will look in that room. Press <b>Save my layout</b> and every show after that aims the moving heads, runs the chases and swings the sweeps from where you put the lights. Your light addresses never change. Every room you save is a venue: they are listed under <b>My venues</b>, apart from the ready-made rooms, to open, rename or delete, here and on llano.app/lights.</div>
+<div class="box"><b>While a show runs</b>, use the buttons above the lights or these keys:
+  <div class="keys">b: blackout<br>s: strobe<br>space: tap the tempo (when Mixxx is closed)<br>a: switch between song looks and loop looks<br>n / p: next or previous look<br>h: hold this look<br>c: hold one color<br>+ / -: brighter or dimmer<br>[ / ]: lights a little earlier or later</div></div>
+<div class="box"><b>Updates.</b> When a new version is out, a green bar at the top says so. Click <b>Update now</b> (not available while a show is running) and the app downloads it, checks it is genuinely ours, and reopens on the new version in about a minute. Your saved layouts and song sections stay.</div>
+<div class="box"><b>If something's off.</b> <b>Your setup</b> on the left shows what's found and what isn't, and <b>What the app is doing</b> at the bottom says what happened. If <b>Mixxx, no lights</b> says it can't hear Mixxx, check that loopMIDI is open with a port named exactly <b>Llano Mixxx</b> and that the mapping is enabled in Mixxx (step 5). If the Mixxx files need copying by hand, they're in the <b>Mixxx mapping</b> folder and go in <code>%LOCALAPPDATA%\Mixxx\controllers</code> (paste that into the File Explorer address bar).</div>
+<div class="box"><b>Had an older version?</b> Unzip this one and run its Setup. It replaces the old Start menu and desktop shortcuts, and you can then delete the old folder: your saved layouts are kept in your user folder, not in there. loopMIDI and the Mixxx setting stay as they are.</div>
+<div class="box"><b>To remove it:</b> Settings &gt; Apps &gt; Llano Lights &gt; Uninstall (or Control Panel &gt; Programs). It removes the app, its shortcuts and its update files, and asks before deleting your saved layouts.</div>
+<div class="box"><b>Your songs and the night.</b> The app's <b>Setup guide</b> walks you through your show, <b>Build the night</b> and <b>Load Mixxx</b>. On the night, click the first button at the top of the Auto DJ page (<b>Enable Auto DJ</b>) once, then the second button (<b>Fade Now</b>) at each stop.</div>
+<p class="small">Nothing here changes Mixxx or SoundSwitch settings. The preview runs only on your PC. From the internet the app fetches only a small file saying whether a new version is out, and that version when you click Update now.</p>
+</body></html>

@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="llano-token" content="__LLANO_TOKEN__">
+<title>__LLANO_TITLE__ · Set up guide</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<style>
+  /* The setup guide (1.21, Llano PM #23415): one numbered path from install to a built night. Each
+     step sends him to the page that already does it and reads back whether it worked; it is never a
+     second copy of Shows or the line-up. Same path, on paper: the room llano-lights-setup. */
+  :root { --bg:#07080b; --panel:#0f1117; --raise:#161924; --line:#232734; --text:#e8eaf0; --dim:#8a90a2; --faint:#5f6577;
+          --accent:#7cf0c8; --warn:#ffb454; --bad:#ff6b6b; }
+  html, body { min-height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 "Segoe UI", system-ui, sans-serif; }
+  a { color:var(--accent); }
+  button { font:inherit; color:var(--text); background:var(--raise); border:1px solid var(--line); border-radius:8px;
+           padding:7px 14px; cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.38; cursor:default; }
+  button.primary { background:var(--accent); color:#06120d; border-color:var(--accent); font-weight:600; }
+  header { display:flex; align-items:center; gap:14px; padding:10px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; }
+  header .grow { flex:1; }
+  header .ver { font-size:11.5px; color:var(--faint); }
+  main { max-width:760px; margin:0 auto; padding:18px 16px 60px; }
+  .lead { color:var(--dim); margin:0 0 12px; }
+  .bar { height:6px; background:var(--raise); border-radius:999px; overflow:hidden; margin:6px 0 4px; }
+  .bar i { display:block; height:100%; background:var(--accent); width:0; transition:width .3s; }
+  .count { color:var(--dim); font-size:12.5px; margin-bottom:14px; }
+  .running { background:var(--raise); border:1px solid var(--line); border-radius:8px; padding:8px 12px; margin:0 0 14px;
+             display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .running[hidden] { display:none; }
+  ol { list-style:none; margin:0; padding:0; }
+  li.step { border:1px solid var(--line); background:var(--panel); border-radius:10px; margin:0 0 10px; padding:12px 14px; }
+  li.step.now { border-color:var(--accent); box-shadow:0 0 0 1px #7cf0c844; }
+  .head { display:flex; gap:10px; align-items:center; cursor:pointer; }
+  .num { flex:none; width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-weight:600;
+         background:var(--raise); border:1px solid var(--line); font-size:13px; }
+  li.ok .num { background:var(--accent); color:#06120d; border-color:var(--accent); }
+  li.unknown .num { border-color:var(--warn); color:var(--warn); }
+  .title { font-weight:600; flex:1; }
+  .state { font-size:12px; color:var(--dim); white-space:nowrap; }
+  li.ok .state { color:var(--accent); }
+  .body { margin:8px 0 0 36px; }
+  li.step:not(.open) .body { display:none; }
+  .body p { margin:0 0 8px; }
+  .worked { color:var(--accent); }
+  .fix { color:#ffd59a; }
+  .detail { color:var(--dim); font-size:12.5px; }
+  .btns { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+  footer { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+  .done { border:1px solid var(--accent); border-radius:10px; padding:12px 14px; margin:0 0 14px; }
+  .done[hidden] { display:none; }
+  #msg { color:var(--warn); min-height:1.2em; font-size:12.5px; }
+  /* a check answers (Llano BL #11473): "Checking..." on the button, then "Checked just now" under it */
+  .checked { color:var(--accent); font-size:12.5px; margin:6px 0 0; }
+  .checked:empty { display:none; }
+  .byhand { color:var(--dim); font-size:12.5px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Set up Llano Lights, step by step</h1>
+  <span class="ver" id="ver"></span>
+  <span class="grow"></span>
+  <a href="/setup">Set up page</a>
+  <a href="/" id="tolive">Go to the Live screen</a>
+</header>
+<main>
+  <p class="lead">Do these in order. Each step checks itself where it can, and tells you what to do if it didn't work.
+    The same steps, with pictures of the cables, are in the room <b>Set up Llano Lights, start to finish</b> on llano.app.</p>
+  <div class="bar"><i id="barfill"></i></div>
+  <div class="count" id="count">Checking...</div>
+  <div class="done" id="alldone" hidden><b>All set.</b> At the venue: line up the lights (Set up, Line up my lights).
+    On the night: 1. Open Llano Lights and press Live show. 2. Open Mixxx and click the first button at the top of the Auto DJ page (Enable Auto DJ): the music starts
+    and the lights follow. 3. Each time a moment is over, click the second button (Fade Now) in Mixxx. The run sheet (Shows, Open the run
+    sheet) lists every press.</div>
+  <div class="running" id="running" hidden><span id="runlabel"></span><button id="stop">Stop</button></div>
+  <ol id="steps"></ol>
+  <div id="msg"></div>
+  <footer>
+    <button id="recheck">Check everything again</button>
+    <button id="later" title="Llano Lights opens on the Live screen from now on. This guide stays on the Set up page.">Not now</button>
+  </footer>
+  <p class="checked" id="checkedall" role="status"></p>
+</main>
+<script>
+const TOKEN = document.querySelector('meta[name="llano-token"]').content;
+const $ = s => document.querySelector(s);
+let G = null, openKey = "", seenNext = "";
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+
+async function post(path, body) {
+  try {
+    const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json", "X-Llano-Token": TOKEN},
+                                 body: JSON.stringify(body || {})});
+    const out = await r.json().catch(() => ({}));
+    if (!r.ok) say(plainError(out.error) || "The laptop refused that.");
+    return r.ok;
+  } catch (e) { say("Llano Lights isn't answering. Is it still open?"); return false; }
+}
+function say(t) { $("#msg").textContent = t || ""; }
+// "'<what>' is running; stop it first" names its way out (Llano BL #11473)
+function plainError(e) {
+  const m = /^'([^']+)' is running; stop it first$/.exec(String(e || ""));
+  if (!m) return e;
+  const what = m[1].split(/[:(]/)[0].trim();
+  // Stop ends every run but Check my setup: the app lets a check finish (gigbar_app.App.stop)
+  if (what === "Check my setup") return `${what} is running. It finishes by itself in a moment, then try again.`;
+  return `${what} is running. Press Stop beside Running now, above the steps, then try again.`;
+}
+
+async function refresh() {
+  try {
+    G = await (await fetch("/api/guide", {cache: "no-store"})).json();
+  } catch (e) { say("Llano Lights isn't answering. Is it still open?"); return; }
+  render();
+}
+
+function stateWord(s) { return s.byHand ? "Done (you said so)" : s.ok === true ? "Done" : s.ok === null ? "Can't tell here" : "To do"; }
+
+// A step whose fix names a download or a page gets a button to it (Llano BL #11473).
+const DOWNLOAD = "https://llano.app/gigbar-laptop-controller.html";
+const EXTRA = {app: ["link:" + DOWNLOAD, "Open the download page"], lights: ["link:/patch.html", "Open the patch sheet"]};
+
+// "I did this" on a step this laptop can't check (loopMIDI's port list unreadable, Mixxx's Auto DJ
+// settings not found): it counts as done on this page, kept in this window's storage. The app only
+// takes "Yes, it worked" for the steps in setup_guide.CONFIRMABLE, so these marks stay on this page.
+const DID_KEY = "llano-guide-did";
+let did = new Set();
+try { did = new Set(JSON.parse(localStorage.getItem(DID_KEY) || "[]")); } catch (e) {}
+function saveDid() { try { localStorage.setItem(DID_KEY, JSON.stringify([...did])); } catch (e) {} }
+function view() {   // the app's steps with his marks folded in, and the count from those
+  const steps = G.steps.map(s => s.ok === null && did.has(s.key) ? {...s, ok: true, byHand: true} : s);
+  const nxt = (steps.find(s => s.ok !== true) || {}).key || "";
+  return {steps, done: steps.filter(s => s.ok === true).length, total: steps.length, next: nxt, complete: !nxt};
+}
+
+// Checking: the button says so while the app scans, and a line says when it finished.
+const CHECKED_MS = 6000;
+let checking = "", checkedAt = {}, confirming = "", stillChecking = "";
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function checkedLine(which) {
+  if (stillChecking === which) return "Still checking...";
+  const at = checkedAt[which];
+  if (!at || Date.now() - at > CHECKED_MS) return "";
+  return "Checked just now, " + new Date(at).toLocaleTimeString([], {hour: "numeric", minute: "2-digit", second: "2-digit"}) + ".";
+}
+async function runCheck(which) {   // which: a step's key, or "all"
+  if (checking || stillChecking) return;
+  checking = which; say(""); render();
+  const ok = await post("/api/check");
+  let done = false;
+  if (ok) {
+    const t0 = Date.now();   // the app says setup_busy until the scan lands
+    do { await wait(400); await refresh(); } while (G && G.setup_busy && Date.now() - t0 < 20000);
+    done = !!G && !G.setup_busy;
+    checking = "";
+    if (!done) {   // a slow scan: say so, and keep watching for it to land (never "Checked" early)
+      stillChecking = which; render();
+      while (G && G.setup_busy && Date.now() - t0 < 120000) { await wait(1000); await refresh(); }
+      stillChecking = "";
+      done = !!G && !G.setup_busy;
+    }
+  }
+  checking = "";
+  if (done) checkedAt[which] = Date.now();
+  render();
+  setTimeout(render, CHECKED_MS + 100);
+}
+
+function render() {
+  if (!G) return;
+  $("#ver").textContent = "version " + G.version;
+  const V = view();
+  $("#barfill").style.width = Math.round(100 * V.done / V.total) + "%";
+  $("#count").textContent = V.complete ? `All ${V.total} steps done.` : `${V.done} of ${V.total} steps done. Next: step ${V.steps.findIndex(s => s.key === V.next) + 1}.`;
+  $("#alldone").hidden = !V.complete;
+  $("#recheck").disabled = !!checking;
+  $("#recheck").textContent = checking === "all" ? "Checking..." : "Check everything again";
+  $("#checkedall").textContent = checkedLine("all");
+  $("#running").hidden = !G.running;
+  $("#runlabel").textContent = G.running ? "Running now: " + G.running_label : "";
+  if (V.next !== seenNext) { openKey = V.next; seenNext = V.next; }   // the next step opens by itself
+  $("#steps").innerHTML = V.steps.map((s, i) => {
+    const cls = ["step", s.ok === true ? "ok" : s.ok === null ? "unknown" : "", s.key === V.next ? "now" : "",
+                 s.key === openKey ? "open" : ""].join(" ");
+    let act = "";
+    if (s.action === "check")
+      act += `<button class="primary" data-act="check" data-key="${esc(s.key)}"${checking ? " disabled" : ""}>${checking === s.key ? "Checking..." : esc(s.action_label)}</button>`;
+    else if (s.action) act += `<button class="primary" data-act="${esc(s.action)}">${esc(s.action_label)}</button>`;
+    if (EXTRA[s.key] && s.ok !== true) act += `<button data-act="${esc(EXTRA[s.key][0])}">${esc(EXTRA[s.key][1])}</button>`;
+    if (s.confirm && s.ok !== true) act += `<button data-confirm="${esc(s.key)}"${confirming ? " disabled" : ""}>${confirming === s.key ? "Stopping the test..." : "Yes, it worked"}</button>`;
+    if (s.confirm && s.ok === true) act += `<button data-unconfirm="${esc(s.key)}">Do it again</button>`;
+    if (s.ok === null) act += `<button data-did="${esc(s.key)}">I did this</button>`;
+    if (s.byHand) act += `<button data-undid="${esc(s.key)}">Not done yet</button>`;
+    return `<li class="${cls}" data-key="${esc(s.key)}"><div class="head"><span class="num">${s.ok === true ? "&#10003;" : i + 1}</span>` +
+      `<span class="title">${esc(s.title)}</span><span class="state">${stateWord(s)}</span></div>` +
+      `<div class="body"><p>${esc(s.do)}</p>` +
+      (s.ok === true ? `<p class="worked">${esc(s.worked)}</p>` : `<p class="fix"><b>If it didn't work:</b> ${esc(s.fix)}</p>`) +
+      (s.byHand ? `<p class="byhand">You marked this done on this page.</p>` : "") +
+      (s.detail ? `<p class="detail">${esc(s.detail)}</p>` : "") +
+      `<div class="btns">${act}</div>` +
+      (s.action === "check" ? `<p class="checked">${esc(checkedLine(s.key))}</p>` : "") + `</div></li>`;
+  }).join("");
+}
+
+$("#steps").addEventListener("click", async e => {
+  const b = e.target.closest("button");
+  if (!b) {
+    const li = e.target.closest("li.step");
+    if (li && e.target.closest(".head")) { openKey = openKey === li.dataset.key ? "" : li.dataset.key; render(); }
+    return;
+  }
+  say("");
+  if (b.dataset.did || b.dataset.undid) {
+    if (b.dataset.did) did.add(b.dataset.did); else did.delete(b.dataset.undid);
+    saveDid(); return render();
+  }
+  if (b.dataset.confirm) return confirmStep(b.dataset.confirm);
+  if (b.dataset.unconfirm) {
+    await post("/api/guide-confirm", {key: b.dataset.unconfirm, ok: false});
+    return refresh();
+  }
+  const act = b.dataset.act || "";
+  if (act === "check") return runCheck(b.dataset.key);
+  if (act.startsWith("run:")) {
+    b.disabled = true;
+    if (G && G.running) await post("/api/stop");
+    await post("/api/run", {mode: act.slice(4)});
+    return refresh();
+  }
+  if (act.startsWith("page:")) { location.href = act.slice(5); return; }
+  if (act.startsWith("link:")) { window.open(act.slice(5), "_blank"); return; }
+});
+// "Yes, it worked" while that step's own run is still going (the light test): stop the run first,
+// wait for it to end, then count the step, so the next step can start (Llano BL #11473).
+async function confirmStep(key) {
+  if (confirming) return;
+  confirming = key; render();
+  try {
+    const s = G.steps.find(x => x.key === key) || {}, mode = (s.action || "").startsWith("run:") ? s.action.slice(4) : "";
+    if (mode && G.running === mode) {
+      await post("/api/stop");
+      const t0 = Date.now();
+      do { await wait(300); await refresh(); } while (G && G.running === mode && Date.now() - t0 < 15000);
+      if (G && G.running === mode) { say(`${G.running_label || "The test"} is still stopping. Press Yes, it worked again in a moment.`); return; }
+    }
+    await post("/api/guide-confirm", {key, ok: true});
+  } finally { confirming = ""; await refresh(); }
+}
+$("#stop").addEventListener("click", async () => { await post("/api/stop"); refresh(); });
+$("#recheck").addEventListener("click", () => runCheck("all"));
+$("#later").addEventListener("click", async () => { await post("/api/guide-later"); location.href = "/"; });
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+<script>/* the window's "not running" screen instead of Edge's error page (sw.js, Llano BL #12377) */
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});</script>
+</body>
+</html>

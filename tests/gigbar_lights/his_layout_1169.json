@@ -1,0 +1,136 @@
+{
+ "name": "small-room-gigbars-flank-the-booth-tetra",
+ "room": {
+  "d": 10.0,
+  "h": 3.0,
+  "w": 8.0
+ },
+ "booth": {
+  "d": 1.0,
+  "w": 2.0,
+  "x": 3.0,
+  "y": 0.3
+ },
+ "floor": {
+  "d": 5.0,
+  "w": 5.0,
+  "x": 1.5,
+  "y": 2.5
+ },
+ "label": "Small room: GigBARs flank the booth, Tetras across the front (mine)",
+ "preset": false,
+ "fixtures": {
+  "bar1": {
+   "x": 2.3,
+   "y": 0.8,
+   "z": 2.4,
+   "cal": [
+    {
+     "center": [
+      0.33853,
+      0.7999
+     ]
+    },
+    {
+     "center": [
+      0.39363,
+      0.82284
+     ]
+    }
+   ],
+   "pan_trim": 0.0,
+   "tilt_trim": 0.0
+  },
+  "bar2": {
+   "x": 5.7,
+   "y": 0.8,
+   "z": 2.4,
+   "cal": [
+    {
+     "center": [
+      0.28529,
+      0.80833
+     ]
+    },
+    {
+     "center": [
+      0.32686,
+      0.795
+     ]
+    }
+   ],
+   "pan_trim": 0.0,
+   "tilt_trim": 0.0
+  },
+  "stick1": {
+   "x": 1.5,
+   "y": 2.5,
+   "z": 0.0,
+   "pan_trim": 0.0,
+   "tilt_trim": 0.0
+  },
+  "stick2": {
+   "x": 6.5,
+   "y": 2.5,
+   "z": 0.0,
+   "pan_trim": 0.0,
+   "tilt_trim": 0.0
+  },
+  "stick3": {
+   "x": 1.5,
+   "y": 7.5,
+   "z": 0.0,
+   "pan_trim": 0.0,
+   "tilt_trim": 0.0
+  },
+  "stick4": {
+   "x": 6.5,
+   "y": 7.5,
+   "z": 0.0,
+   "pan_trim": 0.0,
+   "tilt_trim": 0.0
+  },
+  "tetra1": {
+   "x": 1.5,
+   "y": 1.7,
+   "z": 0.1,
+   "pan_trim": 0.0,
+   "tilt_trim": 0.0
+  },
+  "tetra2": {
+   "x": 2.5,
+   "y": 1.7,
+   "z": 0.1,
+   "pan_trim": 0.0,
+   "tilt_trim": 0.0
+  },
+  "tetra3": {
+   "x": 3.5,
+   "y": 1.7,
+   "z": 0.1,
+   "pan_trim": 0.0,
+   "tilt_trim": 0.0
+  },
+  "tetra4": {
+   "x": 4.5,
+   "y": 1.7,
+   "z": 0.1,
+   "pan_trim": 0.0,
+   "tilt_trim": 0.0
+  },
+  "tetra5": {
+   "x": 5.5,
+   "y": 1.7,
+   "z": 0.1,
+   "pan_trim": 0.0,
+   "tilt_trim": 0.0
+  },
+  "tetra6": {
+   "x": 6.5,
+   "y": 1.7,
+   "z": 0.1,
+   "pan_trim": 0.0,
+   "tilt_trim": 0.0
+  }
+ }
+}

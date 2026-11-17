@@ -1,0 +1,2218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="llano-token" content="__LLANO_TOKEN__">
+<title>__LLANO_TITLE__ · preview</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
+<style>
+  :root { --bg:#07080b; --panel:#11131a; --line:#232734; --text:#e8eaf0; --dim:#8a90a2; --accent:#7cf0c8; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 "Segoe UI", system-ui, sans-serif; }
+  header { display:flex; flex-wrap:wrap; gap:8px 20px; align-items:baseline; padding:14px 20px; border-bottom:1px solid var(--line); }
+  header h1 { font-size:17px; margin:0; font-weight:600; }
+  #mode { color:var(--accent); font-weight:600; }
+  #status { color:var(--dim); font-family: Consolas, monospace; font-size:12.5px; flex-basis:100%; min-height:1.4em; }
+  #conn { margin-left:auto; font-size:12px; color:var(--dim); }
+  /* the way back when /preview is open in its own tab (inside the window, .embed hides the header) */
+  #backlink { color:var(--accent); text-decoration:none; font-size:13px; border:1px solid var(--accent); border-radius:6px; padding:4px 10px; }
+  @media print { #backlink { display:none; } }
+  main { padding:18px 20px 30px; max-width:1200px; margin:0 auto; }
+  h2 { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); font-weight:600; margin:22px 0 10px; }
+  .row { display:flex; flex-wrap:wrap; gap:14px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .bar { flex:1 1 520px; min-width:0; }
+  #dpanel label { flex-wrap:wrap; max-width:100%; }
+  #dpanel select { max-width:100%; min-width:0; }
+  @media (max-width:560px) { main { padding:12px 10px 24px; } .rig { margin:0 18px; } }
+  .name { font-size:12px; color:var(--dim); margin-bottom:8px; display:flex; justify-content:space-between; gap:8px; }
+  /* One GigBAR as you face it from the dance floor, drawn to the Chauvet GigBAR MOVE manual's Front Panel
+     View (User Manual Rev. 3, p. 8): the 2 derbies and the laser stand on top of the bar, the 4 strobes sit
+     in the bar along its length, and the 2 spots (at the ends) and 2 pars (inside them) hang under it.
+     --x is where on the bar, measured off that drawing. Head 1 (ch24-29) is the RIGHT end from the floor
+     (1.12.3, his 11-08 report), so the "R" parts are drawn on the right (1.17.1). */
+  .rig { position:relative; height:200px; margin:0 30px; }
+  .rig > * { position:absolute; left:var(--x); transform:translateX(-50%); }
+  .rig > .rail { left:-12px; right:-12px; transform:none; top:76px; height:16px; border-radius:3px; background:#1d2130; border:1px solid #2b3040; }
+  .rail .white { position:absolute; top:2px; left:calc(12px + (100% - 24px) * var(--x)); width:10px; height:10px; margin-left:-6px; border-radius:50%; border:1px solid #3a4054; }
+  .rail .sl { position:absolute; left:50%; top:1px; transform:translateX(-50%); font-size:10px; line-height:12px; color:#5f6577; white-space:nowrap; }
+  .rig .up { top:0; }
+  .rig .up .lbl { margin:0 0 3px; }
+  .rig .down { top:92px; }
+  .head { width:56px; height:140px; }
+  .head .yoke { position:absolute; left:50%; top:0; width:40px; height:46px; margin-left:-20px; border-radius:3px 3px 18px 18px; background:#2b3040; }
+  .head .lens { position:absolute; left:50%; top:18px; width:18px; height:18px; margin-left:-9px; border-radius:50%; z-index:1; }
+  .head .beam { position:absolute; left:50%; top:27px; width:26px; height:100px; margin-left:-13px; transform-origin:50% 0;
+                clip-path:polygon(40% 0, 60% 0, 100% 100%, 0 100%); filter:blur(1px); }
+  .head .hl { position:absolute; top:52px; left:50%; transform:translateX(-50%); font-size:11px; color:var(--dim); white-space:nowrap; z-index:1; background:var(--panel); padding:0 4px; border-radius:4px; }
+  .rig .down .par { width:44px; height:44px; }
+  .rig .up .derby, .rig .up .laser { width:48px; height:48px; }
+  .par { width:56px; height:56px; border-radius:50%; border:3px solid #2b3040; }
+  .derby { width:56px; height:56px; border-radius:50%; border:3px solid #2b3040; position:relative; overflow:hidden; }
+  .derby i { position:absolute; inset:0; border-radius:50%;
+             background: repeating-conic-gradient(var(--c) 0 12deg, transparent 12deg 30deg); }
+  .laser { width:56px; height:56px; border-radius:8px; border:3px solid #2b3040; position:relative; overflow:hidden; background:#000; }
+  .laser i { position:absolute; inset:0; background-image: radial-gradient(circle, var(--c) 1.5px, transparent 2.5px); background-size:9px 9px; }
+  #parts { display:grid; gap:4px; margin-top:8px; font-size:12px; color:#8a90a2; }
+  #parts .pr { display:flex; flex-wrap:wrap; gap:4px 12px; align-items:center; } #parts b { color:#c5c9d6; font-weight:600; margin-right:2px; }
+  #parts i { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; vertical-align:-1px; background:#2b3040; }
+  .white { width:70px; height:22px; border-radius:4px; border:2px solid #2b3040; }
+  .lbl { font-size:11px; color:var(--dim); text-align:center; margin-top:4px; }
+  .cell { display:flex; flex-direction:column; align-items:center; }
+  .tetra { width:96px; display:flex; flex-direction:column; align-items:center; }
+  .tetra .lamp { width:70px; height:70px; border-radius:12px; border:3px solid #2b3040; }
+  .stick { width:96px; display:flex; flex-direction:column; align-items:center; }
+  .stick .tube { width:22px; height:150px; border-radius:11px; border:3px solid #2b3040; }
+  .val { font-family:Consolas, monospace; font-size:10.5px; color:#5f6577; margin-top:3px; text-align:center; }
+  .keys { margin-top:26px; color:var(--dim); font-size:12.5px; }
+  .keys button { background:#1a1e29; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 10px; margin:3px; cursor:pointer; font:inherit; }
+  .keys button:hover { border-color:var(--accent); }
+  .note { color:#5f6577; font-size:11.5px; margin-top:14px; }
+  .views { display:flex; flex-wrap:wrap; gap:14px; }
+  .view { flex:1 1 420px; min-width:0; padding:8px; }
+  .view canvas { width:100%; display:block; border-radius:6px; background:#0b0c11; touch-action:none; }
+  .view .vt { font-size:12px; color:var(--dim); margin:2px 2px 6px; display:flex; justify-content:space-between; gap:8px; }
+  #dpanel { margin-top:14px; display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; }
+  #dpanel label { font-size:12.5px; color:var(--dim); display:flex; gap:6px; align-items:center; }
+  #dpanel select, #dpanel input { background:#1a1e29; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:inherit; }
+  #dpanel input[type=number] { width:64px; }
+  #dpanel button { background:#1a1e29; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 12px; cursor:pointer; font:inherit; }
+  #dpanel button.go { border-color:var(--accent); color:var(--accent); }
+  /* The room at the venue (BL #12344): Stage setup, Add, and the picked element's size, each one row */
+  #dpanel .room-row { flex-basis:100%; display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; border-top:1px solid var(--line); padding-top:10px; }
+  #dpanel .room-row > b { font-size:12.5px; font-weight:600; min-width:9ch; }
+  #dpanel [hidden] { display:none !important; }
+  #dpanel .room-hint { flex-basis:100%; margin:0; font-size:12px; color:var(--dim); }
+  #venues { flex-basis:100%; list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  #venues li { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; }
+  #venues .vname { flex:1 1 14ch; min-width:0; overflow-wrap:anywhere; }
+  #venues .vuse { font-size:12px; color:var(--dim); }
+  #venues input { flex:1 1 18ch; }
+  #dmsg { font-size:12.5px; color:var(--accent); min-height:1.3em; flex-basis:100%; }
+  /* what to type, right under the box it is about (Draw my room) */
+  #dpanel .boxerr { flex-basis:100%; width:0; min-width:100%; color:#ffb454; font-size:12px; }   /* under its box, as wide as the box line */
+  #dpanel input[aria-invalid="true"] { border-color:#ffb454; }
+  .editing canvas#top { outline:2px dashed var(--accent); cursor:grab; }
+  #dpanel button:disabled { opacity:.4; cursor:default; }
+  #lineup { margin-top:14px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; }
+  #lineup h3 { flex-basis:100%; margin:0; font-size:13px; font-weight:600; }
+  #lineup p { flex-basis:100%; margin:0; color:var(--dim); font-size:12.5px; }
+  #lineup button { background:#1a1e29; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 11px; cursor:pointer; font:inherit; }
+  #lineup button[aria-pressed="true"] { border-color:var(--accent); color:var(--accent); }
+  #lineup button:disabled { opacity:.4; cursor:default; }
+  #lineup .grp { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  #lineup .grp > span { font-size:12.5px; color:var(--dim); margin-right:2px; }
+  #lineup .swatch { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; vertical-align:-1px; }
+  .lu-howmany { flex-basis:100%; font-size:12.5px; color:var(--muted, #8a90a2); margin:2px 0 8px; max-width:70ch; }
+  #lmsg, #lsay { flex-basis:100%; font-size:12.5px; color:var(--accent); min-height:1.3em; }
+  #lsay { color:var(--dim); }
+  #lineup .go { border-color:var(--accent); color:var(--accent); }
+  #lineup button#lightson { font-size:15px; font-weight:600; padding:10px 22px; border-radius:22px; border-width:2px; }
+  #lineup button#lightson[aria-pressed="true"] { background:#fff6d6; color:#07080b; border-color:#fff6d6; box-shadow:0 0 18px 2px rgba(255,246,214,.35); }
+  #lightsay { font-size:12.5px; color:var(--dim); }
+  .lightstate { font-size:13px; color:var(--text); white-space:nowrap; }
+  #lineup .calib { flex-basis:100%; border-top:1px solid var(--line); padding-top:10px; display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; }
+  #lineup .calib h4 { flex-basis:100%; margin:0; font-size:12.5px; font-weight:600; }
+  #lineup .calib details { flex-basis:100%; font-size:12.5px; color:var(--dim); }
+  #lineup .calib label { font-size:12.5px; color:var(--dim); display:flex; gap:6px; align-items:center; }
+  #lineup .calib input[type=number] { width:64px; background:#1a1e29; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:4px 6px; font:inherit; }
+  #lineup [aria-pressed="true"] { border-color:var(--accent); color:var(--accent); }
+  #rawval { font-family:Consolas, monospace; font-size:12px; color:var(--dim); min-width:12ch; }
+  #cmsg { flex-basis:100%; font-size:12.5px; color:var(--accent); min-height:1.3em; }
+  #lineupback { margin-left:12px; font-weight:400; font-size:12.5px; color:var(--accent); text-decoration:none; }
+  .embed #lineupback { display:none; }
+  #lineuplink { margin-top:14px; display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; font-size:12.5px; color:var(--dim); }
+  #lineuplink a { color:var(--accent); border:1px solid var(--accent); border-radius:6px; padding:6px 12px; text-decoration:none; }
+  /* the line-up view (/lineup.html, 1.11.3): the controls and the room picture, nothing to scroll past */
+  #lineup, .lineup-view #lineuplink, .lineup-view main > h2, .lineup-view #dpanel, .lineup-view .row,
+  .lineup-view .keys, .lineup-view .note { display:none; }
+  .lineup-view #lineup { display:flex; margin:0 0 12px; }
+  .lineup-view main { padding-top:10px; }
+  /* Line up my lights, one screen (1.16.0, his 11-09 screenshot: stacked menus he had to scroll past).
+     The room pictures fill the middle; one strip below walks him through it, step by step. */
+  #lu, #lustrip { display:none; }
+  .lineup-view { height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+  .lineup-view header { display:none; }
+  .lineup-view main { flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; padding:8px 12px 10px; max-width:none; width:100%; }
+  .lineup-view #lu { display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex:none; }
+  .lineup-view #lu h1 { font-size:15px; margin:0 6px 0 0; font-weight:600; white-space:nowrap; }
+  .lineup-view #lu .say { flex:1 1 260px; color:var(--dim); font-size:12.5px; min-width:0; }
+  .lineup-view .views { flex:1; min-height:150px; flex-wrap:nowrap; gap:8px; }
+  .lineup-view .view { flex:1 1 0; display:flex; flex-direction:column; padding:6px; min-height:0; }
+  .lineup-view .view .vt { margin:0 2px 4px; }
+  .lineup-view .cv { flex:1; min-height:0; position:relative; }
+  .lineup-view .cv canvas { position:absolute; inset:0; width:100%; height:100%; }
+  .lineup-view #parts { display:none; }
+  .lineup-view #lustrip { display:grid; grid-template-columns:auto 1fr; gap:6px 18px; align-items:center; flex:none;
+                          background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 14px; }
+  .lineup-view #lineup { display:none; }
+  .lineup-view #lineupback, .lineup-view #lineupend { display:none; }   /* the top bar has Done */
+  .lineup-view.tools #lineup { display:flex; position:fixed; right:12px; top:52px; bottom:12px; width:min(480px, calc(100vw - 24px));
+                               overflow:auto; z-index:5; margin:0; align-content:flex-start; box-shadow:0 10px 40px #000a; }
+  #lu button, #lustrip button { background:#1a1e29; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 12px; cursor:pointer; font:inherit; }
+  #lu button:hover:not(:disabled), #lustrip button:hover:not(:disabled) { border-color:var(--accent); }
+  #lu button:disabled, #lustrip button:disabled { opacity:.4; cursor:default; }
+  #lu .primary, #lustrip .primary { background:var(--accent); color:#06120d; border-color:var(--accent); font-weight:600; }
+  #lu [aria-pressed="true"], #lustrip [aria-pressed="true"] { border-color:var(--accent); color:var(--accent); }
+  #lulights[aria-pressed="true"] { background:#fff6d6; color:#07080b; border-color:#fff6d6; box-shadow:0 0 14px 1px rgba(255,246,214,.3); font-weight:600; }
+  .rail { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:3px; grid-row:span 2; }
+  .rail li { display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--faint, #5f6577); white-space:nowrap; }
+  .rail li b { width:20px; height:20px; border-radius:50%; border:1px solid var(--line); display:inline-flex; align-items:center; justify-content:center; font-size:11px; }
+  .rail li.now { color:var(--text); font-weight:600; } .rail li.now b { border-color:var(--accent); color:var(--accent); }
+  .rail li.done { color:var(--dim); } .rail li.done b { background:#0d1a16; border-color:#2c6b57; color:var(--accent); }
+  .lupanel { display:none; flex-wrap:wrap; gap:8px 10px; align-items:center; min-height:58px; }
+  .lupanel.on { display:flex; }
+  .lupanel .lbl2 { font-size:12.5px; color:var(--dim); margin-right:2px; }
+  .lupanel .q { flex-basis:100%; font-size:13.5px; margin:0; }
+  .who { display:flex; align-items:baseline; gap:10px; margin-right:8px; }
+  .who b { font-size:20px; font-weight:700; letter-spacing:.01em; }
+  .who span { color:var(--dim); font-size:13px; white-space:nowrap; }
+  .pips { display:inline-flex; gap:5px; margin-left:4px; }
+  .pips i { width:10px; height:10px; border-radius:50%; border:1px solid var(--line); }
+  .pips i.ok { background:var(--accent); border-color:var(--accent); } .pips i.at { border-color:#ffd36b; background:#ffd36b33; }
+  .pad { display:inline-grid; grid-template-columns:repeat(4, 38px); gap:4px; }
+  .pad button { padding:6px 0 !important; }
+  .pad button, [data-jog] { touch-action:none; user-select:none; -webkit-user-select:none; }   /* held to move: no long-press menu */
+  .mono { font-family:Consolas, monospace; font-size:12px; color:var(--dim); min-width:13ch; }
+  .lures { display:flex; flex-direction:column; gap:2px; font-size:13px; margin-right:12px; }
+  .lures .bad { color:#ffb454; }
+  .lu-sp { flex:1; }
+  /* Done with the line-up not saved: the choice, right where Done is */
+  .luchoice { flex-basis:100%; display:flex; flex-wrap:wrap; gap:8px 10px; align-items:center; justify-content:flex-end;
+              border:1px solid #ffb454; border-radius:8px; padding:8px 10px; background:#1d1508; }
+  .luchoice[hidden] { display:none; }
+  .luchoice p { flex:1 1 320px; margin:0; font-size:13px; }
+  .luchoice label { font-size:12.5px; color:var(--dim); display:flex; gap:6px; align-items:center; }
+  .luchoice input { background:#1a1e29; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 8px; font:inherit; width:22ch; }
+  .luchoice .err { flex-basis:100%; color:#ffb454; font-size:12.5px; text-align:right; }
+  .luchoice .err:empty { display:none; }
+  .luchoice button[hidden] { display:none; }
+  #lusaved { font-size:15px; font-weight:600; color:var(--accent); }
+  @media (max-width:760px) {
+    .lineup-view { height:auto; overflow:auto; }
+    .lineup-view .views { flex-direction:column; } .lineup-view .view { flex:none; height:52vh; }
+    .lineup-view #lustrip { grid-template-columns:1fr; } .rail { flex-direction:row; flex-wrap:wrap; grid-row:auto; }
+  }
+  /* inside the desktop window, which has its own header and show buttons */
+  .embed header, .embed .keys { display:none; }
+  .embed main { padding-top:4px; max-width:none; }
+  /* the Live screen's stage (1.20.0, the Light studio): the two room pictures and nothing else. The
+     view from above is where he steers a spot: it tells the Live screen where the pointer is. */
+  .stage { height:100vh; overflow:hidden; background:transparent; }
+  .stage header, .stage #lu, .stage main > h2, .stage #lustrip, .stage #dpanel, .stage #lineuplink, .stage #lineup,
+  .stage .row, .stage .keys, .stage .note, .stage #parts, .stage .vt { display:none; }
+  .stage main { height:100vh; padding:0; max-width:none; margin:0; display:flex; }
+  .stage .views { flex:1; flex-wrap:nowrap; gap:0; min-height:0; }
+  .stage .view { flex:1.2 1 0; display:flex; flex-direction:column; padding:0; border:0; border-radius:0; background:none; min-height:0; min-width:0; }
+  .stage .view + .view { flex:1 1 0; border-left:1px solid var(--line); }
+  .stage .cv { flex:1; min-height:0; position:relative; }
+  .stage .cv canvas { position:absolute; inset:0; width:100%; height:100%; border-radius:0; background:none; }
+  .stage #top { cursor:crosshair; }
+  #peeknote { display:none; position:fixed; left:50%; top:10px; transform:translateX(-50%); z-index:6; white-space:nowrap;
+              background:#1d1508; border:1px solid #ffb454; color:#ffb454; font-weight:700; font-size:12.5px; border-radius:999px; padding:5px 14px; }
+  .peeking #peeknote { display:block; }
+  @media (max-width:640px) { .stage .view + .view { display:none; } }
+</style>
+</head>
+<body>
+<div id="peeknote"></div>
+<header>
+  <h1>Llano Lights</h1><a id="backlink" href="/">&#8592; Back to Llano Lights</a><span id="mode">connecting...</span><span id="conn"></span>
+  <div id="status"></div>
+</header>
+<main>
+  <div id="lu">
+    <h1>Line up my lights</h1>
+    <button id="lulights" aria-pressed="true" title="The heads being lined up are lit; nothing else is">Turn the lights off</button>
+    <span class="lightstate" id="lulightsstate">The lights are on.</span>
+    <span class="say" id="lusay">Every other light is off while you line up the moving heads. Leaving puts the show back.</span>
+    <button id="lutools" aria-pressed="false" title="Light doctor, one head at a time by the dots, fixture settings, Mirror, Power-up check">More tools</button>
+    <button id="ludone" class="primary">Done</button>
+    <div class="luchoice" id="luchoice" role="group" aria-label="Your line-up is not saved yet" hidden>
+      <p>Your line-up is not saved yet. If you finish without saving, the lights go back to where they were lined up before.</p>
+      <label id="lusavelabel">Save as <input type="text" id="lusavename" maxlength="80" placeholder="e.g. Rio Grande ballroom"></label>
+      <button id="lusavefinish" class="primary">Save and finish</button><button id="lunosave">Finish without saving</button><button id="lukeep">Keep lining up</button>
+      <span class="err" id="luchoiceerr" role="alert"></span><button id="luleave" hidden>Leave anyway</button>
+    </div>
+  </div>
+  <h2>The room</h2>
+  <div class="views">
+    <div class="card view"><div class="vt"><span>From above</span><span id="layname"></span></div><div class="cv"><canvas id="top"></canvas></div><div id="parts" aria-label="Each GigBAR part, lit or dark"></div></div>
+    <div class="card view"><div class="vt"><span>From the dance floor</span><span id="dims"></span></div><div class="cv"><canvas id="persp"></canvas></div></div>
+  </div>
+  <div id="lustrip" aria-label="Line up every head on one spot">
+    <ol class="rail" id="lurail">
+      <li data-step="1"><b>1</b>Pick a spot</li><li data-step="2"><b>2</b>Aim every head</li>
+      <li data-step="3"><b>3</b>Line up each head</li><li data-step="4"><b>4</b>Saved</li></ol>
+    <div class="lupanel" data-panel="1">
+      <p class="q">Where should every beam meet? Pick a spot, or tap anywhere on the floor in the view from above.</p>
+      <!-- the 11-14 video: say how many spots the line-up needs before it is confident (PM #23745) -->
+      <p class="lu-howmany" id="luhowmany">Two spots, far apart, are all Llano needs: from them it works out how high each GigBAR is, which way it faces and where it stands, so you never measure the bars. Start with the middle of the floor, then a spot near a front corner. A third spot is a double-check.</p>
+      <button data-luspot="center">Middle of the floor</button><button data-luspot="booth">In front of the DJ booth</button>
+      <button data-luspot="near">Near edge</button><button data-luspot="left">Left edge</button><button data-luspot="right">Right edge</button>
+      <p class="q lu-limq">Once they line up: <button id="lulimits" title="Steer the beams to the highest, lowest, left and right you allow here; every show, pad and Follow someone then stays inside">Set how far the heads go</button></p>
+    </div>
+    <div class="lupanel" data-panel="6">
+      <p class="q" id="limq">Steer every beam to each edge you allow at this venue, then keep it. Highest: just over the dancers' heads. The shows, pads and Follow someone then stay inside, with every move made smaller to fit.</p>
+      <span class="lim-edges" role="group" aria-label="Which edge"><button data-limedge="far">Highest</button><button data-limedge="near">Lowest</button><button data-limedge="left">Left edge</button><button data-limedge="right">Right edge</button></span>
+      <div class="pad" role="group" aria-label="Move the beams"><button data-limnudge="x:-1" title="Left (arrow key; Shift for bigger steps)">&#9664;</button>
+        <button data-limnudge="x:1" title="Right (arrow key; Shift for bigger steps)">&#9654;</button><button data-limnudge="y:1" title="Higher: further out (arrow key; Shift for bigger steps)">&#9650;</button>
+        <button data-limnudge="y:-1" title="Lower: nearer the bars (arrow key; Shift for bigger steps)">&#9660;</button></div>
+      <button id="limkeep" class="primary">Keep this edge</button>
+      <span class="lu-sp"></span>
+      <button id="limsave" class="primary">Save the limits</button><button id="limclear">Remove the limits</button><button id="limback">Back</button>
+      <p class="q" id="limsay" style="color:var(--dim);font-size:12.5px"></p>
+    </div>
+    <div class="lupanel" data-panel="2">
+      <p class="q" id="lumeetq">Every head is aiming at the spot. Do all the beams land on it together?</p>
+      <button id="lumeet">Yes, they all meet</button><button id="lumatch" class="primary">No, line them up one at a time</button>
+      <span class="lu-sp"></span><button id="lurepick">Pick another spot</button>
+    </div>
+    <div class="lupanel" data-panel="3">
+      <div class="who"><b id="luwho">Head 1 of 4</b><span id="luname"></span><span class="pips" id="lupips"></span></div>
+      <div class="pad" role="group" aria-label="Move the beam"><button data-lunudge="pan:-1" title="Left: hold to keep moving (arrow key; Shift for 5 steps)">&#9664;</button>
+        <button data-lunudge="pan:1" title="Right: hold to keep moving (arrow key; Shift for 5 steps)">&#9654;</button><button data-lunudge="tilt:1" title="Up: hold to keep moving (arrow key; Shift for 5 steps)">&#9650;</button>
+        <button data-lunudge="tilt:-1" title="Down: hold to keep moving (arrow key; Shift for 5 steps)">&#9660;</button></div>
+      <span class="mono" id="luraw"></span>
+      <button id="luothers" aria-pressed="false" title="The heads not being lined up: dim, or off">Others dim</button>
+      <span class="lu-sp"></span>
+      <button id="luprev">Previous head</button><button id="lunext" class="primary">It's on the spot: next head</button>
+      <p class="q" id="luhint" style="color:var(--dim);font-size:12.5px">Nudge the bright beam onto the spot with the arrows (or the arrow keys), or tap where it lands in the view from above and it jumps there.</p>
+    </div>
+    <div class="lupanel" data-panel="5"><span id="lusaved">Saved. This line-up is kept for this venue.</span></div>
+    <div class="lupanel" data-panel="4">
+      <div class="lures" id="lures"></div>
+      <span class="lu-sp"></span>
+      <button id="luagain">Check another spot</button><button id="lufinish" class="primary">Done</button>
+    </div>
+  </div>
+  <div class="card" id="dpanel">
+    <label>Venue <select id="lay"></select></label>
+    <button id="use" class="go">Use this venue</button>
+    <div class="room-row" id="venuerow" role="group" aria-label="My venues">
+      <b>My venues</b>
+      <ul id="venues"></ul>
+      <p class="room-hint" id="venuesnone">No venues saved yet. Set up the room here, type the venue's name under Save as, and press Save my layout: it shows up in this list to open, rename or delete.</p>
+    </div>
+    <label><input type="checkbox" id="edit"> Move lights (drag anything in the room; drag a corner to size it)</label>
+    <label>Room <input type="number" id="rw" step="0.5" aria-label="Room width"> x <input type="number" id="rd" step="0.5" aria-label="Room depth"></label>
+    <label id="ceil">Ceiling height <input type="number" id="rh" step="0.5"></label>
+    <label>Units <select id="units"><option value="ft">feet</option><option value="m">meters</option></select></label>
+    <label><input type="checkbox" id="open"> Open space or outdoors (no walls or ceiling)</label>
+    <div class="room-row" id="stagesetup" aria-label="Stage setup from three measurements">
+      <b>Stage setup</b>
+      <label>Stage width <input type="number" id="qsw" min="1" aria-label="Stage width" aria-describedby="qswerr"> <span class="u">ft</span><small class="boxerr" id="qswerr" role="alert" hidden></small></label>
+      <label>Dance floor depth <input type="number" id="qsd" min="1" aria-label="Dance floor depth" aria-describedby="qsderr"> <span class="u">ft</span><small class="boxerr" id="qsderr" role="alert" hidden></small></label>
+      <label>GigBAR height above the dance floor <input type="number" id="qsh" min="1" aria-label="GigBAR height above the dance floor" aria-describedby="qsherr"> <span class="u">ft</span><small class="boxerr" id="qsherr" role="alert" hidden></small></label>
+      <span class="qsstand" role="group" aria-label="What the GigBARs stand on">On <button data-stand="6">a 6 ft stand</button><button data-stand="7">a 7 ft stand</button> on a stage <input type="number" id="qsstage" min="0" max="8" step="0.5" value="0" aria-label="Stage height above the dance floor"> <span class="u">ft</span> high</span>
+      <button id="qsgo" class="go">Draw my room</button>
+      <p class="room-hint">Puts the GigBARs on the stage's front corners, 2 ft in from each edge, turned in to the middle of the dance floor. The height is the stand plus the stage: pick the stand and type the stage's height, and the height box fills in. Llano aims "chest height" and "over heads" from it, so get it right before you set the head limits.</p>
+    </div>
+    <div class="room-row" id="addrow">
+      <b>Add</b><button data-add="stage">Stage</button><button data-add="tables">Table area</button><button data-add="nobeam">No-beam zone</button><button id="addlimits" title="A box the moving heads stay inside at this venue">Head limits</button>
+      <p class="room-hint">Drag anything in the view from above to move it, and its corner to size it. The moving lights stay out of table areas and no-beam zones, and inside the head limits: set those on site in Line up my lights (Set how far the heads go), or drag the box here.</p>
+    </div>
+    <div class="room-row" id="numrow">
+      <b>Numbers</b><button data-renumber="tetra">Flip the Tetra numbers</button><button data-renumber="stick">Flip the stick numbers</button>
+      <span id="numsay" class="room-hint"></span>
+      <p class="room-hint">Number the lights the way your cords run: a flip keeps every light where it stands and swaps which one is 1, 2, 3 and so on, so each address moves with its number. Save my layout to keep it.</p>
+    </div>
+    <div class="room-row" id="selrow" hidden>
+      <b id="selname"></b>
+      <label id="selsize">Size <input type="number" id="selw" aria-label="Width"> x <input type="number" id="seld" aria-label="Depth"> <span class="u">ft</span></label>
+      <label id="selheight"><span id="selhword">Height</span> <input type="number" id="selh" aria-label="Height"> <span class="u">ft</span></label>
+      <span id="selturn" role="group" aria-label="Turn this light in the picture">Turn
+        <button data-turn="-90" title="A quarter turn left">&#8634; 90&deg;</button><button data-turn="-45" title="An eighth of a turn left">&#8634; 45&deg;</button>
+        <button data-turn="-1" title="One degree left">&lsaquo; 1&deg;</button><input type="number" id="selang" step="1" min="-180" max="180" aria-label="Turn in degrees"> &deg;
+        <button data-turn="1" title="One degree right">1&deg; &rsaquo;</button>
+        <button data-turn="45" title="An eighth of a turn right">45&deg; &#8635;</button><button data-turn="90" title="A quarter turn right">90&deg; &#8635;</button>
+        <button id="selsquare" title="Draw it square to the way it faces again">Square up</button></span>
+      <button id="seldel">Remove</button>
+      <p class="room-hint" id="selturnhint" hidden>Turning only changes the picture. The moving heads aim from Line up my lights, never from how a light is drawn.</p>
+    </div>
+    <label><input type="checkbox" id="snap" checked> Snap to the grid</label>
+    <button id="undo" disabled title="Undo the last change (Ctrl+Z)">Undo</button>
+    <button id="reset" title="Throw away the changes and go back to the layout as it was">Reset</button>
+    <label>Save as <input type="text" id="sname" maxlength="80" placeholder="e.g. Rio Grande ballroom"></label>
+    <button id="save" class="go">Save my layout</button>
+    <div class="room-row restorelu" hidden><button class="restorebtn">Bring back my line-up</button>
+      <span class="room-hint restoresay"></span></div>
+    <div id="dmsg"></div>
+  </div>
+  <div class="card" id="lineuplink"><a href="/lineup.html">Line up my lights</a>
+    <span>At the venue: aim the GigBARs at a spot and nudge them until they land where the picture shows. No show or demo needed.</span></div>
+  <div class="card" id="lineup">
+    <h3>Line up my lights <a id="lineupback" href="/" title="Back to Llano Lights">&#8592; Llano Lights</a></h3>
+    <div class="grp"><button id="lightson" aria-pressed="true" title="Every GigBAR head a white spot at full, so you can see each beam">Turn the lights off</button>
+      <span class="lightstate" id="lightsstate">The lights are on.</span>
+      <button id="lightswhole" aria-pressed="false" title="The whole bar, not only the spots: both pars, both derbies, the laser and the 4 strobes">Whole bar</button>
+      <span id="lightsay">Every GigBAR head is a white spot at full while this page is open. Press to turn them off and on again.</span></div>
+    <p>The real lights follow this page when the ENTTEC box is plugged in, and the picture below always does. Center all sends all four heads to the middle of the dance floor:
+      they should meet on one dot. If a head misses, calibrate it below: the head you pick is the one that moves when you nudge.</p>
+    <div class="grp"><button id="centerall" class="go">Center all</button><span>Light</span><button data-bar="0" aria-pressed="false">Both GigBARs</button><button data-bar="1" aria-pressed="false">GigBAR 1</button><button data-bar="2" aria-pressed="false">GigBAR 2</button></div>
+    <div class="grp"><span>Point at</span><button data-spot="center" aria-pressed="false">Middle of the dance floor</button>
+      <button data-spot="booth" aria-pressed="false">Front of the DJ booth</button><button data-spot="down" aria-pressed="false">Straight down</button><button data-spot="middle" aria-pressed="false" title="Every head at DMX middle, pan 128 and tilt 128. Compare with where the heads face right after power-up.">Power-up check</button>
+      <button id="flip" aria-pressed="false" title="A bar whose heads turn the wrong way: they turn the other way, around the middle of the dance floor">Mirror</button></div>
+    <div id="lmsg"></div>
+    <div class="grp restorelu" hidden><button class="restorebtn">Bring back my line-up</button><span class="restoresay"></span></div>
+    <div class="calib">
+      <h4>Calibrate a head, so the picture and the real beams match</h4>
+      <p>Pick a head and a dot (they're drawn on the floor below). Move the real beam until it sits on that dot on the floor, then press Set.
+        Start with the center dot, then the near edge and the left edge: from those, each head's aim is worked out.
+        Center alone is often enough; the other two settle which way a head turns.</p>
+      <div class="grp"><span>Head (left and right as you face the bar from the dance floor)</span>
+        <button data-head="1:1">GigBAR 1 left</button><button data-head="1:0">GigBAR 1 right</button>
+        <button data-head="2:1">GigBAR 2 left</button><button data-head="2:0">GigBAR 2 right</button></div>
+      <div class="grp"><span>Light doctor: the head moves to 5 spots and you tap where each beam lands in the view from above</span>
+        <button id="doctor" class="go">Find this head for me</button><button id="docskip">Can't see this one</button><button id="docstop">Stop the doctor</button></div>
+      <div class="grp"><span>Tap to aim: tap where this head's beam lands in the view from above, then where it should land</span>
+        <button id="tapaim" class="go">Tap to aim</button><button id="tapdone">Done aiming</button></div>
+      <div class="grp"><span>Dot</span><button data-dot="center">Center</button><button data-dot="near">Near edge</button><button data-dot="side">Left edge</button></div>
+      <div class="grp"><span>Move the beam</span><button data-jog="pan:-1" title="Pan one step; hold to keep moving (arrow key; Shift for 5)">&#9664;</button>
+        <button data-jog="pan:1" title="Pan one step; hold to keep moving (arrow key; Shift for 5)">&#9654;</button>
+        <button data-jog="tilt:1" title="Tilt one step; hold to keep moving (arrow key; Shift for 5)">&#9650;</button>
+        <button data-jog="tilt:-1" title="Tilt one step; hold to keep moving (arrow key; Shift for 5)">&#9660;</button>
+        <span id="rawval"></span><button id="setdot" class="go">Set center</button><button id="calstop">Stop calibrating</button></div>
+      <details id="calmore"><summary>This head's fixture settings</summary>
+        <div class="grp"><label><input type="checkbox" data-cal="pan_invert"> Pan turns the other way</label>
+          <label><input type="checkbox" data-cal="tilt_invert"> Tilt turns the other way</label>
+          <label><input type="checkbox" data-cal="swap"> Pan and tilt swapped</label>
+          <label>Pan range <input type="number" data-cal="pan_range" min="90" max="720" step="1">&deg;</label>
+          <label>Tilt range <input type="number" data-cal="tilt_range" min="45" max="360" step="1">&deg;</label>
+          <button id="calclear">Clear this head's calibration</button></div>
+        <p>From the Chauvet GigBAR Move manual: 540&deg; pan, 180&deg; tilt, 8-bit (one step is about 2&deg; of pan, 0.7&deg; of tilt).
+          With two or more dots set, the turn directions and swap are worked out from them.
+          Leave PanReverse and TiltReverse OFF in the bar's own menu (SYS): they turn both heads the other way on top of this, so calibrate again after changing them.</p>
+      </details>
+      <div id="cmsg"></div>
+    </div>
+    <div class="grp" id="lineupend"><button id="lineupsave" class="go">Save my layout</button><button id="lineupdone">Done</button></div>
+    <div id="lmsg"></div>
+    <div id="lsay"></div>
+  </div>
+  <h2>GigBAR Move bars (2)</h2>
+  <div class="row" id="bars"></div>
+  <h2>Venue Tetra 6 uplights (6)</h2>
+  <div class="row" id="tetras"></div>
+  <h2>Freedom Sticks (4)</h2>
+  <div class="row" id="sticks"></div>
+  <div class="keys">
+    Buttons (or type the key in this window):
+    <button data-k="b">B Blackout</button><button data-k="s">S Strobe</button>
+    <button data-k="t">T Tap tempo</button><button data-k="a">A Autoloops</button>
+    <button data-k="p">P Previous look</button><button data-k="n">N Next look</button>
+    <button data-k="h">H Hold look</button><button data-k="c">C Color hold</button>
+    <button data-k="-">- Dimmer</button><button data-k="+">+ Brighter</button>
+    <button data-k="[">[ Earlier</button><button data-k="]">] Later</button>
+    <button data-k="q">Q Stop show</button>
+  </div>
+  <div class="note">Drawn from the exact DMX values the show sends to the ENTTEC box (the small numbers under each light).
+    Moving-head colors are the real wheel, checked on the units.</div>
+</main>
+<script>
+const DERBY = ["#000000","#ff2020","#20ff40","#2050ff","#ffe020","#ff20d0","#20f0ff","#ffffff","rainbow"];
+const WHEEL = ["#ffffff","#2040ff","#ff9020","#ff3030","#40c8ff","#ffe030","#30ff60","#a040ff"]; // the real wheel by slot (rig.HEAD_WHEEL, BL #12147)
+// Ch17 laser bands (manual Rev. 3/4), with ch18's strobe on top (1.12.3).
+function laserColor(c, st, t) {   // the laser's color now, or null (dark, or the off slice of a flash)
+  if (c < 40 || !strobeOn(st, 10, 239, t)) return null;
+  const flip = (t * 6) % 1 < 0.5, flash = (t * 8) % 1 < 0.5;
+  if (c < 80) return "#ff2020";
+  if (c < 120) return "#20ff40";
+  if (c < 160) return flip ? "#ff2020" : "#20ff40";              // red + green
+  if (c < 200) return flash && flip ? "#ff2020" : "#20ff40";     // green on, red flashing
+  if (c < 240) return flash && flip ? "#20ff40" : "#ff2020";     // red on, green flashing
+  return flip ? "#ff2020" : "#20ff40";                           // flashing in turn
+}
+function spin(v) { return !v || (v > 127 && v < 134) || v < 5 ? 0 : v <= 127 ? (v - 5) / 122 : -(v - 134) / 121; }
+function barStrobe(u, b, t) {   // the 4 strobes: ch20 control, ch21 white, ch22 UV, ch23 speed (manual Rev. 3/4)
+  const c = u[b+19], wd = u[b+20], uv = u[b+21], sp = u[b+22];
+  if (c < 10) return {col: [255, 255, 255], k: 0};   // 0-9: the strobes' blackout, whatever ch21/22 say (1.14.1)
+  const prog = c < 190 || c >= 210;   // 10-189 the bar's programs, 210-255 to sound; 190-209 all strobing at ch21/22/23
+  const hz = prog ? 6 : 2 + 18 * sp / 255, on = ((t * hz) % 1) < 0.25;
+  if (prog) return {col: [255, 255, 255], k: on ? 1 : 0};
+  if (wd > 0) return {col: [255, 255, 255], k: on ? wd / 255 : 0};
+  return {col: [150, 60, 255], k: uv > 0 && on ? uv / 255 : 0};
+}
+const $ = (s, el=document) => el.querySelector(s);
+const TOKEN = document.querySelector('meta[name="llano-token"]').content;
+if (new URLSearchParams(location.search).has("embed")) document.body.classList.add("embed");
+const STAGE = new URLSearchParams(location.search).has("stage");   // the Live screen's stage (1.20.0)
+if (STAGE) document.body.classList.add("stage");
+let spotsNow = null, previewing = "", stageLay = "";   // the spots he steers and a pad being previewed, from /state
+const el = (h) => { const t = document.createElement("template"); t.innerHTML = h.trim(); return t.content.firstChild; };
+
+function buildRig() {
+  for (const n of [1,2]) $("#bars").append(el(`
+    <div class="card bar" id="bar${n}"><div class="name"><span><b class="pname" data-fid="bar${n}">GigBAR Move ${n}</b>, as seen from the dance floor</span><span class="wv"></span></div>
+      <div class="rig">
+        <div class="rail">${[0.03,0.34,0.66,0.97].map(x=>`<div class="white" style="--x:${x}"></div>`).join("")}<span class="sl">Strobes (4)</span></div>
+        <div class="cell up" style="--x:18%"><div class="lbl">Derby L</div><div class="derby d2"><i></i></div></div>
+        <div class="cell up" style="--x:50%"><div class="lbl">Laser</div><div class="laser"><i></i></div></div>
+        <div class="cell up" style="--x:82%"><div class="lbl">Derby R</div><div class="derby d1"><i></i></div></div>
+        ${[2,1].map(m=>`<div class="head down m${m}" style="--x:${m==1?93:7}%"><div class="yoke"></div><div class="lens"></div><div class="beam"></div><span class="hl">Spot ${m==1?"R":"L"}</span></div>`).join("")}
+        <div class="cell down" style="--x:36%"><div class="par p2"></div><div class="lbl">Par L</div></div>
+        <div class="cell down" style="--x:64%"><div class="par p1"></div><div class="lbl">Par R</div></div>
+      </div></div>`));
+  for (let i=0;i<6;i++) $("#tetras").append(el(`<div class="card tetra" id="t${i}"><div class="lamp"></div><div class="lbl pname" data-fid="tetra${i+1}">Tetra ${i+1}</div><div class="val"></div></div>`));
+  for (let i=0;i<4;i++) $("#sticks").append(el(`<div class="card stick" id="s${i}"><div class="tube"></div><div class="lbl pname" data-fid="stick${i+1}">Stick ${i+1}</div><div class="val"></div></div>`));
+}
+
+// Which light is which (BL #12378): each light's DMX start address and channel mode, from the rig block
+// in force (/api/patch, the same numbers the lights are sent on), beside its name on every card and on
+// the map from above. A light's own display has to show this address and mode.
+let PATCH = {};
+const pAddr = (fid) => PATCH[fid] && PATCH[fid].address != null ? String(PATCH[fid].address).padStart(3, "0") : "";
+async function loadPatch() {
+  try {
+    const r = await fetch("/api/patch", {cache: "no-store"}), j = await r.json();
+    PATCH = Object.fromEntries((j.rows || []).map(x => [x.id, x]));
+    document.querySelectorAll(".pname").forEach(e => {
+      const x = PATCH[e.dataset.fid]; if (!x) return;
+      e.textContent = `${x.id.startsWith("bar") ? "GigBAR Move " + x.id.slice(3) : x.name} · address ${pAddr(x.id)}`;
+      e.title = `${x.model}: set its display to address ${pAddr(x.id)}, ${x.mode} mode`;
+    });
+  } catch (e) { /* the window still draws; labels keep their names until the next try */ }
+  setTimeout(loadPatch, 5000);
+}
+
+// Strobe: a channel value maps to a flash rate; the element is lit only in the "on" slice.
+function strobeOn(v, lo, hi, t) {
+  if (!v || v < lo) return true;
+  const hz = 1 + 19 * Math.min(1, (v - lo) / (hi - lo));
+  return ((t * hz) % 1) < 0.35;
+}
+function rgb(r,g,b,k) { return `rgb(${Math.round(r*k)},${Math.round(g*k)},${Math.round(b*k)})`; }
+function glow(node, r,g,b,k) {
+  node.style.background = rgb(r,g,b,k);
+  const lit = Math.max(r,g,b) * k;
+  node.style.boxShadow = lit > 8 ? `0 0 ${10+30*k}px ${4+10*k}px ${rgb(r,g,b,k*0.8)}` : "none";
+}
+
+let draw = function (u, t) {
+  [0,40].forEach((b, n) => {
+    const card = $(`#bar${n+1}`);
+    for (const [cls, off] of [["p1",0],["p2",5]]) {
+      const [r,g,bl,uv,sh] = u.slice(b+off, b+off+5);
+      let k = sh < 128 ? sh/127 : (strobeOn(sh,128,239,t) ? 1 : 0);
+      glow($("."+cls, card), Math.min(255,r+uv*0.5), g, Math.min(255,bl+uv), k);
+    }
+    for (const [cls, off] of [["d1",10],["d2",13]]) {
+      const [c, st, rot] = u.slice(b+off, b+off+3);
+      const idx = Math.max(0, Math.min(8, Math.floor((c-5)/25)));
+      const on = idx > 0 && strobeOn(st,10,239,t);
+      const col = DERBY[idx] === "rainbow" ? `hsl(${(t*120)%360} 100% 55%)` : DERBY[idx];
+      const i = $("."+cls+" i", card);
+      i.style.setProperty("--c", on ? col : "transparent");
+      const speed = rot === 0 ? 0 : rot <= 127 ? (rot-5)/122 : -(rot-134)/121;
+      i.style.transform = `rotate(${(t*360*speed*0.8)%360}deg)`;
+    }
+    const li = $(".laser i", card);
+    li.style.setProperty("--c", laserColor(u[b+16], u[b+17], t) || "transparent");
+    const ls = spin(u[b+18]);
+    li.style.backgroundPosition = `${(t*40*ls)%9}px ${(t*25*ls)%9}px`;
+    const bs = barStrobe(u, b, t);
+    card.querySelectorAll(".white").forEach(w => glow(w, ...bs.col, bs.k));   // the 4 strobes, one set of channels
+    for (const [m, off] of [[1,23],[2,29]]) {
+      const [pan, tilt, dim, st, colv] = u.slice(b+off, b+off+5);
+      const head = $(".m"+m, card);
+      const on = dim > 0 && strobeOn(st,10,255,t);
+      const col = WHEEL[Math.max(0, Math.min(7, Math.floor((colv-4)/32)))];
+      const beam = $(".beam", head), lens = $(".lens", head);
+      const angle = (pan/255 - 0.5) * 140, len = 40 + 60 * (1 - Math.abs(tilt/255 - 0.5) * 2);
+      beam.style.transform = `rotate(${-angle}deg)`;   // hangs under the bar (1.17.1): the same turn as before
+      beam.style.height = `${len}px`;
+      beam.style.background = on ? `linear-gradient(to bottom, ${col}, transparent)` : "transparent";
+      beam.style.opacity = on ? (0.25 + 0.75*dim/255) : 0;
+      lens.style.background = on ? col : "#14161d";
+      lens.style.boxShadow = on ? `0 0 12px 4px ${col}` : "none";
+    }
+    $(".wv", card).textContent = `pan/tilt ${Math.round(u[b+23])}/${Math.round(u[b+24])} · ${Math.round(u[b+29])}/${Math.round(u[b+30])}`;
+  });
+  for (let i=0;i<6;i++) {
+    const a = 80 + 10*i, [r,g,b,am,dim,st] = u.slice(a, a+6);
+    const k = (dim/255) * (strobeOn(st,10,255,t) ? 1 : 0);
+    glow($(`#t${i} .lamp`), Math.min(255,r+am), Math.min(255,g+am*0.5), b, k);
+    $(`#t${i} .val`).textContent = `${r} ${g} ${b} ${am} · ${dim}${st?" ⚡":""}`;
+  }
+  for (let i=0;i<4;i++) {
+    const a = 150 + 10*i, [dim,r,g,b,_m,st] = u.slice(a, a+6);
+    const k = (dim/255) * (strobeOn(st,11,255,t) ? 1 : 0);
+    glow($(`#s${i} .tube`), r, g, b, k);
+    $(`#s${i} .val`).textContent = `${r} ${g} ${b} · ${dim}${st?" ⚡":""}`;
+  }
+}
+
+let latest = new Array(192).fill(0), lastOk = 0, frames = 0;
+async function poll() {
+  try {
+    const r = await fetch("/state", {cache:"no-store"});
+    const s = await r.json();
+    latest = s.u; lastOk = performance.now(); frames = s.frames;
+    if (s.trail) keepTrail(s.trail, s.now, lastOk);
+    if (s.counts) setCounts(s.counts);
+    $("#mode").textContent = s.mode; $("#status").textContent = s.status;
+    spotsNow = s.spots || null;
+    if (STAGE && spotsNow && spotsNow.layout && L && spotsNow.layout !== stageLay) {   // the room changed under the stage (from the phone): draw the new one
+      const first = !stageLay; stageLay = spotsNow.layout; if (!first) loadLayout();
+    }
+    if ((s.previewing || "") !== previewing) {   // look before you press: this is the pad, not the lights
+      previewing = s.previewing || ""; trail = [];
+      document.body.classList.toggle("peeking", !!previewing);
+      $("#peeknote").textContent = previewing ? "Previewing " + previewing + ". The lights have not changed." : "";
+    }
+    setTimeout(poll, 30);
+  } catch (e) { setTimeout(poll, 1000); /* show stopped: check back once a second */ }
+}
+// Smooth beams (BL #11615): each /state carries the last frames' head bytes stamped with the app's
+// clock. The picture plays them back BEHIND ms late, easing pan/tilt between real frames, so a
+// beam glides the way the head does instead of jumping once per poll.
+const HEAD_AT = [23, 24, 29, 30, 63, 64, 69, 70], BEHIND = 90;
+let trail = [], clockOff = null;
+function keepTrail(rows, serverNow, here) {
+  const off = serverNow - here;   // the app's clock minus ours, short by the trip; the biggest is the truest
+  clockOff = clockOff === null || off > clockOff ? off : clockOff + (off - clockOff) * 0.02;
+  const last = trail.length ? trail[trail.length - 1][0] : -Infinity;
+  for (const r of rows) if (r[0] > last) trail.push(r);
+  if (trail.length > 48) trail.splice(0, trail.length - 48);
+}
+function smoothHeads(u, here) {
+  if (clockOff === null || trail.length < 2) return u;
+  const at = here + clockOff - BEHIND;
+  let i = trail.length - 1;
+  while (i > 0 && trail[i][0] > at) i--;
+  const a = trail[i], b = trail[Math.min(i + 1, trail.length - 1)];
+  const k = b[0] > a[0] ? Math.min(1, Math.max(0, (at - a[0]) / (b[0] - a[0]))) : 0;
+  const out = u.slice();
+  // A row may carry the picture's own columns after the bytes (1.16.3): the heads unrounded and
+  // moving together, where the bytes hold and then make short moves for the real motors.
+  const col = (r, j) => r.length > 2 * HEAD_AT.length ? r[j + 1 + HEAD_AT.length] : r[j + 1];
+  HEAD_AT.forEach((ch, j) => { out[ch] = col(a, j) + (col(b, j) - col(a, j)) * k; });
+  return out;
+}
+function frame() {
+  const t = performance.now() / 1000;
+  const live = performance.now() - lastOk < 1500;
+  $("#conn").textContent = live ? `live · ${frames} frames sent` : "show stopped (close this tab, or start a mode again)";
+  draw(live ? smoothHeads(latest, performance.now()) : new Array(192).fill(0), t);
+  requestAnimationFrame(frame);
+}
+function sendKey(k) { fetch("/key?k=" + encodeURIComponent(k), {method:"POST", headers:{"X-Llano-Token": TOKEN}}).catch(()=>{}); }
+const EMBEDDED = window.parent !== window;
+// On the Live screen's stage every key is the Live screen's (the arrow keys steer a spot there, and
+// a key let go must reach it too), so a click in the picture never strands the keyboard here.
+function stageKey(e) {
+  parent.postMessage({llanoStageKey: {type: e.type, key: e.key, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey, repeat: e.repeat}}, location.origin);
+  if (!e.metaKey && !e.altKey && (/^(Arrow|Tab|Enter)/.test(e.key) || (e.key.length === 1 && (!e.ctrlKey || e.key.toLowerCase() === "z")))) e.preventDefault();
+}
+if (STAGE && window.parent !== window) { document.addEventListener("keydown", stageKey, true); document.addEventListener("keyup", stageKey, true); }
+document.addEventListener("keydown", (e) => {
+  if (STAGE) return;
+  if (LINEVIEW && finishing) return;
+  if (e.target.closest && e.target.closest("#luchoice")) {   // the focused button takes Enter and Space; Enter in the name box saves
+    if (e.key === "Enter" && e.target.id === "lusavename") { e.preventDefault(); $("#lusavefinish").click(); }
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "z" && !/INPUT|TEXTAREA/.test(e.target.tagName)) { e.preventDefault(); undo(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  const arrow = {ArrowLeft: ["pan", -1], ArrowRight: ["pan", 1], ArrowUp: ["tilt", 1], ArrowDown: ["tilt", -1]}[e.key];
+  if (arrow && calHead) { e.preventDefault(); jog(arrow[0], arrow[1] * (e.shiftKey ? 5 : 1)); return; }
+  if (arrow && LINEVIEW && lu.step === 3) { e.preventDefault(); luNudge(arrow[0], arrow[1] * (e.shiftKey ? 5 : 1)); return; }
+  if (arrow && LINEVIEW && lu.step === 6) { e.preventDefault(); limNudge(arrow[0] === "pan" ? "x" : "y", arrow[1] * (e.shiftKey ? 5 : 1)); return; }
+  if (e.key === "Enter" && LINEVIEW && lu.step === 6) { e.preventDefault(); limKeep(); return; }
+  if (e.key === "Enter" && LINEVIEW && lu.step === 3) { e.preventDefault(); luNext(); return; }
+  // Inside the app window the window owns the keys (Space pauses its song there), so hand them up.
+  if (EMBEDDED) { if ("bsanphct+-=_[] ".includes(e.key)) { parent.postMessage({llanoKey: e.key, repeat: e.repeat}, location.origin); e.preventDefault(); } return; }
+  if ("bsanphct+-=_[]q ".includes(e.key)) { sendKey(e.key); e.preventDefault(); }
+});
+document.querySelectorAll("button[data-k]").forEach(b => b.addEventListener("click", () => sendKey(b.dataset.k)));
+// --- the room: top-down + perspective views and the Show Designer ------------------------
+// Pan/tilt model matches venue.py: pan 0.5 = the bar's facing, 540 degrees across. The heads hang
+// under the bar: tilt 0.5 = straight down, each 1/180 above it one degree toward the pan's heading,
+// to level at 1; below 0.5 the head tilts toward the back. It never points up.
+let L = null, inUse = "", savedHere = false, editing = false, drag = null, dirty = false, tryTimer = null, sel = null;
+const TOP = $("#top"), PER = $("#persp");
+const rad = (d) => d * Math.PI / 180;
+function facingOf(id) {
+  const s = L.fixtures[id];
+  if (s.facing !== undefined && s.facing !== null) return s.facing;
+  const f = L.floor; return Math.atan2(f.x + f.w/2 - s.x, f.y + f.d/2 - s.y) * 180 / Math.PI;
+}
+// Head 1 (channels 24-29) on the bar's own left, the RIGHT end as you face it from the dance floor
+// (1.16.0, venue.heads: before it both pictures moved the left head when he picked the right one).
+function headsOf(bar, deg) {
+  const s = L.fixtures["bar"+bar], f = rad(deg === undefined ? facingOf("bar"+bar) : deg), lx = Math.cos(f), ly = -Math.sin(f), h = 0.45;
+  return [[s.x + lx*h, s.y + ly*h, s.z], [s.x - lx*h, s.y - ly*h, s.z]];
+}
+// How the room picture draws a light (Llano BL #12454, the 11-14 video: a light drawn
+// catty-cornered needed a way to rotate it): square to the way it faces, unless he turned it in the
+// picture (drawn, saved with the room). The drawing only: the heads still aim from facing and the line-up.
+function drawnAngle(id) { const s = L.fixtures[id]; return s.drawn !== undefined && s.drawn !== null ? s.drawn : facingOf(id); }
+const drawnHeads = (bar) => headsOf(bar, drawnAngle("bar" + bar));
+function icon(g, x, y, deg, w, d, fill, front) {   // a box w wide, d deep, its front toward deg, with a front tick
+  g.save(); g.translate(x, y); g.rotate(-rad(deg));
+  rrect(g, -w/2, -d/2, w, d, Math.min(2, d/3)); g.fillStyle = fill; g.fill();
+  if (front) { g.fillStyle = front; g.beginPath(); g.moveTo(-3, d/2); g.lineTo(3, d/2); g.lineTo(0, d/2 + 4); g.closePath(); g.fill(); }
+  g.restore();
+}
+// A calibrated head (1.12.1, venue.HeadCal) aims outward from where it hit the floor's center dot.
+function centerAngles(bar, m) {
+  const o = headsOf(bar)[m], f = L.floor, dx = f.x + f.w/2 - o[0], dy = f.y + f.d/2 - o[1];
+  return [Math.atan2(dx, dy) * 180 / Math.PI, Math.atan2(Math.hypot(dx, dy), o[2]) * 180 / Math.PI];
+}
+function calBeam(bar, m, c, pan, tilt) {
+  const [hc, oc] = centerAngles(bar, m), [pp, tt] = c.swap ? [tilt, pan] : [pan, tilt], [pc, tc] = c.swap ? [c.center[1], c.center[0]] : c.center;
+  const w = rad(hc + (c.pan_invert ? -1 : 1) * (pp - pc) * (c.pan_range || 540)), off = rad(oc + (c.tilt_invert ? -1 : 1) * (tt - tc) * (c.tilt_range || 180));
+  return [Math.sin(off)*Math.sin(w), Math.sin(off)*Math.cos(w), -Math.cos(off)];
+}
+// A head's confirmed spots bend its aim (venue._anchor_pull): each spot's pull in full on its own beam,
+// blended by inverse square angle, fading past derived.pull_reach degrees.
+function pullAt(misses, d) {
+  const reach = (L.derived && L.derived.pull_reach) || 20;
+  let n0 = 0, n1 = 0, den = 1 / (reach * reach);
+  for (const a of misses) {
+    const ang = Math.acos(Math.max(-1, Math.min(1, a[0]*d[0] + a[1]*d[1] + a[2]*d[2]))) * 180 / Math.PI;
+    if (ang < 1e-6) return [a[3], a[4]];
+    const w = 1 / (ang * ang); n0 += w * a[3]; n1 += w * a[4]; den += w;
+  }
+  return [n0 / den, n1 / den];
+}
+function beamDir(bar, pan, tilt, m) {
+  const s = L.fixtures["bar"+bar], c = (s.cal || [])[m];
+  if (c && c.center) {
+    // The heads are aimed bent by their confirmed spots, so draw the beam with the bend taken back out
+    // (venue.beam_of). Before 1.26.3 the picture skipped it: a spot far from the center, on the left side
+    // of his floor, drew GigBAR 1's beam overshooting the spot (his 11-14 video, BL #12381).
+    const misses = (L.derived && L.derived.pull && L.derived.pull["bar"+bar] && L.derived.pull["bar"+bar][m]) || [];
+    let p = pan, t = tilt;
+    for (let i = 0; i < (misses.length ? 6 : 0); i++) { const k = pullAt(misses, calBeam(bar, m, c, p, t)); p = pan - k[0]; t = tilt - k[1]; }
+    return calBeam(bar, m, c, p, t);
+  }
+  // The fixture's turn (venue.GUESS_TURN, 1.31.1): both heads mounted alike, as his four lined-up heads show;
+  // a flipped bar (line-up check) turns the other way. Home and turn in the guessed model's mirrored frame,
+  // which turns the other way in the room (venue._side, 1.16.0).
+  const turn = (pan - 0.5) * 540 * (s.pan_invert ? 1 : -1);
+  const w = rad(facingOf("bar"+bar) - ((s.pan_trim||0) + (m === 0 || m === 1 ? -90 : 0) + turn)), off = rad((tilt - 0.5) * 180 + (s.tilt_trim||0));
+  return [Math.sin(off)*Math.sin(w), Math.sin(off)*Math.cos(w), -Math.cos(off)];
+}
+function hitRoom(o, d) {  // where a ray from inside the room meets a wall, the floor or the ceiling
+  let t = 1e9; const lim = [L.room.w, L.room.d, L.room.h];
+  if (L.open) {  // open space: nothing to land on but the ground; a beam into the sky fades out
+    t = d[2] < -1e-6 ? -o[2] / d[2] : 25;
+    t = Math.max(0, Math.min(t, 25));
+    return [o[0] + d[0]*t, o[1] + d[1]*t, o[2] + d[2]*t];
+  }
+  for (let k = 0; k < 3; k++) {
+    if (d[k] > 1e-6) t = Math.min(t, (lim[k] - o[k]) / d[k]);
+    else if (d[k] < -1e-6) t = Math.min(t, (0 - o[k]) / d[k]);
+  }
+  t = Math.max(0, Math.min(t, 60));
+  return [o[0] + d[0]*t, o[1] + d[1]*t, o[2] + d[2]*t];
+}
+// Tonight's lights (1.13.0, the rig picker): the first N of each kind are set up; the others
+// are left out of the cards, the room picture, the layout editor and the line-up buttons.
+let CNT = {bars: 2, tetras: 6, sticks: 4}, cntKey = "";
+function present(id) { const m = /^(bar|tetra|stick)(\d)$/.exec(id); return !m || +m[2] <= CNT[m[1] + "s"]; }
+function setCounts(c) {
+  const key = [c.bars, c.tetras, c.sticks].join();
+  if (key === cntKey) return;
+  cntKey = key; CNT = {bars: c.bars, tetras: c.tetras, sticks: c.sticks};
+  for (let i = 0; i < 2; i++) { const e = document.getElementById("bar" + (i + 1)); if (e) e.style.display = i < CNT.bars ? "" : "none"; }
+  for (let i = 0; i < 6; i++) { const e = document.getElementById("t" + i); if (e) e.style.display = i < CNT.tetras ? "" : "none"; }
+  for (let i = 0; i < 4; i++) { const e = document.getElementById("s" + i); if (e) e.style.display = i < CNT.sticks ? "" : "none"; }
+  document.querySelectorAll("#lineup [data-bar]").forEach(b => { const n = +b.dataset.bar; b.style.display = (n ? n <= CNT.bars : CNT.bars > 1) ? "" : "none"; });
+}
+// A GigBAR's parts by name, lit or not (1.14.1, his 11-08 correction: 2 spots, 2 derbies, 2 pars,
+// 4 white/UV strobes on one set of channels, and the laser). f: where on the bar, 0 = head 1 (R),
+// spaced as the manual's Front Panel View draws them between the two spots (1.17.1).
+function barParts(bar) {
+  const lit = (c) => c && c[3] > 0.02 ? rgba(c, 0.4 + 0.6 * c[3]) : null;
+  const hd = (m) => bar.heads[m] && bar.heads[m].k > 0 ? bar.heads[m].col : null;
+  return [{name: "Spot R", c: hd(0)}, {name: "Derby R", f: 0.13, c: bar.derbies[0]}, {name: "Par R", f: 0.33, c: lit(bar.pars[0])},
+          {name: "Laser", f: 0.5, c: bar.laser}, {name: "Spot L", c: hd(1)}, {name: "Derby L", f: 0.87, c: bar.derbies[1]},
+          {name: "Par L", f: 0.67, c: lit(bar.pars[1])}, {name: "Strobes", f: 0.45, c: bar.white > 0 ? "#ffffff" : bar.uv > 0 ? "#9a3cff" : null}];
+}
+function lights(u, t) {  // every light's color and level from the DMX bytes
+  const out = {bars: [], tetras: [], sticks: []};
+  [0, 40].forEach((b, n) => {
+    const bar = {heads: [], par: null, laser: null, derby: []};
+    for (const off of [23, 29]) {
+      const [pan, tilt, dim, st, colv] = u.slice(b+off, b+off+5);
+      const on = dim > 0 && strobeOn(st, 10, 255, t);
+      bar.heads.push({pan: pan/255, tilt: tilt/255, k: on ? dim/255 : 0,
+                      col: WHEEL[Math.max(0, Math.min(7, Math.floor((colv-4)/32)))]});
+    }
+    bar.pars = [0, 5].map(off => {   // Par R (ch1-5) and Par L (ch6-10); until 1.14.1 only Par R was read
+      const [r,g,bl,uv,sh] = u.slice(b+off, b+off+5);
+      const pk = sh < 128 ? sh/127 : sh < 240 ? (strobeOn(sh,128,239,t) ? 1 : 0) : 1;
+      return [Math.min(255, r+uv*0.5), g, Math.min(255, bl+uv), pk];
+    });
+    bar.par = bar.pars[0][3] >= bar.pars[1][3] ? bar.pars[0] : bar.pars[1];
+    bar.laser = laserColor(u[b+16], u[b+17], t);
+    for (const off of [10, 13]) {
+      const idx = Math.max(0, Math.min(8, Math.floor((u[b+off]-5)/25)));
+      const dc = idx > 0 && strobeOn(u[b+off+1],10,239,t) ? (DERBY[idx] === "rainbow" ? `hsl(${(t*120)%360} 100% 55%)` : DERBY[idx]) : null;
+      (bar.derbies = bar.derbies || []).push(dc);   // by position: Derby R, Derby L
+      if (dc) bar.derby.push(dc);
+    }
+    const bs = barStrobe(u, b, t);
+    bar.white = bs.col[1] === 255 ? bs.k : 0; bar.uv = bs.col[1] === 255 ? 0 : bs.k;
+    out.bars.push(bar);
+  });
+  for (let i = 0; i < 6; i++) {
+    const a = 80 + 10*i, [r,g,b,am,dim,st] = u.slice(a, a+6);
+    out.tetras.push([Math.min(255,r+am), Math.min(255,g+am*0.5), b, (dim/255) * (strobeOn(st,10,255,t) ? 1 : 0)]);
+  }
+  for (let i = 0; i < 4; i++) {
+    const a = 150 + 10*i, [dim,r,g,b,_m,st] = u.slice(a, a+6);
+    out.sticks.push([r, g, b, (dim/255) * (strobeOn(st,11,255,t) ? 1 : 0)]);
+  }
+  out.bars.length = CNT.bars; out.tetras.length = CNT.tetras; out.sticks.length = CNT.sticks;   // tonight's lights only
+  return out;
+}
+const rgba = (c, a) => `rgba(${Math.round(c[0])},${Math.round(c[1])},${Math.round(c[2])},${a})`;
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n>>16)&255, (n>>8)&255, n&255]; }
+function sizeCanvas(c, aspect) {
+  // In Line up my lights (1.16.0) a picture fills its box, so the room is as big as the screen allows.
+  const fill = (LINEVIEW || STAGE) && c.parentElement && c.parentElement.clientHeight > 40;
+  const w = c.clientWidth || 400, dpr = window.devicePixelRatio || 1, h = fill ? c.parentElement.clientHeight : Math.round(w * aspect);
+  if (c.width !== Math.round(w*dpr) || c.height !== Math.round(h*dpr)) { c.width = Math.round(w*dpr); c.height = Math.round(h*dpr); if (!fill) c.style.height = h + "px"; }
+  const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); return [g, w, h];
+}
+function topScale(w, h) { const pad = 14, s = Math.min((w - 2*pad) / L.room.w, (h - 2*pad) / L.room.d);
+  return {s, ox: (w - L.room.w*s) / 2, oy: (h - L.room.d*s) / 2}; }
+
+// How far the heads go (Llano PM #23796): the box every head stays inside, an amber dashed outline with its far
+// edge marked "over heads" when the bars hang high enough for the beams to clear the dancers there.
+const HEAD_CLEAR = 2.0;   // venue.HEAD_CLEAR: "over heads" is read at this height
+// Setting the limits on site (Line up my lights, step 6): the box being set (x0, x1, y0, y1), the edge being steered
+// and the point every head aims at, which edges he kept.
+const lim = {box: null, edge: "", pt: null, kept: new Set()};
+function limitsOver() { const lm = L.limits; if (!lm || lm.over === false) return false;
+  return [1, 2].every(b => !L.fixtures["bar" + b] || L.fixtures["bar" + b].out || (L.fixtures["bar" + b].z || 0) >= HEAD_CLEAR + 0.1); }
+function limitBox() { if (lim.box) return lim.box; const lm = L.limits; return lm ? {x0: lm.x, x1: lm.x + lm.w, y0: lm.y, y1: lm.y + lm.d} : null; }
+function drawLimits(g, X, Y, s) {
+  const bx = limitBox(); if (!bx) return;
+  const w = (bx.x1 - bx.x0) * s, d = (bx.y1 - bx.y0) * s;
+  g.fillStyle = "rgba(255,180,70,0.07)"; g.fillRect(X(bx.x0), Y(bx.y0), w, d);
+  g.strokeStyle = "#ffb446"; g.lineWidth = 1.5; g.setLineDash([6, 4]); g.strokeRect(X(bx.x0), Y(bx.y0), w, d); g.setLineDash([]);
+  g.fillStyle = "#ffcf8a";
+  const top = (lim.box ? "Setting the head limits" : "Head limits"), far = limitsOver() ? "highest: over heads here" : "farthest beam lands here";
+  g.fillText(top, X((bx.x0 + bx.x1) / 2), Y(bx.y0) + 13);
+  if (d > 30) g.fillText(far, X((bx.x0 + bx.x1) / 2), Y(bx.y1) - 6);
+  if (lim.pt && lineOn) { g.strokeStyle = "#ffb446"; g.lineWidth = 2; g.beginPath(); g.arc(X(lim.pt[0]), Y(lim.pt[1]), 8, 0, 7); g.stroke(); }
+}
+function drawTop(lt, t) {
+  const [g, w, h] = sizeCanvas(TOP, Math.min(1.1, Math.max(0.6, L.room.d / L.room.w)));
+  const {s, ox, oy} = topScale(w, h), X = (x) => ox + x*s, Y = (y) => oy + y*s;
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = "#12141b"; g.fillRect(X(0), Y(0), L.room.w*s, L.room.d*s);
+  g.strokeStyle = "#2d3242"; g.lineWidth = 2; if (L.open) g.setLineDash([2,6]);
+  g.strokeRect(X(0), Y(0), L.room.w*s, L.room.d*s); g.setLineDash([]);
+  g.font = "11px Segoe UI, sans-serif"; g.textAlign = "center";
+  for (const z of L.zones || []) {   // room elements (BL #12344): a stage, a table area, a no-beam zone
+    const st = ZONE_STYLE[z.kind] || ZONE_STYLE.nobeam;
+    g.fillStyle = st.fill; g.fillRect(X(z.x), Y(z.y), z.w*s, z.d*s);
+    g.strokeStyle = st.line; g.lineWidth = 1.5; if (st.dash) g.setLineDash(st.dash); g.strokeRect(X(z.x), Y(z.y), z.w*s, z.d*s); g.setLineDash([]);
+    const name = z.label || ZONE_NAME[z.kind], full = `${name} ${fmt(z.w)} x ${fmt(z.d)}`;   // the sizes when they fit
+    g.fillStyle = st.text; g.fillText(g.measureText(full).width < z.w*s - 6 ? full : name, X(z.x + z.w/2), Y(z.y + z.d) - 6);   // on its front edge: Tetras sit along a stage's back
+  }
+  const f = L.floor; g.fillStyle = "#191c26"; g.fillRect(X(f.x), Y(f.y), f.w*s, f.d*s);
+  g.strokeStyle = "#343a4d"; g.setLineDash([4,4]); g.strokeRect(X(f.x), Y(f.y), f.w*s, f.d*s); g.setLineDash([]);
+  const bo = L.booth; g.fillStyle = "#262b3a"; g.fillRect(X(bo.x), Y(bo.y), bo.w*s, bo.d*s);
+  g.fillStyle = "#8a90a2";
+  g.fillText("DJ booth", X(bo.x + bo.w/2), Y(bo.y + bo.d/2) + 4); g.fillText("dance floor", X(f.x + f.w/2), Y(f.y + f.d/2) + 4);
+  drawLimits(g, X, Y, s);
+  if (editing) {   // sizes on the floor, and a handle on each corner he can drag to size it (BL #12344)
+    g.fillText(`${fmt(f.w)} x ${fmt(f.d)}`, X(f.x + f.w/2), Y(f.y + f.d/2) + 18);
+    for (const ref of sizable()) { const r = rectOf(ref), on = sel && sameRef(sel, ref);
+      g.fillStyle = on ? "#7cf0c8" : "#8a90a2"; g.fillRect(X(r.x + r.w) + HANDLE - 5, Y(r.y + r.d) + HANDLE - 5, 10, 10);
+      if (on) { g.strokeStyle = "#7cf0c8"; g.lineWidth = 2; g.strokeRect(X(r.x), Y(r.y), r.w*s, r.d*s); } }
+    if (sel && sel.kind === "fx" && L.fixtures[sel.id]) { const p = L.fixtures[sel.id];
+      g.strokeStyle = "#7cf0c8"; g.lineWidth = 2; g.beginPath(); g.arc(X(p.x), Y(p.y), 11, 0, 7); g.stroke(); }
+  }
+  if (LINEVIEW) for (const [k, [x, y]] of Object.entries(dotsOf())) {   // the calibration dots (1.12.1)
+    const on = calHead && calDot === k; g.strokeStyle = on ? "#7cf0c8" : "#8a90a2"; g.lineWidth = on ? 2.5 : 1.5;
+    g.beginPath(); g.arc(X(x), Y(y), on ? 7 : 5, 0, 7); g.stroke(); g.beginPath(); g.arc(X(x), Y(y), 1.5, 0, 7); g.stroke();
+  }
+  g.globalCompositeOperation = "lighter";
+  lt.tetras.forEach((c, i) => {  // uplight wash pooled around the Tetra
+    const p = L.fixtures["tetra"+(i+1)], r = 1.6*s;
+    const gr = g.createRadialGradient(X(p.x), Y(p.y), 0, X(p.x), Y(p.y), r);
+    gr.addColorStop(0, rgba(c, 0.55*c[3])); gr.addColorStop(1, rgba(c, 0));
+    g.fillStyle = gr; g.beginPath(); g.arc(X(p.x), Y(p.y), r, 0, 7); g.fill();
+  });
+  lt.sticks.forEach((c, i) => {
+    const p = L.fixtures["stick"+(i+1)], r = 1.1*s;
+    const gr = g.createRadialGradient(X(p.x), Y(p.y), 0, X(p.x), Y(p.y), r);
+    gr.addColorStop(0, rgba(c, 0.5*c[3])); gr.addColorStop(1, rgba(c, 0));
+    g.fillStyle = gr; g.beginPath(); g.arc(X(p.x), Y(p.y), r, 0, 7); g.fill();
+  });
+  lt.bars.forEach((bar, n) => {
+    const heads = headsOf(n+1), drawn = drawnHeads(n+1);
+    bar.heads.forEach((hd, m) => {
+      if (hd.k <= 0) return;
+      const hit = hitRoom(heads[m], beamDir(n+1, hd.pan, hd.tilt, m)), o = drawn[m], c = hexRgb(hd.col);   // lands where it aims, starts on the drawn head
+      g.strokeStyle = rgba(c, 0.35 + 0.5*hd.k); g.lineWidth = 3; g.beginPath(); g.moveTo(X(o[0]), Y(o[1])); g.lineTo(X(hit[0]), Y(hit[1])); g.stroke();
+      const gr = g.createRadialGradient(X(hit[0]), Y(hit[1]), 0, X(hit[0]), Y(hit[1]), 0.6*s);
+      gr.addColorStop(0, rgba(c, 0.9*hd.k)); gr.addColorStop(1, rgba(c, 0));
+      g.fillStyle = gr; g.beginPath(); g.arc(X(hit[0]), Y(hit[1]), 0.6*s, 0, 7); g.fill();
+    });
+    const p = L.fixtures["bar"+(n+1)];
+    bar.derby.forEach((col, j) => { for (let q = 0; q < 6; q++) {  // derby spots wheel across the floor
+      const a = t*2.2*(j ? -1 : 1) + q*1.047, r = (1.4 + 0.5*(q%2)) * s;
+      g.fillStyle = col; g.globalAlpha = 0.55; g.beginPath(); g.arc(X(p.x) + Math.sin(a)*r, Y(p.y) + Math.abs(Math.cos(a))*r + 0.6*s, 3, 0, 7); g.fill(); g.globalAlpha = 1; } });
+    if (bar.laser) { g.fillStyle = bar.laser; for (let q = 0; q < 26; q++) {
+      const a = Math.sin(q*12.9898 + Math.floor(t*8)*0.7) * 43758.5453, fx = f.x + (a - Math.floor(a)) * f.w, b2 = Math.sin(q*78.233 + Math.floor(t*8)) * 12345.678;
+      g.fillRect(X(fx), Y(f.y + (b2 - Math.floor(b2)) * f.d), 2, 2); } }
+  });
+  g.globalCompositeOperation = "source-over";
+  for (let i = 0; i < lt.tetras.length; i++) { const p = L.fixtures["tetra"+(i+1)], c = lt.tetras[i];
+    icon(g, X(p.x), Y(p.y), drawnAngle("tetra"+(i+1)), 14, 10, c[3] > 0.02 ? rgba(c, 0.4 + 0.6*c[3]) : "#2b3040", "#8a90a2");
+    g.fillStyle = "#c5c9d6"; g.fillText("T" + (i+1), X(p.x), Y(p.y) - 9);
+    if (pAddr("tetra"+(i+1))) { g.fillStyle = "#8fa4bf"; g.fillText(pAddr("tetra"+(i+1)), X(p.x), Y(p.y) + 17); } }   // its address under it (BL #12378)
+  for (let i = 0; i < lt.sticks.length; i++) { const p = L.fixtures["stick"+(i+1)], c = lt.sticks[i];
+    icon(g, X(p.x), Y(p.y), drawnAngle("stick"+(i+1)), 10, 10, c[3] > 0.02 ? rgba(c, 0.4 + 0.6*c[3]) : "#2b3040", "#8a90a2");
+    g.fillStyle = "#c5c9d6"; g.fillText("S" + (i+1), X(p.x), Y(p.y) - 9);
+    if (pAddr("stick"+(i+1))) { g.fillStyle = "#8fa4bf"; g.fillText(pAddr("stick"+(i+1)), X(p.x), Y(p.y) + 17); } }   // its address under it (BL #12378)
+  for (const n of [1, 2].slice(0, lt.bars.length)) { const p = L.fixtures["bar"+n], hs = drawnHeads(n), bar = lt.bars[n-1];
+    g.strokeStyle = "#4a5166"; g.lineWidth = 5;
+    g.beginPath(); g.moveTo(X(hs[0][0]), Y(hs[0][1])); g.lineTo(X(hs[1][0]), Y(hs[1][1])); g.stroke();
+    icon(g, X(p.x), Y(p.y), drawnAngle("bar"+n), 0, 4, "rgba(0,0,0,0)", "#8a90a2");   // the tick on its front
+    for (const hd of hs) { g.fillStyle = "#c5c9d6"; g.beginPath(); g.arc(X(hd[0]), Y(hd[1]), 3.5, 0, 7); g.fill(); }
+    g.fillStyle = "#c5c9d6"; g.fillText("GigBAR " + n + (pAddr("bar"+n) ? " · " + pAddr("bar"+n) : ""), X(p.x), Y(p.y) - 10);
+    // its 11 parts (1.14.1): each lit in its own color on the bar, R at head 1's end; named in #parts
+    const parts = barParts(bar), at = (f) => [X(hs[0][0] + (hs[1][0] - hs[0][0]) * f), Y(hs[0][1] + (hs[1][1] - hs[0][1]) * f)];
+    for (const q of parts) if (q.f !== undefined && q.c) { const [x, y] = at(q.f); g.fillStyle = q.c; g.beginPath(); g.arc(x, y, 2.6, 0, 7); g.fill(); }
+  }
+  if (doc) for (const q of doc.samples) if (q.x !== undefined) {   // the Light doctor's taps so far
+    g.strokeStyle = "#7cf0c8"; g.lineWidth = 2; g.beginPath(); g.arc(X(q.x), Y(q.y), 6, 0, 7); g.stroke(); }
+  if (LINEVIEW && lu.spot) {   // one spot (1.16.0): where every beam should meet, and the head being lined up
+    const [x, y] = [X(lu.spot[0]), Y(lu.spot[1])];
+    g.strokeStyle = "#ffd36b"; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 10, 0, 7); g.moveTo(x - 15, y); g.lineTo(x + 15, y); g.moveTo(x, y - 15); g.lineTo(x, y + 15); g.stroke();
+    if (lu.step === 3 && luHead()) { const [b, m] = luHead(), o = headsOf(b)[m];
+      g.strokeStyle = "#ffd36b"; g.lineWidth = 2; g.beginPath(); g.arc(X(o[0]), Y(o[1]), 8, 0, 7); g.stroke(); }
+  }
+  if (tap) {   // tap to aim: where the beam landed, and where he wants it
+    for (const q of tap.samples) { g.strokeStyle = "#7cf0c8"; g.lineWidth = 2; g.beginPath(); g.arc(X(q.x), Y(q.y), 6, 0, 7); g.stroke(); }
+    if (tap.want) { g.strokeStyle = "#ffd36b"; g.lineWidth = 2; g.beginPath(); g.moveTo(X(tap.want[0]) - 7, Y(tap.want[1])); g.lineTo(X(tap.want[0]) + 7, Y(tap.want[1]));
+      g.moveTo(X(tap.want[0]), Y(tap.want[1]) - 7); g.lineTo(X(tap.want[0]), Y(tap.want[1]) + 7); g.stroke(); }
+  }
+}
+// The Live screen's picture from above (1.20.0), drawn the way the design he approved draws the room
+// (docs/studio-design/mock.html): a dark blue stage, soft pools of each light's color, beams that
+// glow from the head to where they land. Every color, level and aim is still the real DMX frame.
+// View from (asked 2026-11-13: from behind the lights in the DJ booth it is hard to look out at the
+// room and match where they are): the picture from above turns to face the way he does. From the DJ
+// booth (the default) the booth is at the bottom and the floor runs away from him, so his left is the
+// picture's left; from the floor it is the other way up; a quarter turn covers an odd venue. The
+// steering follows, because every pointer position comes back through the same turn (stageRoom).
+function stageView() { const v = spotsNow && spotsNow.views && spotsNow.views.laptop; return v || {from: "booth", turn: 0}; }
+function stageRot() { const v = stageView(); return ((v.from === "booth" ? 2 : 0) + (v.turn || 0)) % 4; }
+function stageGeo(w, h) { const rot = stageRot(), odd = rot % 2, RW = odd ? L.room.d : L.room.w, RD = odd ? L.room.w : L.room.d, pad = 16;
+  return {s: Math.min((w - 2*pad) / RW, (h - 2*pad) / RD), rot, cx: w / 2, cy: h / 2}; }
+function stagePt(geo, x, y) { let a = (x - L.room.w / 2) * geo.s, b = (y - L.room.d / 2) * geo.s; for (let i = 0; i < geo.rot; i++) [a, b] = [-b, a]; return [geo.cx + a, geo.cy + b]; }
+function stageRoom(geo, px, py) { let a = px - geo.cx, b = py - geo.cy; for (let i = 0; i < geo.rot; i++) [a, b] = [b, -a]; return [a / geo.s + L.room.w / 2, b / geo.s + L.room.d / 2]; }
+function rrect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function pool(g, x, y, r, c, a) { if (a <= 0.01) return; const gr = g.createRadialGradient(x, y, 0, x, y, r);
+  gr.addColorStop(0, rgba(c, a)); gr.addColorStop(0.45, rgba(c, a * 0.45)); gr.addColorStop(1, rgba(c, 0)); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
+function drawTopStage(lt, t) {
+  const [g, w, h] = sizeCanvas(TOP, 1);
+  const geo = stageGeo(w, h), s = geo.s, X = (x) => x*s, Y = (y) => y*s, Pt = (x, y) => stagePt(geo, x, y), f = L.floor, bo = L.booth;
+  const words = [], say = (text, x, y, dx, dy, color, font) => words.push([text, Pt(x, y), dx, dy, color, font]);   // drawn upright, after the turn
+  g.clearRect(0, 0, w, h);
+  g.save(); g.translate(geo.cx, geo.cy); g.rotate(geo.rot * Math.PI / 2); g.translate(-L.room.w*s/2, -L.room.d*s/2);
+  rrect(g, X(0), Y(0), L.room.w*s, L.room.d*s, 10); g.fillStyle = "rgba(10,12,19,.55)"; g.fill();
+  g.strokeStyle = "#2b3145"; g.lineWidth = 1.5; if (L.open) g.setLineDash([2, 6]); g.stroke(); g.setLineDash([]);
+  rrect(g, X(f.x), Y(f.y), f.w*s, f.d*s, 6); g.fillStyle = "rgba(255,255,255,.028)"; g.fill();
+  g.strokeStyle = "#3a4260"; g.lineWidth = 1; g.setLineDash([5, 5]); g.stroke(); g.setLineDash([]);
+  say("dance floor", f.x + f.w/2, f.y + f.d/2, 0, 4, "#69708a", "11px Segoe UI, sans-serif");
+  g.save(); rrect(g, X(0), Y(0), L.room.w*s, L.room.d*s, 10); g.clip();   // light stays in the room
+  g.globalCompositeOperation = "lighter";
+  lt.tetras.forEach((c, i) => { const p = L.fixtures["tetra"+(i+1)]; pool(g, X(p.x), Y(p.y), 2.3*s, c, 0.62*c[3]); });
+  lt.sticks.forEach((c, i) => { const p = L.fixtures["stick"+(i+1)]; pool(g, X(p.x), Y(p.y), 1.6*s, c, 0.6*c[3]); });
+  lt.bars.forEach((bar, n) => {
+    const heads = headsOf(n+1), drawn = drawnHeads(n+1), p = L.fixtures["bar"+(n+1)];
+    bar.pars.forEach((c, j) => { const o = heads[j]; pool(g, X((o[0] + p.x) / 2), Y((o[1] + p.y) / 2) + 0.5*s, 1.9*s, c, 0.5*c[3]); });
+    if (bar.white > 0) pool(g, X(p.x), Y(p.y) + 0.4*s, 3.2*s, [255, 255, 255], 0.55*bar.white);
+    if (bar.uv > 0) pool(g, X(p.x), Y(p.y) + 0.4*s, 3.2*s, [150, 60, 255], 0.55*bar.uv);
+    bar.heads.forEach((hd, m) => {
+      if (hd.k <= 0) return;
+      const hit = hitRoom(heads[m], beamDir(n+1, hd.pan, hd.tilt, m)), o = drawn[m], c = hexRgb(hd.col);
+      const ax = X(o[0]), ay = Y(o[1]), bx = X(hit[0]), by = Y(hit[1]), len = Math.hypot(bx - ax, by - ay) || 1, nx = -(by - ay) / len, ny = (bx - ax) / len, wd = 0.42*s;
+      const gr = g.createLinearGradient(ax, ay, bx, by); gr.addColorStop(0, rgba(c, 0.5*hd.k)); gr.addColorStop(1, rgba(c, 0.1*hd.k));
+      g.fillStyle = gr; g.beginPath(); g.moveTo(ax + nx*2.5, ay + ny*2.5); g.lineTo(bx + nx*wd, by + ny*wd); g.lineTo(bx - nx*wd, by - ny*wd); g.lineTo(ax - nx*2.5, ay - ny*2.5); g.closePath(); g.fill();
+      pool(g, bx, by, 0.95*s, [255, 255, 255], 0.5*hd.k); pool(g, bx, by, 1.25*s, c, 0.75*hd.k);
+    });
+    bar.derby.forEach((col, j) => { for (let q = 0; q < 6; q++) {
+      const a = t*2.2*(j ? -1 : 1) + q*1.047, r = (1.4 + 0.5*(q%2)) * s;
+      g.fillStyle = col; g.globalAlpha = 0.6; g.beginPath(); g.arc(X(p.x) + Math.sin(a)*r, Y(p.y) + Math.abs(Math.cos(a))*r + 0.6*s, 3.5, 0, 7); g.fill(); g.globalAlpha = 1; } });
+    if (bar.laser) { g.fillStyle = bar.laser; for (let q = 0; q < 26; q++) {
+      const a = Math.sin(q*12.9898 + Math.floor(t*8)*0.7) * 43758.5453, fx = f.x + (a - Math.floor(a)) * f.w, b2 = Math.sin(q*78.233 + Math.floor(t*8)) * 12345.678;
+      g.fillRect(X(fx), Y(f.y + (b2 - Math.floor(b2)) * f.d), 2, 2); } }
+  });
+  g.globalCompositeOperation = "source-over"; g.restore();
+  rrect(g, X(bo.x), Y(bo.y), bo.w*s, bo.d*s, 6); g.fillStyle = "#141826"; g.fill(); g.strokeStyle = "#30374d"; g.lineWidth = 1; g.stroke();
+  say("DJ booth", bo.x + bo.w/2, bo.y + bo.d/2, 0, 4, "#8a91a6", "12px Segoe UI, sans-serif");
+  for (let i = 0; i < lt.tetras.length; i++) { const p = L.fixtures["tetra"+(i+1)], c = lt.tetras[i];
+    icon(g, X(p.x), Y(p.y), drawnAngle("tetra"+(i+1)), 18, 8, c[3] > 0.02 ? rgba(c, 0.55 + 0.45*c[3]) : "#2b3040"); }
+  for (let i = 0; i < lt.sticks.length; i++) { const p = L.fixtures["stick"+(i+1)], c = lt.sticks[i];
+    icon(g, X(p.x), Y(p.y), drawnAngle("stick"+(i+1)), 9, 9, c[3] > 0.02 ? rgba(c, 0.55 + 0.45*c[3]) : "#2b3040"); }
+  for (const n of [1, 2].slice(0, lt.bars.length)) { const p = L.fixtures["bar"+n], hs = drawnHeads(n), bar = lt.bars[n-1];
+    g.lineCap = "round"; g.strokeStyle = "#3b4360"; g.lineWidth = 13; g.beginPath(); g.moveTo(X(hs[0][0]), Y(hs[0][1])); g.lineTo(X(hs[1][0]), Y(hs[1][1])); g.stroke();
+    g.strokeStyle = "#1a1f30"; g.lineWidth = 10.5; g.stroke(); g.lineCap = "butt";
+    const parts = barParts(bar), at = (k) => [X(hs[0][0] + (hs[1][0] - hs[0][0]) * k), Y(hs[0][1] + (hs[1][1] - hs[0][1]) * k)];
+    for (const q of parts) if (q.f !== undefined && q.c) { const [x, y] = at(q.f); g.fillStyle = q.c; g.beginPath(); g.arc(x, y, 2.6, 0, 7); g.fill(); }
+    hs.forEach((hd, m) => { const lit = bar.heads[m] && bar.heads[m].k > 0; g.fillStyle = lit ? "#eaf4ff" : "#59617a"; g.strokeStyle = lit ? "#6cb8ff" : "#3b4360"; g.lineWidth = 1.5;
+      g.beginPath(); g.arc(X(hd[0]), Y(hd[1]), 5.5, 0, 7); g.fill(); g.stroke(); });
+    say("GigBAR " + n, p.x, p.y, 0, geo.rot === 2 ? 22 : -14, "#8a91a6", "11px Segoe UI, sans-serif");
+  }
+  g.restore(); g.textAlign = "center";
+  for (const [text, [x, y], dx, dy, color, font] of words) { g.fillStyle = color; g.font = font; g.fillText(text, x + dx, y + dy); }
+  const v = stageView();   // which way he is looking, said on the picture
+  g.fillStyle = "#69708a"; g.font = "11px Segoe UI, sans-serif"; g.textAlign = "left";
+  g.fillText(v.from === "booth" ? "From the DJ booth, looking out" : "From the floor, facing the booth", 10, 16); g.textAlign = "center";
+  if (spotsNow && spotsNow.on && !previewing) drawSpots(g, Pt);
+}
+// The spots he steers (1.20.0, the Light studio): a ring where each spot IS on the floor (the beams
+// catch up to it), the one he is steering in blue, where it is going, and the places he saved.
+function drawSpots(g, Pt) {
+  const sp = spotsNow; g.textAlign = "center";
+  sp.marks.forEach((m, i) => {
+    const [x, y] = Pt(m.x, m.y);
+    g.fillStyle = "#0b1826"; g.strokeStyle = "#6cb8ff"; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, 9, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = "#bfe0ff"; g.font = "700 11px Segoe UI, sans-serif"; g.fillText(String(i + 1), x, y + 4);
+    g.fillStyle = "#8fa4bf"; g.font = "11px Segoe UI, sans-serif"; g.textAlign = "left"; g.fillText(m.name, x + 13, y + 4); g.textAlign = "center";
+  });
+  sp.at.forEach((p, i) => {
+    const mine = sp.count === 1 || sp.sel === 2 || sp.sel === i, [x, y] = Pt(p[0], p[1]), go = sp.going && sp.going[i];
+    if (go) { const [gx, gy] = Pt(go[0], go[1]); g.strokeStyle = "#6cb8ff"; g.setLineDash([3, 5]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, y); g.lineTo(gx, gy); g.stroke(); g.setLineDash([]);
+      g.beginPath(); g.arc(gx, gy, 4, 0, 7); g.stroke(); }
+    g.strokeStyle = mine ? "#6cb8ff" : "#52607a"; g.lineWidth = mine ? 2.5 : 1.5; g.beginPath(); g.arc(x, y, 20, 0, 7); g.stroke();
+    if (mine) { g.strokeStyle = "rgba(108,184,255,.22)"; g.lineWidth = 7; g.beginPath(); g.arc(x, y, 20, 0, 7); g.stroke(); }
+    if (sp.dark[i]) { g.fillStyle = "#8fa4bf"; g.font = "11px Segoe UI, sans-serif"; g.fillText("dark, moving", x, y + 36); }
+    g.fillStyle = "#bfe0ff"; g.font = "700 12px Segoe UI, sans-serif"; g.fillText(sp.count === 2 ? "Spot " + "AB"[i] : sp.hover ? "Following the pointer" : "Spot", x, y - 27);
+  });
+}
+
+function camera(w, h) {  // standing at the back of the room, looking at the booth (or, on the Live screen, in the booth looking out)
+  // Eye a few meters behind the dance floor (inside the room), so a big hall still fills the view.
+  const R = L.room, F = L.floor, booth = STAGE && stageView().from === "booth";
+  // From the DJ booth (the Live screen's default): behind the lights, looking out at the floor. The
+  // eye stands a couple of meters behind the booth wall and a little above the lights (a picture can
+  // stand where he can't), so the GigBARs are in view in front of him and the beams run away from him.
+  const ey = booth ? -Math.max(2.2, R.d * 0.22) : Math.min(R.d - 0.2, F.y + F.d + Math.max(2.5, F.d * 0.6));
+  const eye = booth ? [F.x + F.w/2, ey, 3.1] : [F.x + F.w/2, ey, Math.min(R.h - 0.2, 2.6)];
+  const at = booth ? [F.x + F.w/2, F.y + F.d * 0.45, 0.3] : [F.x + F.w/2, Math.min(L.booth.y + L.booth.d, F.y), 0.9];
+  CAM_OUT = booth;
+  const fwd = [at[0]-eye[0], at[1]-eye[1], at[2]-eye[2]], fl = Math.hypot(...fwd); fwd.forEach((v,i) => fwd[i] = v/fl);
+  const right = [fwd[1], -fwd[0], 0], rl = Math.hypot(...right); right.forEach((v,i) => right[i] = v/rl);
+  const up = [right[1]*fwd[2] - right[2]*fwd[1], right[2]*fwd[0] - right[0]*fwd[2], right[0]*fwd[1] - right[1]*fwd[0]];
+  const focal = Math.min(w, h / 0.62) / (2 * Math.tan(rad(32)));   // a wide, short box keeps the room in view (1.16.0)
+  NEAR_Y = booth ? ey + 0.45 : ey - 0.6;  // nothing nearer than this is drawn (it would sit behind the eye)
+  return (p) => { const v = [p[0]-eye[0], p[1]-eye[1], p[2]-eye[2]], z = v[0]*fwd[0] + v[1]*fwd[1] + v[2]*fwd[2];
+    if (z < 0.25) return [NaN, NaN, z];  // behind the eye: the canvas skips NaN points
+    const zz = z;
+    // Screen x follows room x, as in the view from above: "right" points house-left when facing the
+    // booth, so its sign is flipped here. Without it the two views mirror each other, and dragging a
+    // light on one side seemed to move the light on the other (his recording, 1:57).
+    return [w/2 - focal * (v[0]*right[0] + v[1]*right[1] + v[2]*right[2]) / zz, h*0.55 - focal * (v[0]*up[0] + v[1]*up[1] + v[2]*up[2]) / zz, zz]; };
+}
+let NEAR_Y = 1e9, CAM_OUT = false;   // CAM_OUT: the eye is at the booth looking out, so what is ahead has a LARGER y
+const ahead = (y) => CAM_OUT ? y >= NEAR_Y : y <= NEAR_Y;
+function clipSeg(o, hit) {  // a beam from head to landing, cut where it would pass behind the eye: [from, to] or null
+  const fa = ahead(o[1]), fb = ahead(hit[1]);
+  if (fa && fb) return [o, hit];
+  if (!fb || (!fa && !CAM_OUT)) return null;   // (a head behind the back-of-room eye draws no beam, as before)
+  const t = (NEAR_Y - o[1]) / (hit[1] - o[1]), m = [o[0] + (hit[0]-o[0])*t, NEAR_Y, o[2] + (hit[2]-o[2])*t];
+  return fa ? [o, m] : [m, hit];
+}
+function poly(g, P, pts, fill, stroke) { g.beginPath(); pts.forEach((q, i) => { const [x, y] = P(q); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.closePath();
+  if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = 1; g.stroke(); } }
+function drawPersp(lt, t) {
+  const [g, w, h] = sizeCanvas(PER, 0.62), P = camera(w, h), R = L.room;
+  const y0 = CAM_OUT ? Math.max(0, NEAR_Y) : 0, y1 = CAM_OUT ? R.d : Math.min(R.d, NEAR_Y), yb = CAM_OUT ? y1 : 0;   // the room ahead of the eye, and its far wall
+  // the Live screen's stage wears the approved drawing's dark blues; every other page keeps its greys
+  const C = STAGE ? {ceil: ["rgba(9,11,17,.5)", "#1b2030"], back: ["#10131e", "#262b3a"], side: ["#0c0f18", "#222739"], floor: ["#0a0c13", "#232838"], dance: ["#121626", "#3a4260"]}
+                  : {ceil: ["#0c0d13", "#1c1f2a"], back: ["#151822", "#262b3a"], side: ["#11131b", "#232734"], floor: ["#0e1016", "#232734"], dance: ["#171a24", "#343a4d"]};
+  const GLOW = STAGE ? 1.45 : 1;
+  g.clearRect(0, 0, w, h);
+  if (!L.open) {
+    poly(g, P, [[0,y0,R.h],[R.w,y0,R.h],[R.w,y1,R.h],[0,y1,R.h]], ...C.ceil);  // ceiling
+    poly(g, P, [[0,yb,0],[R.w,yb,0],[R.w,yb,R.h],[0,yb,R.h]], ...C.back);      // the wall he faces
+    poly(g, P, [[0,y0,0],[0,y1,0],[0,y1,R.h],[0,y0,R.h]], ...C.side);          // left wall
+    poly(g, P, [[R.w,y0,0],[R.w,y1,0],[R.w,y1,R.h],[R.w,y0,R.h]], ...C.side);  // right wall
+  }
+  poly(g, P, [[0,y0,0],[R.w,y0,0],[R.w,y1,0],[0,y1,0]], ...C.floor);          // floor
+  const f = L.floor, fa = Math.max(f.y, y0), fb = Math.min(f.y + f.d, y1);
+  if (fb > fa) poly(g, P, [[f.x,fa,0.01],[f.x+f.w,fa,0.01],[f.x+f.w,fb,0.01],[f.x,fb,0.01]], ...C.dance);
+  if (CAM_OUT) boothBox(g, P);   // in front of him: under the light, not over it
+  g.globalCompositeOperation = "lighter";
+  lt.tetras.forEach((c, i) => {  // uplight: a wash climbing the nearest wall, or a cone up from the floor
+    if (c[3] <= 0.02) return;
+    const p = L.fixtures["tetra"+(i+1)], d = [p.x, R.w - p.x, p.y], k = d.indexOf(Math.min(...d));
+    if (CAM_OUT ? !ahead(p.y) : p.y + 1.5 > NEAR_Y) return;
+    let quad;
+    if (d[k] < 1.0 && !L.open) {
+      const span = 0.9, top = Math.min(R.h, 3.2);
+      quad = k === 2 ? [[p.x-span,0,0],[p.x+span,0,0],[p.x+span*1.6,0,top],[p.x-span*1.6,0,top]]
+           : [[k ? R.w : 0, p.y-span, 0],[k ? R.w : 0, p.y+span, 0],[k ? R.w : 0, p.y+span*1.6, top],[k ? R.w : 0, p.y-span*1.6, top]];
+    } else quad = [[p.x-0.15,p.y,0.1],[p.x+0.15,p.y,0.1],[p.x+0.7,p.y,2.4],[p.x-0.7,p.y,2.4]];
+    const a = P(quad[0]), b = P(quad[3]);
+    if (!isFinite(a[0]) || !isFinite(b[0])) return;
+    const gr = g.createLinearGradient(a[0], a[1], b[0], b[1]);
+    gr.addColorStop(0, rgba(c, Math.min(1, 0.75*GLOW*c[3]))); gr.addColorStop(1, rgba(c, 0));
+    poly(g, P, quad, gr);
+    if (STAGE) { const q0 = P([p.x, p.y, 0.02]); if (isFinite(q0[0])) { const rr = Math.max(18, 900 / q0[2]); g.save(); g.translate(q0[0], q0[1]); g.scale(1, 0.38); pool(g, 0, 0, rr, c, 0.5*c[3]); g.restore(); } }
+  });
+  lt.bars.forEach((bar, n) => {
+    const heads = headsOf(n+1);
+    bar.heads.forEach((hd, m) => {
+      if (hd.k <= 0) return;
+      const o = heads[m], c = hexRgb(hd.col), seg = clipSeg(o, hitRoom(o, beamDir(n+1, hd.pan, hd.tilt, m)));
+      if (!seg) return;
+      const a = P(seg[0]), b = P(seg[1]);
+      if (!isFinite(a[0]) || !isFinite(b[0])) return;  // behind the eye (tall rooms): skip, never throw
+      const spread = Math.max(4, 2200 / b[2] * 0.03) * GLOW;
+      const nx = -(b[1]-a[1]), ny = b[0]-a[0], nl = Math.hypot(nx, ny) || 1;
+      const gr = g.createLinearGradient(a[0], a[1], b[0], b[1]); gr.addColorStop(0, rgba(c, 0.8*hd.k)); gr.addColorStop(1, rgba(c, 0.12*hd.k));
+      g.fillStyle = gr; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0] + nx/nl*spread, b[1] + ny/nl*spread); g.lineTo(b[0] - nx/nl*spread, b[1] - ny/nl*spread); g.closePath(); g.fill();
+      const sg = g.createRadialGradient(b[0], b[1], 0, b[0], b[1], spread*1.6); sg.addColorStop(0, rgba(c, 0.9*hd.k)); sg.addColorStop(1, rgba(c, 0));
+      g.fillStyle = sg; g.beginPath(); g.arc(b[0], b[1], spread*1.6, 0, 7); g.fill();
+    });
+    const p = L.fixtures["bar"+(n+1)];
+    bar.derby.forEach((col, j) => { for (let q = 0; q < 6; q++) {
+      const ang = t*2.2*(j ? -1 : 1) + q*1.047, r = 1.4 + 0.5*(q%2), [x, y] = P([p.x + Math.sin(ang)*r, p.y + 0.6 + Math.abs(Math.cos(ang))*r, 0.02]);
+      g.fillStyle = col; g.globalAlpha = 0.6; g.beginPath(); g.ellipse(x, y, 5, 2.5, 0, 0, 7); g.fill(); g.globalAlpha = 1; } });
+    if (bar.laser) { g.fillStyle = bar.laser; for (let q = 0; q < 40; q++) {
+      const a = Math.sin(q*12.9898 + Math.floor(t*8)*0.7) * 43758.5453, b2 = Math.sin(q*78.233 + Math.floor(t*8)) * 12345.678;
+      const [x, y] = P([f.x + (a - Math.floor(a)) * f.w, f.y + (b2 - Math.floor(b2)) * f.d, 0.02]); g.fillRect(x, y, 2, 2); } }
+    if (bar.white > 0 && ahead(p.y)) { const [x, y] = P([p.x, p.y, p.z]); if (!isFinite(x)) return; const sg = g.createRadialGradient(x, y, 0, x, y, 60);
+      sg.addColorStop(0, `rgba(255,255,255,${0.7*bar.white})`); sg.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = sg; g.beginPath(); g.arc(x, y, 60, 0, 7); g.fill(); }
+    if (bar.uv > 0 && ahead(p.y)) { const [x, y] = P([p.x, p.y, p.z]); if (!isFinite(x)) return; const sg = g.createRadialGradient(x, y, 0, x, y, 60);   // the UV strobe (1.12.3)
+      sg.addColorStop(0, `rgba(150,60,255,${0.7*bar.uv})`); sg.addColorStop(1, "rgba(150,60,255,0)"); g.fillStyle = sg; g.beginPath(); g.arc(x, y, 60, 0, 7); g.fill(); }
+  });
+  lt.sticks.forEach((c, i) => { const p = L.fixtures["stick"+(i+1)], a = P([p.x, p.y, 0]), b = P([p.x, p.y, 1.0]);
+    if (c[3] > 0.02 && isFinite(a[0])) { const sg = g.createRadialGradient(a[0], a[1], 0, a[0], a[1], 40); sg.addColorStop(0, rgba(c, 0.45*c[3])); sg.addColorStop(1, rgba(c, 0));
+      g.fillStyle = sg; g.beginPath(); g.arc(a[0], a[1], 40, 0, 7); g.fill(); } });
+  g.globalCompositeOperation = "source-over";
+  if (LINEVIEW && lu.spot && lu.spot[1] < NEAR_Y) {   // the spot on the floor (1.16.0)
+    const ring = []; for (let i = 0; i <= 24; i++) { const a = i / 24 * 2 * Math.PI; ring.push([lu.spot[0] + Math.cos(a) * 0.3, lu.spot[1] + Math.sin(a) * 0.3, 0.02]); }
+    if (ring.every(q => isFinite(P(q)[0]))) poly(g, P, ring, null, "#ffd36b");
+  }
+  if (!CAM_OUT) boothBox(g, P);
+  lt.sticks.forEach((c, i) => { const p = L.fixtures["stick"+(i+1)], a = P([p.x, p.y, 0]), b = P([p.x, p.y, 1.0]);
+    g.strokeStyle = c[3] > 0.02 ? rgba(c, 0.5 + 0.5*c[3]) : "#2b3040"; g.lineWidth = 4; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); });
+  lt.tetras.forEach((c, i) => { const p = L.fixtures["tetra"+(i+1)], [x, y] = P([p.x, p.y, 0.1]);
+    g.fillStyle = c[3] > 0.02 ? rgba(c, 0.5 + 0.5*c[3]) : "#2b3040"; g.fillRect(x-4, y-3, 8, 6); });
+  for (const n of [1, 2].slice(0, lt.bars.length)) { const p = L.fixtures["bar"+n], hs = headsOf(n), base = P([p.x, p.y, 0]), top = P([p.x, p.y, p.z]), par = lt.bars[n-1].par;
+    g.strokeStyle = "#4a5166"; g.lineWidth = 2; g.beginPath(); g.moveTo(base[0], base[1]); g.lineTo(top[0], top[1]); g.stroke();
+    const a = P(hs[0]), b = P(hs[1]); g.strokeStyle = par[3] > 0.02 ? rgba(par, 0.5 + 0.5*par[3]) : "#4a5166"; g.lineWidth = 4;
+    g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+}
+
+function boothBox(g, P) {   // the booth as a box: its face toward the eye, then its top
+  const bo = L.booth, bh = 1.1, yf = CAM_OUT ? bo.y : bo.y + bo.d;
+  poly(g, P, [[bo.x,yf,0],[bo.x+bo.w,yf,0],[bo.x+bo.w,yf,bh],[bo.x,yf,bh]], "#262b3a", "#3a4053");
+  poly(g, P, [[bo.x,bo.y,bh],[bo.x+bo.w,bo.y,bh],[bo.x+bo.w,bo.y+bo.d,bh],[bo.x,bo.y+bo.d,bh]], "#30364a", "#3a4053");
+}
+let roomErr = "";
+// Bar 1: Spot L, Spot R, Derby L, Derby R, Par L, Par R, Strobes, Laser (1.14.1), each with its live color
+const PART_ORDER = ["Spot L", "Spot R", "Derby L", "Derby R", "Par L", "Par R", "Strobes", "Laser"];
+let partsKey = "";
+function showParts(lt) {
+  const rows = lt.bars.map((bar, n) => { const by = Object.fromEntries(barParts(bar).map(q => [q.name, q.c])); return [n + 1, PART_ORDER.map(k => [k, by[k]])]; });
+  const key = JSON.stringify(rows);
+  if (key === partsKey) return;
+  partsKey = key;
+  $("#parts").innerHTML = rows.map(([n, ps]) => `<div class="pr"><b>Bar ${n}:</b>` +
+    ps.map(([k, c]) => `<span><i style="${c ? `background:${c};box-shadow:0 0 6px ${c}` : ""}"></i>${k}</span>`).join("") + "</div>").join("");
+}
+function drawRoom(u, t) {  // a drawing bug here must never stop the light cards or the loop
+  if (!L) return;
+  try { const lt = lights(u, t); if (STAGE) drawTopStage(lt, t); else drawTop(lt, t); drawPersp(lt, t); showParts(lt); }
+  catch (e) { if (String(e) !== roomErr) { roomErr = String(e); console.error("room view:", e); } }
+}
+
+// --- sizes in his units (his recording, 2:57): feet by default, meters if he picks them --------
+const FT = 0.3048;
+let units = "ft";
+try { if (localStorage.getItem("llano-units") === "m") units = "m"; } catch (e) {}
+const toU = (m) => units === "ft" ? m / FT : m, fromU = (v) => units === "ft" ? v * FT : v;
+const fmt = (m) => units === "ft" ? `${Math.round(m / FT)} ft` : `${(Math.round(m * 10) / 10).toFixed(1)} m`;
+function showSizes() {
+  showNumbers();
+  if (!L) return;
+  for (const [id, key] of [["rw", "w"], ["rd", "d"], ["rh", "h"]]) {
+    const i = $("#" + id), k = units === "ft" ? 1 : 10; i.value = String(Math.round(toU(L.room[key]) * k) / k);
+    i.step = units === "ft" ? "1" : "0.5"; i.min = String(Math.round(toU(2) * 10) / 10); i.max = String(Math.round(toU(key === "h" ? 30 : 100)));
+  }
+  $("#ceil").style.display = L.open ? "none" : ""; $("#open").checked = !!L.open;
+  $("#dims").textContent = `${fmt(L.room.w)} x ${fmt(L.room.d)}` + (L.open ? ", open sky" : `, ceiling ${fmt(L.room.h)}`);
+  document.querySelectorAll("#dpanel .u").forEach(e => { e.textContent = units; });
+  const stage = (L.zones || []).find(z => z.kind === "stage"), bar = L.fixtures.bar1;
+  // his numbers once he has a stage; his wedding's (20 ft stage, 22 ft floor, bars 10 ft up) until then
+  for (const [id, m] of [["qsw", stage ? stage.w : 20 * FT], ["qsd", stage ? L.floor.d : 22 * FT], ["qsh", stage && bar ? bar.z : 10 * FT]]) {
+    const i = $("#" + id); if (document.activeElement !== i) { i.value = String(inU(m)); i.step = units === "ft" ? "1" : "0.1"; } }
+  showSel();
+}
+const inU = (m) => units === "ft" ? Math.round(m / FT * 10) / 10 : Math.round(m * 100) / 100;
+$("#units").value = units;
+$("#units").addEventListener("change", (e) => { units = e.target.value; try { localStorage.setItem("llano-units", units); } catch (x) {} showSizes();
+  for (const id of ["qsw", "qsd", "qsh"]) if ($("#" + id + "err") && !$("#" + id + "err").hidden) qsMark(id, qsBad(id)); });
+
+// --- undo (his recording, 2:18): every change remembers the layout before it -----------------
+let hist = [];
+function remember() { hist.push(JSON.stringify(L)); if (hist.length > 60) hist.shift(); $("#undo").disabled = false; }
+function undo() {
+  if (!hist.length) return;
+  L = JSON.parse(hist.pop()); $("#undo").disabled = !hist.length;
+  dirty = true; showSizes(); showFlip(); tryLive(); say("Undone.");
+}
+$("#undo").addEventListener("click", undo);
+$("#reset").addEventListener("click", async () => {
+  const name = $("#lay").value;
+  if (dirty) await postLayout({action: "use", name: inUse});  // the show stops aiming from the changes
+  await loadLayout(name); say("Back to the layout as it was. Nothing was saved.");
+});
+
+// His line-up is never dropped by surprise (PM #23745): Clear line-up names the bar it cleared, so a save drops
+// that bar's line-up and no other; with no line-up on this room and one saved before, Bring back my line-up
+// puts the last one he saved on it.
+let clearedBars = new Set(), lastLineup = null;
+const linedUp = (lay) => [1, 2].some(b => ((lay.fixtures["bar" + b] || {}).cal || []).some(c => c && c.center));
+function showRestore() {
+  const show = !!(L && lastLineup && !linedUp(L));
+  document.querySelectorAll(".restorelu").forEach(el => { el.hidden = !show; });
+  if (show) document.querySelectorAll(".restoresay").forEach(el => { el.textContent =
+    "This room has no line-up. Your last one, from \u201c" + lastLineup.label + "\u201d, is kept: bring it back so the heads face the dance floor the way you lined them up."; });
+}
+async function restoreLineup() {
+  const s = await postLayout({action: "restore_lineup", layout: L}, (t) => say("Not brought back: " + t));
+  if (!s) return;
+  remember(); L = s.layout; dirty = true; clearedBars.clear(); showSizes(); showRestore();
+  say("Your line-up is back on GigBAR " + s.restored.join(" and ") + ". Press Save my layout to keep it.");
+}
+document.querySelectorAll(".restorebtn").forEach(b => b.addEventListener("click", () => track(restoreLineup())));
+function savedNote(s) {   // a save that kept a line-up the page had dropped says so
+  return s.kept_lineup && s.kept_lineup.length ? " Your line-up on GigBAR " + s.kept_lineup.join(" and ") + " was kept." : "";
+}
+function showLayout(lay, name) {
+  L = lay; $("#layname").textContent = lay.label + (name === inUse ? " (in use)" : " (not in use yet)");
+  hist = []; $("#undo").disabled = true; sel = null; showSizes(); showFlip(); showRestore();
+}
+async function loadLayout(name) {
+  const r = await fetch("/layout" + (name ? "?name=" + encodeURIComponent(name) : ""), {cache: "no-store"});
+  const s = await r.json(); inUse = s.in_use; if (s.counts) setCounts(s.counts);
+  const sel = $("#lay"), want = name || s.in_use; sel.innerHTML = "";
+  // His venues first, the ready-made rooms apart (BL #12380), each group in name order.
+  const mine = s.layouts.filter(l => !l.preset).sort(byLabel), ready = s.layouts.filter(l => l.preset);
+  for (const [label, list] of [["My venues", mine], ["Ready-made rooms", ready]]) {
+    if (!list.length) continue;
+    const g = document.createElement("optgroup"); g.label = label;
+    for (const l of list) { const o = document.createElement("option"); o.value = l.name;
+      o.textContent = l.label + (l.name === s.in_use ? "  (in use)" : ""); g.append(o); }
+    sel.append(g);
+  }
+  lastLineup = s.last_lineup || null; clearedBars.clear();
+  sel.value = want; showLayout(s.layout, want); dirty = false; showRestore();
+  if (LINEVIEW && !baseline && !name) await takeBaseline(s);
+  // Save as holds the name of his own venue on screen, so Save my layout keeps it there; a ready-made room
+  // leaves it empty, and Save my layout asks for a name (it never makes one up)
+  $("#sname").value = s.layout.preset ? "" : s.layout.label;
+  showVenues(mine);
+}
+// What Finish without saving puts back (the lead's review of PR #152): the room the show was playing when
+// Line up my lights opened, or the venue this page saved since. The server's /layout answers whatever plays,
+// an unsaved try included, under that try's name (Draw my room's is "stage", which is also a ready-made
+// room's), so "use" by that name could swap in the wrong room and make it the venue for next launch. A room
+// identical to the stored venue of its name was that venue, untouched: "use" puts it back. Anything else was
+// a try: "try" puts exactly it back, and nothing is saved or made the venue.
+let baseline = null;   // {layout, saved, name}
+async function takeBaseline(s) {
+  let saved = false;
+  try {
+    const r = await fetch("/layout?name=" + encodeURIComponent(s.in_use), {cache: "no-store"});
+    if (r.ok) saved = JSON.stringify((await r.json()).layout) === JSON.stringify(s.layout);
+  } catch (e) { saved = false; }   // can't tell: put it back as a try, which never saves
+  baseline = {layout: JSON.parse(JSON.stringify(s.layout)), saved, name: s.in_use};
+}
+function savedBaseline(s) { baseline = {layout: JSON.parse(JSON.stringify(s.layout)), saved: true, name: s.in_use}; }
+// Saves and solves in flight (the review: Done right after the last head showed the choice while the line-up was
+// still saving, and Save and finish then made a second venue). Done and Save and finish wait for them.
+const inflight = new Set();
+function track(p) { inflight.add(p); p.finally(() => inflight.delete(p)).catch(() => {}); return p; }
+async function settle() { while (inflight.size) await Promise.allSettled([...inflight]); }
+const byLabel = (a, b) => a.label.localeCompare(b.label, undefined, {sensitivity: "base"});
+// My venues (BL #12380): every venue he saved, to open, rename or delete. Rename and delete ask in the
+// row itself (no pop-up), and the venue the show aims from can't be deleted until he uses another.
+let venueEdit = null;   // {name, kind: "rename" | "delete"} while a row is asking
+function showVenues(mine) {
+  const ul = $("#venues"); ul.innerHTML = ""; $("#venuesnone").hidden = mine.length > 0;
+  const btn = (text, fn, cls) => { const b = document.createElement("button"); b.type = "button"; b.textContent = text; if (cls) b.className = cls; b.addEventListener("click", fn); return b; };
+  for (const l of mine) {
+    const li = document.createElement("li"); li.dataset.venue = l.name;
+    const editing = venueEdit && venueEdit.name === l.name ? venueEdit.kind : "";
+    if (editing === "rename") {
+      const inp = document.createElement("input"); inp.type = "text"; inp.maxLength = 80; inp.value = l.label;
+      inp.setAttribute("aria-label", "New name for " + l.label);
+      const go = () => renameVenue(l, inp.value);
+      inp.addEventListener("keydown", e => { if (e.key === "Enter") go(); if (e.key === "Escape") { venueEdit = null; showVenues(mine); } });
+      li.append(inp, btn("Save name", go, "go"), btn("Cancel", () => { venueEdit = null; showVenues(mine); }));
+      ul.append(li); setTimeout(() => { inp.focus(); inp.select(); }, 0); continue;
+    }
+    const nm = document.createElement("span"); nm.className = "vname"; nm.textContent = l.label;
+    li.append(nm);
+    if (l.name === inUse) { const u = document.createElement("span"); u.className = "vuse"; u.textContent = "the show aims from this"; li.append(u); }
+    if (editing === "delete") {
+      const q = document.createElement("span"); q.textContent = "Delete " + l.label + "?";
+      li.append(q, btn("Yes, delete it", () => deleteVenue(l)), btn("Keep it", () => { venueEdit = null; showVenues(mine); }));
+    } else {
+      li.append(btn("Open", () => openVenue(l), l.name === inUse ? "" : "go"),
+                btn("Rename", () => { venueEdit = {name: l.name, kind: "rename"}; showVenues(mine); }));
+      const del = btn("Delete", () => { venueEdit = {name: l.name, kind: "delete"}; showVenues(mine); });
+      if (l.name === inUse) { del.disabled = true; del.title = "Use another venue first: the show is aiming from this one"; }
+      li.append(del);
+    }
+    ul.append(li);
+  }
+}
+async function openVenue(l) {
+  if (dirty && !confirmLeave()) return;
+  venueEdit = null;
+  const s = await postLayout({action: "use", name: l.name});
+  if (s) { await loadLayout(s.in_use); say("Opened " + l.label + ". The show aims from it, and it stays picked next time."); }
+}
+function confirmLeave() { return window.confirm("Your changes to this room aren't saved. Open the other venue anyway?"); }
+async function renameVenue(l, label) {
+  label = label.trim();
+  if (!label) { say("Type a name for the venue."); return; }
+  const s = await postLayout({action: "rename", name: l.name, label});
+  if (!s) return;
+  venueEdit = null;
+  if (dirty) {   // keep his unsaved changes on screen: refresh only the list and the dropdown's words
+    const r = await fetch("/layout?name=" + encodeURIComponent(inUse), {cache: "no-store"}); const all = await r.json();
+    for (const o of $("#lay").options) { const f = all.layouts.find(x => x.name === o.value); if (f) o.textContent = f.label + (f.name === inUse ? "  (in use)" : ""); }
+    showVenues(all.layouts.filter(x => !x.preset).sort(byLabel));
+  } else await loadLayout($("#lay").value);
+  say("Renamed to \u201c" + s.label + "\u201d.");
+}
+async function deleteVenue(l) {
+  const s = await postLayout({action: "delete", name: l.name});
+  venueEdit = null;
+  if (!s) { await loadLayout($("#lay").value === l.name ? inUse : $("#lay").value); return; }
+  await loadLayout($("#lay").value === l.name ? inUse : $("#lay").value);
+  say("Deleted " + l.label + ". It comes off llano.app too.");
+}
+async function postLayout(msg, refused) {   // refused(error): the caller shows the refusal itself
+  let r, s;
+  try { r = await fetch("/layout", {method: "POST", headers: {"Content-Type": "application/json", "X-Llano-Token": TOKEN}, body: JSON.stringify(msg)}); s = await r.json(); }
+  catch (e) { const t = "the app didn't answer (is the show still running?)"; if (refused) refused(t); else $("#dmsg").textContent = "Not applied: " + t; return null; }
+  if (!r.ok) { if (refused) refused(s.error); else $("#dmsg").textContent = "Not applied: " + s.error; return null; }
+  inUse = s.in_use; if ("last_lineup" in s) lastLineup = s.last_lineup; return s;
+}
+function say(t) { $("#dmsg").textContent = t; $("#lsay").textContent = t; }
+let trySeq = 0, tryWaiting = false;
+function tryLive(then) {  // the show aims from the moved lights right away; nothing is saved
+  // Only the newest try's reply replaces the room on screen, and never mid-drag or with a newer try still to go
+  // (test_stage_layout's drag missed 1 run in 8 on main): the try Add sends 120 ms later went out mid-drag with
+  // the half-dragged room, and its reply, landing after the drag, put that stale copy back over his drag.
+  clearTimeout(tryTimer); tryWaiting = true;
+  tryTimer = setTimeout(async () => { tryWaiting = false; const seq = ++trySeq, s = await postLayout({action: "try", layout: L});
+    if (s && (seq !== trySeq || tryWaiting || drag)) return;
+    if (s) { L = s.layout; showSizes(); if (then) then(); $("#layname").textContent = "Your changes (playing now, not saved)";
+      if (!lineOn) say("The show is aiming from where you put the lights. Save to keep it."); } }, 120);
+}
+$("#lay").addEventListener("change", (e) => { loadLayout(e.target.value); say("Previewing " + e.target.selectedOptions[0].textContent.trim() + ". Press Use this venue to aim the show from it."); });
+$("#use").addEventListener("click", async () => {
+  if (dirty) return tryLive();
+  const s = await postLayout({action: "use", name: $("#lay").value});
+  if (s) { await loadLayout(s.in_use); say("The show now aims from this layout, and it stays picked next time."); }
+});
+// Save my layout (his 11-15 QA: an empty Save as saved under a long made-up name with no word): with no
+// name typed nothing is saved; the cursor goes to the box and he is told what to type. Returns whether it saved.
+const NEED_NAME = "Type the venue's name first, for example the hall's name, then press Save my layout.";
+function saveLayout(refused) { return track(saveLayoutNow(refused)); }
+async function saveLayoutNow(refused) {
+  const label = $("#sname").value.trim();
+  if (!label) { say(NEED_NAME); if (!LINEVIEW) { $("#sname").focus(); $("#sname").scrollIntoView({block: "center"}); } if (refused) refused(NEED_NAME); return false; }
+  const s = await postLayout({action: "save", layout: {...L, name: label, label, preset: false}, cleared: [...clearedBars]}, refused);
+  if (!s) return false;
+  clearedBars.clear();
+  savedHere = true; dirty = false; L = s.layout; savedBaseline(s);
+  // the save is confirmed: a reload that fails (the app restarting for an update) never undoes that
+  try { await loadLayout(s.in_use); } catch (e) { showSizes(); }
+  say("Saved as \u201c" + s.layout.label + "\u201d. The show aims from it, and it stays picked next time." + savedNote(s));
+  return true;
+}
+$("#save").addEventListener("click", () => saveLayout());
+for (const id of ["rw", "rd", "rh"]) $("#" + id).addEventListener("change", () => {
+  const key = {rw: "w", rd: "d", rh: "h"}[id], v = fromU(parseFloat($("#" + id).value));
+  if (!(v >= 2 && v <= (key === "h" ? 30 : 100))) { showSizes(); say(`That size is out of range: between ${fmt(2)} and ${fmt(key === "h" ? 30 : 100)}.`); return; }
+  remember(); L = JSON.parse(JSON.stringify(L)); L.room[key] = Math.round(v * 100) / 100;
+  const W = L.room.w, D = L.room.d;  // keep everything inside the new walls
+  for (const r of [L.booth, L.floor, ...(L.zones || []), ...(L.limits ? [L.limits] : [])]) { r.w = Math.min(r.w, W); r.d = Math.min(r.d, D); r.x = Math.min(r.x, W - r.w); r.y = Math.min(r.y, D - r.d); }
+  for (const p of Object.values(L.fixtures)) { p.x = Math.min(p.x, W); p.y = Math.min(p.y, D); p.z = Math.min(p.z, L.room.h); }
+  dirty = true; showSizes(); tryLive();
+});
+$("#open").addEventListener("change", (e) => {
+  remember(); L = JSON.parse(JSON.stringify(L)); L.open = e.target.checked; if (!L.open) delete L.open;
+  dirty = true; showSizes(); tryLive();
+  say(e.target.checked ? "Open space: no walls or ceiling, so beams land on the ground or fade into the sky." : "Walls and ceiling are back.");
+});
+$("#edit").addEventListener("change", (e) => { editing = e.target.checked; document.body.classList.toggle("editing", editing);
+  showSel(); if (editing) say("Drag a light, the booth, the dance floor or a room element in the view from above, and a corner to size it. Lights face the dance floor on their own."); });
+function roomPoint(ev) { const r = TOP.getBoundingClientRect(), {s, ox, oy} = topScale(r.width, r.height);
+  return [(ev.clientX - r.left - ox) / s, (ev.clientY - r.top - oy) / s, s]; }
+TOP.addEventListener("pointerdown", (ev) => {
+  if (doc && L) {   // the Light doctor: this tap is where the beam landed
+    const [x, y] = roomPoint(ev);
+    if (x < 0 || y < 0 || x > L.room.w || y > L.room.d) return;
+    doc.samples.push({p: raw[0], t: raw[1], x, y}); doc.k++; ev.preventDefault(); docStep(); return;
+  }
+  if (LINEVIEW && finishing) { ev.preventDefault(); return; }   // leaving: a tap starts nothing
+  if (LINEVIEW && L && lu.step === 6) {   // setting the head limits: a tap puts the edge's point there
+    const [x, y] = roomPoint(ev);
+    if (x < 0 || y < 0 || x > L.room.w || y > L.room.d || !lim.edge || lu.busy) return;
+    ev.preventDefault(); lim.pt = [Math.round(x * 100) / 100, Math.round(y * 100) / 100]; limAim(); return;
+  }
+  if (LINEVIEW && L && !editing && (lu.step === 1 || lu.step === 2 || lu.step === 3) && !calHead) {   // one spot (1.16.0)
+    const [x, y] = roomPoint(ev);
+    if (x < 0 || y < 0 || x > L.room.w || y > L.room.d) return;
+    ev.preventDefault();
+    if (lu.step === 3) luLanded(x, y); else luPick([x, y], "the spot you tapped");
+    return;
+  }
+  if (tap && L) {   // tap to aim: first where the beam landed, then where it should
+    const [x, y] = roomPoint(ev);
+    if (x < 0 || y < 0 || x > L.room.w || y > L.room.d) return;
+    ev.preventDefault(); tapStep(x, y); return;
+  }
+  if (!editing || !L) return;
+  const [x, y, s] = roomPoint(ev), best = pickAt(x, y, s);
+  if (!best) { sel = null; showSel(); return; }
+  sel = best.kind === "size" ? best.ref : best.kind === "fx" ? {kind: "fx", id: best.id} : best.ref;
+  remember(); L = JSON.parse(JSON.stringify(L)); drag = best; showSel(); TOP.setPointerCapture(ev.pointerId); ev.preventDefault();
+});
+TOP.addEventListener("pointermove", (ev) => {
+  if (!drag) return;
+  let [x, y] = roomPoint(ev);
+  const grid = $("#snap").checked ? (units === "ft" ? FT : 0.5) : 0.05, snap = (v) => Math.round(Math.round(v / grid) * grid * 100) / 100;
+  if (drag.kind === "fx") { const p = L.fixtures[drag.id]; p.x = Math.max(0, Math.min(L.room.w, snap(x))); p.y = Math.max(0, Math.min(L.room.d, snap(y))); }
+  else if (drag.kind === "size") { const r = rectOf(drag.ref);   // the corner handle: the far corner follows the pointer
+    r.w = Math.max(0.5, Math.min(L.room.w - r.x, snap(x + drag.dx - r.x))); r.d = Math.max(0.5, Math.min(L.room.d - r.y, snap(y + drag.dy - r.y))); showSel(); }
+  else { const r = rectOf(drag.ref); r.x = Math.max(0, Math.min(L.room.w - r.w, snap(x - drag.dx))); r.y = Math.max(0, Math.min(L.room.d - r.d, snap(y - drag.dy))); }
+  dirty = true;
+});
+TOP.addEventListener("pointerup", () => { if (drag) { drag = null; tryLive(); } });
+TOP.addEventListener("pointercancel", () => { if (drag) { drag = null; tryLive(); } });   // a cancelled touch ends the drag too
+
+// --- the room at the venue (BL #12344, his 11-14 ruling: he sees the room only when he arrives) -------
+// Everything is dragged or typed in feet (meters if he picks them); nothing is typed into a file.
+const ZONE_NAME = {stage: "Stage", tables: "Tables", nobeam: "No beams"};
+const ZONE_STYLE = {stage: {fill: "#1d2540", line: "#3d4f86", text: "#9fb0e0"},
+  tables: {fill: "#2a2216", line: "#7a6034", text: "#d8b77a", dash: [3, 3]},
+  nobeam: {fill: "#2c1418", line: "#a8454f", text: "#f09aa2", dash: [6, 4]}};
+const HANDLE = 7;   // px a corner handle sits out past its corner, clear of a light standing on the corner
+const ZONE_SIZE = {stage: [20, 8], tables: [10, 8], nobeam: [8, 8]};   // feet, when added
+// sel: what he picked: {kind: "fx", id} | {kind: "rect", id: "floor"|"booth"} | {kind: "zone", i}
+const rectOf = (ref) => ref.kind === "zone" ? L.zones[ref.i] : L[ref.id];
+const sameRef = (a, b) => a.kind === b.kind && a.id === b.id && a.i === b.i;
+function sizable() { return [{kind: "rect", id: "floor"}, {kind: "rect", id: "booth"}, ...(L.zones || []).map((_, i) => ({kind: "zone", i})), ...(L.limits ? [{kind: "rect", id: "limits"}] : [])]; }
+function pickAt(x, y, s) {   // a corner handle first, then a light, the booth, a room element (newest on top), the floor
+  const grab = 8 / s, off = HANDLE / s;
+  for (const ref of sizable().reverse()) { const r = rectOf(ref), hx = r.x + r.w + off, hy = r.y + r.d + off;
+    if (Math.abs(x - hx) <= grab && Math.abs(y - hy) <= grab) return {kind: "size", ref, dx: hx - x - off, dy: hy - y - off}; }
+  let best = null, bd = 14 / s;
+  for (const [id, p] of Object.entries(L.fixtures)) { if (!present(id)) continue; const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = {kind: "fx", id}; } }
+  if (best) return best;
+  const zs = (L.zones || []).map((_, i) => ({kind: "zone", i})).reverse();
+  for (const ref of [{kind: "rect", id: "booth"}, ...zs, ...(L.limits ? [{kind: "rect", id: "limits"}] : []), {kind: "rect", id: "floor"}]) { const r = rectOf(ref);
+    if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.d) return {kind: "rect", ref, dx: x - r.x, dy: y - r.y}; }
+  return null;
+}
+function selName(ref) {
+  if (ref.kind === "fx") { const m = /^(bar|tetra|stick)(\d)$/.exec(ref.id); return m ? {bar: "GigBAR", tetra: "Tetra", stick: "Freedom Stick"}[m[1]] + " " + m[2] : ref.id; }
+  if (ref.kind === "zone") { const z = L.zones[ref.i]; return z.label || ZONE_NAME[z.kind]; }
+  return ref.id === "floor" ? "Dance floor" : ref.id === "limits" ? "Head limits" : "DJ booth";
+}
+function showSel() {
+  if (sel && ((sel.kind === "zone" && !(L.zones || [])[sel.i]) || (sel.kind === "fx" && !L.fixtures[sel.id]) || (sel.id === "limits" && !L.limits))) sel = null;
+  $("#selrow").hidden = !sel || !editing;
+  if (!sel || !editing) return;
+  $("#selname").textContent = selName(sel);
+  const fx = sel.kind === "fx", bar = fx && sel.id.startsWith("bar");
+  $("#selsize").hidden = fx; $("#selheight").hidden = !fx; $("#seldel").hidden = sel.kind !== "zone" && sel.id !== "limits";
+  $("#selhword").textContent = bar ? "Height above the dance floor" : "Height";
+  const set = (id, m) => { const i = $("#" + id); if (document.activeElement !== i) { i.value = String(inU(m)); i.step = units === "ft" ? "1" : "0.1"; } };
+  if (fx) set("selh", L.fixtures[sel.id].z || 0); else { const r = rectOf(sel); set("selw", r.w); set("seld", r.d); }
+  $("#selturn").hidden = !fx; $("#selturnhint").hidden = !fx;
+  if (fx && document.activeElement !== $("#selang")) $("#selang").value = String(Math.round(norm180(drawnAngle(sel.id))));
+}
+const norm180 = (a) => ((a + 180) % 360 + 360) % 360 - 180;
+// Turn a light in the picture (BL #12454): 45 and 90 snap to the next eighth or quarter turn; 1 degree and the box
+// are the fine adjust; Square up goes back to square to its facing. Saved with the room; aiming never reads it.
+function turnSel(to) {
+  if (!sel || sel.kind !== "fx" || !L) return;
+  remember(); L = JSON.parse(JSON.stringify(L));
+  const p = L.fixtures[sel.id];
+  if (to === null) delete p.drawn; else p.drawn = Math.round(norm180(to) * 10) / 10;
+  showSel(); changed(to === null ? `${selName(sel)} is drawn square to the way it faces again.` : `${selName(sel)} is drawn turned ${Math.round(norm180(to))} degrees. Save my layout to keep it.`);
+}
+document.querySelectorAll("#selturn [data-turn]").forEach(b => b.addEventListener("click", () => {
+  if (!sel || sel.kind !== "fx") return;
+  const step = +b.dataset.turn, cur = drawnAngle(sel.id), big = Math.abs(step) >= 45;
+  turnSel(big ? (step > 0 ? Math.floor(cur / step + 1e-6) + 1 : Math.ceil(cur / -step - 1e-6) - 1) * Math.abs(step) : cur + step);
+}));
+$("#selang").addEventListener("change", () => { const v = parseFloat($("#selang").value); if (isFinite(v)) turnSel(v); else showSel(); });
+$("#selsquare").addEventListener("click", () => turnSel(null));
+function changed(msg) { dirty = true; showSizes(); tryLive(); if (msg) say(msg); }
+function startEditing() { if (!$("#edit").checked) { $("#edit").checked = true; $("#edit").dispatchEvent(new Event("change")); } }
+for (const id of ["selw", "seld", "selh"]) $("#" + id).addEventListener("change", () => {
+  if (!sel || !L) return;
+  const v = fromU(parseFloat($("#" + id).value));
+  if (!(v >= 0) || (id !== "selh" && v < 0.5)) { showSel(); say(`That size is too small: at least ${fmt(id === "selh" ? 0 : 0.5)}.`); return; }
+  remember(); L = JSON.parse(JSON.stringify(L));
+  if (id === "selh") { const p = L.fixtures[sel.id]; p.z = Math.round(Math.min(v, L.room.h) * 100) / 100;
+    if (v > L.room.h) say(`Kept under the ceiling: ${fmt(L.room.h)}. Raise the ceiling height to go higher.`); }
+  else { const r = rectOf(sel), key = id === "selw" ? "w" : "d", room = key === "w" ? L.room.w : L.room.d, at = key === "w" ? "x" : "y";
+    r[key] = Math.round(Math.min(v, room) * 100) / 100; r[at] = Math.max(0, Math.min(r[at], room - r[key]));   // stays inside the walls
+    if (v > room) say(`Kept inside the room: ${fmt(room)}. Make the room bigger first.`); }
+  changed();
+});
+$("#seldel").addEventListener("click", () => {
+  if (sel && sel.id === "limits") { remember(); L = JSON.parse(JSON.stringify(L)); delete L.limits; sel = null;
+    changed("Removed the head limits: the heads go anywhere in front of the bars again. Undo puts them back."); return; }
+  if (!sel || sel.kind !== "zone") return;
+  const name = selName(sel); remember(); L = JSON.parse(JSON.stringify(L)); L.zones.splice(sel.i, 1);
+  if (!L.zones.length) delete L.zones;
+  sel = null; changed(`Removed the ${name.toLowerCase()}. Undo puts it back.`);
+});
+// Flip the numbers (BL #12378, his cords run from the right: Tetra 1 on the right, then 2, 3 going left).
+// The spots stay put; which light is 1, 2, 3 reverses, so each address follows its number to the other end.
+function numberWay(kind) {
+  const ids = Object.keys(L.fixtures).filter(id => id.startsWith(kind)).sort((a, b) => +a.replace(kind, "") - +b.replace(kind, ""));
+  if (ids.length < 2) return "";
+  const first = L.fixtures[ids[0]], last = L.fixtures[ids[ids.length - 1]];
+  const name = kind === "tetra" ? "Tetra" : "Stick";
+  return Math.abs(first.x - last.x) < 0.05 ? "" : `${name} 1 is on the ${first.x > last.x ? "right" : "left"}, numbered toward the ${first.x > last.x ? "left" : "right"}.`;
+}
+function showNumbers() { if (!L || !L.fixtures) return; $("#numsay").textContent = [numberWay("tetra"), numberWay("stick")].filter(Boolean).join(" "); }
+// The app flips them and keeps which end light 1 starts at as a rig fact (BL #12396), so the next
+// Stage setup and every ready-made room number his lights the same way.
+document.querySelectorAll("[data-renumber]").forEach(b => b.addEventListener("click", async () => {
+  const kind = b.dataset.renumber;
+  if (!L || Object.keys(L.fixtures).filter(id => id.startsWith(kind)).length < 2) return;
+  remember(); const s = await postLayout({action: "numbers", kind, layout: L});
+  if (!s) return;
+  L = s.layout; dirty = true; showSizes(); showNumbers();
+  $("#layname").textContent = "Your changes (playing now, not saved)";
+  say(numberWay(kind) + " The next Stage setup numbers them this way too. Save my layout to keep this room.");
+}));
+
+document.querySelectorAll("[data-add]").forEach(b => b.addEventListener("click", () => {
+  if (!L) return;
+  const kind = b.dataset.add, [fw, fd] = ZONE_SIZE[kind], W = L.room.w, D = L.room.d;
+  const [x, y, w, d] = zoneSpot(kind, Math.min(fw * FT, W), Math.min(fd * FT, D));
+  remember(); L = JSON.parse(JSON.stringify(L)); L.zones = [...(L.zones || []), {kind, x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100, w: Math.round(w * 100) / 100, d: Math.round(d * 100) / 100}];
+  sel = {kind: "zone", i: L.zones.length - 1}; startEditing();
+  changed(kind === "stage" ? "Stage added. Drag it into place and its corner to size it."
+    : `${ZONE_NAME[kind] === "Tables" ? "Table area" : "No-beam zone"} added: the moving lights stay out of it. Drag it over the tables and size it by its corner.`);
+}));
+$("#addlimits").addEventListener("click", () => {   // Head limits (PM #23796): starts as the dance floor
+  if (!L) return;
+  if (L.limits) { sel = {kind: "rect", id: "limits"}; startEditing(); showSel(); say("The head limits are the amber box: drag it, and its corner to size it."); return; }
+  const f = L.floor; remember(); L = JSON.parse(JSON.stringify(L)); L.limits = {x: f.x, y: f.y, w: f.w, d: f.d};
+  sel = {kind: "rect", id: "limits"}; startEditing();
+  changed("Head limits added over the dance floor: the moving heads stay inside the amber box" + (limitsOver() ? ", the highest beam just over heads at its far edge" : "")
+    + ". Drag it and size it by its corner, or set it with the real beams on site in Line up my lights (Set how far the heads go). Save my layout to keep it.");
+});
+document.querySelectorAll("[data-stand]").forEach(b => b.addEventListener("click", () => {   // what the bars stand on
+  const stage = fromU(parseFloat($("#qsstage").value) || 0), m = +b.dataset.stand * FT + Math.max(0, stage);
+  $("#qsh").value = String(inU(m)); $("#qsh").dispatchEvent(new Event("input"));
+  say(`GigBAR height ${fmt(m)}: a ${b.dataset.stand} ft stand${stage > 0 ? " on a " + fmt(stage) + " stage" : " on the dance floor"}. Press Draw my room, or set it on each GigBAR (Move lights, then tap it).`);
+}));
+// Draw my room's three boxes are checked here before anything is sent (his 11-15 QA: a 0 came back as
+// "Not applied: stage width must be between 2.2192 and 30 (got 0)"). The limits are venue.stage_layout's, in
+// meters (a test holds them to it); a refusal that names other limits teaches the page those. He is told in his
+// units, whole feet or meters to one decimal, rounded inward so a number the page takes the server takes too.
+const QS = {qsw: {what: "the stage's width", key: "stage width", lo: 2 * 2 * FT + 1.0, hi: 30.0},
+            qsd: {what: "the dance floor's depth", key: "dance floor depth", lo: 2.0, hi: 30.0},
+            qsh: {what: "how high the GigBARs stand above the dance floor", key: "GigBAR height", lo: 1.0, hi: 6.0}};
+function qsRange(id) {   // [lo, hi] in his units, whole feet or meters to one decimal, inside the server's limits
+  const k = units === "ft" ? 1 : 10, q = QS[id];
+  return [Math.ceil(toU(q.lo) * k - 1e-9) / k, Math.floor(toU(q.hi) * k + 1e-9) / k];
+}
+function qsWords(id) { const [lo, hi] = qsRange(id); return `Type ${QS[id].what} in ${units === "ft" ? "feet" : "meters"}, between ${lo} and ${hi}.`; }
+function qsMark(id, words) {   // words under the box it is about, or none
+  const i = $("#" + id), e = $("#" + id + "err");
+  e.textContent = words || ""; e.hidden = !words; i.setAttribute("aria-invalid", String(!!words));
+}
+for (const id of Object.keys(QS)) $("#" + id).addEventListener("input", () => qsMark(id, ""));
+function qsBad(id) {   // what is wrong with one box, in words, or "" when it is fine
+  const raw = $("#" + id).value.trim(), v = Number(raw), [lo, hi] = qsRange(id);
+  return raw === "" || !Number.isFinite(v) || v < lo || v > hi ? qsWords(id) : "";
+}
+function qsRefused(err) {   // the server said no anyway: under the box it is about, in his units when it names limits
+  const id = Object.keys(QS).find(k => err.toLowerCase().startsWith(QS[k].key.toLowerCase()));
+  const m = /between ([\d.]+) and ([\d.]+)/.exec(err);
+  if (id && m) { QS[id].lo = +m[1]; QS[id].hi = +m[2]; }
+  const words = "That did not change the room: " + (id && m ? qsWords(id) : err);
+  if (id) { qsMark(id, words); $("#" + id).focus(); } else say(words);
+}
+// Where a new room element lands (his 11-15 QA: Stage, Table area and No-beam zone all landed on the S4 stick,
+// one on top of the other). The open floor nearest the middle of the dance floor: off the dance floor (it is
+// drawn over room elements, so one there would be hidden), clear of every light, the booth and every element
+// already there; a stage tries the middle of the booth wall first. A room with no such spot tries it smaller
+// (he sizes it by its corner anyway), then lets it onto the dance floor; with none at all it lands at the
+// middle offset by each element already added, never on another. Returns [x, y, w, d].
+function zoneSpot(kind, w0, d0) {
+  const r2 = (v) => Math.round(v * 100) / 100;
+  for (const [k, onFloor] of [[1, false], [0.75, false], [0.5, false], [1, true]]) {
+    const at = zoneFits(kind, Math.max(1, w0 * k), Math.max(1, d0 * k), onFloor);
+    if (at) return at.map(r2);
+  }
+  const fl = L.floor, off = (units === "ft" ? 2 * FT : 0.6) * ((L.zones || []).length + 1);
+  return [Math.max(0, Math.min(L.room.w - w0, fl.x + fl.w / 2 - w0 / 2 + off)), Math.max(0, Math.min(L.room.d - d0, fl.y + fl.d / 2 - d0 / 2 + off)), w0, d0].map(r2);
+}
+function zoneFits(kind, w, d, onFloor) {   // the clear spot nearest the dance floor's middle, or null
+  const W = L.room.w, D = L.room.d, fl = L.floor, cx = fl.x + fl.w / 2, cy = fl.y + fl.d / 2, pad = 0.3;
+  const zs = L.zones || [], hit = (a, r) => a.x < r.x + r.w && r.x < a.x + w && a.y < r.y + r.d && r.y < a.y + d;
+  const clear = (a) => a.x >= 0 && a.y >= 0 && a.x + w <= W + 1e-6 && a.y + d <= D + 1e-6
+    && !zs.some(z => hit(a, z)) && !hit(a, L.booth) && (onFloor || !hit(a, fl))
+    && !Object.entries(L.fixtures).some(([id, f]) => present(id) && f.x > a.x - pad && f.x < a.x + w + pad && f.y > a.y - pad && f.y < a.y + d + pad);
+  if (kind === "stage" && !onFloor && clear({x: (W - w) / 2, y: 0})) return [(W - w) / 2, 0, w, d];
+  const step = units === "ft" ? FT : 0.25;
+  let best = null, bd = Infinity;
+  for (let y = 0; y + d <= D + 1e-6; y += step) for (let x = 0; x + w <= W + 1e-6; x += step) {
+    const dd = Math.hypot(x + w / 2 - cx, y + d / 2 - cy);
+    if (dd < bd && clear({x, y})) { best = [x, y, w, d]; bd = dd; }
+  }
+  return best;
+}
+$("#qsgo").addEventListener("click", async () => {
+  const bad = Object.keys(QS).map(id => [id, qsBad(id)]).filter(b => b[1]);
+  for (const id of Object.keys(QS)) qsMark(id, "");
+  if (bad.length) { for (const [id, w] of bad) qsMark(id, w); $("#" + bad[0][0]).focus(); say(""); return; }
+  const num = (id) => fromU(parseFloat($("#" + id).value)), had = L && ["bar1", "bar2"].some(b => ((L.fixtures[b] || {}).cal || []).some(c => c && c.center));
+  const s = await postLayout({action: "stage", stage_w: num("qsw"), floor_d: num("qsd"), bar_h: num("qsh")}, qsRefused);
+  if (!s) return;
+  if (L) remember();
+  L = s.layout; dirty = true; sel = null; startEditing(); showSizes();
+  $("#layname").textContent = "Your changes (playing now, not saved)";
+  say(`Drawn: a ${fmt(L.zones[0].w)} stage, a ${fmt(L.floor.w)} x ${fmt(L.floor.d)} dance floor, the GigBARs ${fmt(L.fixtures.bar2.x - L.fixtures.bar1.x)} apart at ${fmt(L.fixtures.bar1.z)}, turned in to the floor. `
+    + "Drag anything that's different, then Save my layout."
+    // His line-up comes along (BL #12400): the heads keep facing the floor; two spots set where the bars really stand
+    + (s.carried ? " Your line-up came along, so the heads still face the dance floor. At the venue, line up two spots so Llano learns where the bars really stand."
+       : had ? " Run Line up my lights again: the bars moved." : ""));
+});
+// The stage tells the Live screen where the pointer is on the floor, in meters (it decides what
+// that means: a click sends the spot there, a drag or hover follow leads it, a click on a light picks it).
+if (STAGE && window.parent !== window) {
+  const tell = (m) => parent.postMessage({llanoStage: m}, location.origin);
+  const stageAt = (ev) => { const r = TOP.getBoundingClientRect(), geo = stageGeo(r.width, r.height); return [...stageRoom(geo, ev.clientX - r.left, ev.clientY - r.top), geo.s]; };
+  const onFloor = (ev) => { if (!L) return null; const [x, y] = stageAt(ev); return [Math.max(0, Math.min(L.room.w, x)), Math.max(0, Math.min(L.room.d, y)), x, y]; };
+  const lightAt = (x, y, s) => { let best = null, bd = 16 / s;
+    for (const [id, p] of Object.entries(L.fixtures)) { if (!present(id)) continue; const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = id; } }
+    return best; };
+  let down = false;
+  TOP.addEventListener("pointerdown", (ev) => { const p = onFloor(ev); if (!p) return; down = true; try { TOP.setPointerCapture(ev.pointerId); } catch (e) {}
+    ev.preventDefault(); window.focus(); tell({kind: "down", x: p[0], y: p[1], light: lightAt(p[2], p[3], stageAt(ev)[2])}); });
+  TOP.addEventListener("pointermove", (ev) => { const p = onFloor(ev); if (p) tell({kind: down ? "drag" : "hover", x: p[0], y: p[1], rx: p[2], ry: p[3],
+    floor: p[2] >= L.floor.x && p[2] <= L.floor.x + L.floor.w && p[3] >= L.floor.y && p[3] <= L.floor.y + L.floor.d}); });   // the floor he sees (BL #12383)
+  TOP.addEventListener("pointerup", (ev) => { if (!down) return; down = false; const p = onFloor(ev) || [0, 0]; tell({kind: "up", x: p[0], y: p[1]}); });
+  TOP.addEventListener("pointercancel", () => { down = false; tell({kind: "leave"}); });
+  TOP.addEventListener("pointerleave", () => { if (!down) tell({kind: "leave"}); });
+}
+
+// --- the arrival line-up check (his recording, 5:02; its own view since 1.11.3) ----------------
+// /lineup.html shows only these controls and the room picture (his 2:40 PM recording 2:23), and
+// opening it turns the lights on by itself, no show or demo needed (1:51). Both GigBARs at the
+// middle of the floor is the check: all four heads on one dot (2:02). For a bar whose heads miss,
+// he calibrates it (below), or mirrors a bar whose heads turn the wrong way; the changes
+// aim the lights at once and save with the layout.
+const LINEVIEW = location.pathname === "/lineup.html";
+if (LINEVIEW) {
+  document.body.classList.add("lineup-view"); document.title = document.title.replace(/ \u00b7 [^\u00b7]*$/, "") + " \u00b7 Line up my lights";
+  $("main").prepend($("#lineup"));
+}
+if (document.body.classList.contains("embed")) $("#lineuplink a").href = "/lineup.html?embed=1";
+let lineOn = LINEVIEW, lineBar = 0, lineSpot = "center", lightsOn = true, lightsWhole = false;
+// Lights on (1.12.3, his 11-08 report "how do i turn the lights on"): the page turns every head on by
+// itself, and this switch turns them off and on again. Leaving the page ends the line-up, so the
+// heads go dark (or back to the show that runs).
+// The button says what a press does and the words beside it say how the lights are (11-15 QA: the button's label
+// flipping between Lights on and Lights off read as a state, so it was unclear which was which). Both switches.
+function showLights() {
+  for (const [b, st] of [["#lightson", "#lightsstate"], ["#lulights", "#lulightsstate"]]) {
+    $(b).setAttribute("aria-pressed", String(lightsOn)); $(b).textContent = lightsOn ? "Turn the lights off" : "Turn the lights on";
+    $(st).textContent = lightsOn ? "The lights are on." : "The lights are off.";
+  }
+  $("#lightswhole").setAttribute("aria-pressed", String(lightsWhole));
+  $("#lightsay").textContent = !lightsOn ? "The heads are dark. Press Turn the lights on to see the beams again."
+    : lightsWhole ? "The whole bar is on: Spot L and R white at full, Par L and R white, Derby L and R white, the laser red and green, the strobes flashing slowly."
+    : "Every GigBAR head is a white spot at full. Whole bar lights the pars, derbies, laser and strobes too.";
+}
+function setLights(on) {
+  lightsOn = on; lineOn = lineOn || on; showLights();
+  fetch("/lights?on=" + (on ? (lightsWhole ? 2 : 1) : 0), {method: "POST", headers: {"X-Llano-Token": TOKEN}})
+    .then(async r => { if (!r.ok) { const t = await r.text(); let e = t; try { e = JSON.parse(t).error || t; } catch (x) {} $("#lsay").textContent = e; } })
+    .catch(() => {});
+}
+$("#lightson").addEventListener("click", () => setLights(!lightsOn));
+$("#lightswhole").addEventListener("click", () => { lightsWhole = !lightsWhole; setLights(true); });   // 1.14.1
+function sendLineup(keepalive) {
+  fetch("/lineup?b=" + (lineOn ? lineBar : "") + "&s=" + encodeURIComponent(lineOn ? lineSpot : ""),
+        {method: "POST", headers: {"X-Llano-Token": TOKEN}, keepalive: !!keepalive})
+    .then(async r => { if (!r.ok) { const t = await r.text(); let e = t; try { e = JSON.parse(t).error || t; } catch (x) {} $("#lsay").textContent = e; } })
+    .catch(() => {});
+  document.querySelectorAll("#lineup [data-bar]").forEach(b => b.setAttribute("aria-pressed", String(lineOn && +b.dataset.bar === lineBar)));
+  document.querySelectorAll("#lineup [data-spot]").forEach(b => b.setAttribute("aria-pressed", String(lineOn && b.dataset.spot === lineSpot)));
+  document.querySelectorAll("#flip").forEach(b => b.disabled = !lineOn || !lineBar);
+  showFlip();
+}
+function showFlip() {
+  const c = lineBar && L ? (L.fixtures["bar" + lineBar].cal || []) : [];
+  $("#flip").setAttribute("aria-pressed", String(c.some(h => h && h.pan_invert)));
+  $("#lmsg").textContent = !lineOn ? "" : !lineBar ? "If one head misses the others, calibrate it below." :
+    `GigBAR ${lineBar}` + (c.some(h => h && h.center) ? ": calibrated" : ": not calibrated yet") + ". Save my layout to keep it.";
+  showCal();
+}
+document.querySelectorAll("#lineup [data-bar]").forEach(b => b.addEventListener("click", () => { lineOn = true; lineBar = +b.dataset.bar; sendLineup(); }));
+document.querySelectorAll("#lineup [data-spot]").forEach(b => b.addEventListener("click", () => { lineOn = true; lineSpot = b.dataset.spot; sendLineup(); }));
+$("#centerall").addEventListener("click", () => { stopCal(); lineOn = true; lineBar = 0; lineSpot = "center"; sendLineup(); });
+$("#flip").addEventListener("click", async () => {   // the Mirror button: the server flips around each head's calibrated center
+  if (!lineOn || !lineBar || !L) return;
+  remember(); const s = await postLayout({action: "flip", bar: lineBar, layout: L});
+  if (s) { L = s.layout; dirty = true; showSizes(); showFlip(); tryLive(); }
+});
+
+// --- calibration (1.12.1, his real-rig report): one head at a time, by raw pan/tilt -------------
+// He moves the real beam onto a dot with raw DMX steps (the model being fitted plays no part),
+// presses Set, and the layout keeps the raw pan/tilt for that dot; the app fits the rest.
+let calHead = null, calDot = "center", raw = [0.5, 0.75];
+let doc = null;   // the Light doctor's run (below): {head: [bar, m], poses, k, samples: [{p, t, x?, y?}]}
+let tap = null;   // tap to aim (below): {head: [bar, m], samples: [{p, t, x, y}], seen: {p, t, x, y}?, want: [x, y]?}
+const DOTNAME = {center: "center", near: "near edge", side: "left edge"};
+// Head 1 (channels 24-29) sits on the bar's own left as it faces out: on the RIGHT as you face the
+// bar from the dance floor (1.12.3, his 11-08 report: picking "left" moved the right-hand head).
+const HEADNAME = ["right", "left"];
+function dotsOf() { const f = L.floor; return {center: [f.x + f.w/2, f.y + f.d/2], near: [f.x + f.w/2, f.y], side: [f.x, f.y + f.d/2]}; }
+function headCal(bar, m, make) {
+  const s = L.fixtures["bar" + bar];
+  if (!s.cal && make) s.cal = [{}, {}];
+  return (s.cal || [])[m] || null;
+}
+function sendCal(keepalive) {
+  const q = calHead ? `b=${calHead[0]}&m=${calHead[1]}&p=${raw[0].toFixed(5)}&t=${raw[1].toFixed(5)}` : "b=";
+  fetch("/calibrate?" + q, {method: "POST", headers: {"X-Llano-Token": TOKEN}, keepalive: !!keepalive})
+    .then(async r => { if (!r.ok) { const t = await r.text(); let e = t; try { e = JSON.parse(t).error || t; } catch (x) {} $("#cmsg").textContent = e; } })
+    .catch(() => {});
+  showCal();
+}
+function startAt() {   // the dot's recorded raw value, else where today's aim puts this head on it
+  const c = headCal(calHead[0], calHead[1]), rec = c && (calDot === "center" ? c.center : (c.points || {})[calDot]);
+  const guess = L.derived && L.derived.aims ? L.derived.aims["bar" + calHead[0]][calHead[1]][calDot] : null;
+  raw = (rec || guess || [0.5, 0.75]).slice();
+}
+function stopCal() { doc = null; tap = null; if (calHead) { calHead = null; sendCal(); } }
+// Every Set keeps the calibration at once (1.12.3): his 11-08 layout held only the last head he set,
+// because the dots lived in an unsaved try until Save my layout. A preset is kept as his own copy.
+async function keepCal(then) { return track(keepCalNow(then)); }
+async function keepCalNow(then) {
+  const label = L.preset ? L.label + " (mine)" : L.label;
+  const s = await postLayout({action: "save", layout: {...L, name: L.preset ? label : L.name, label, preset: false}, cleared: [...clearedBars]});
+  if (s) { clearedBars.clear(); showRestore(); L = s.layout; dirty = false; savedHere = true; savedBaseline(s); if (!$("#sname").value.trim()) $("#sname").value = s.layout.label; showSizes(); $("#layname").textContent = "Saved: " + s.layout.label; if (then) then();
+    if (LINEVIEW && !$("#luchoice").hidden && !finishing) { $("#luchoice").hidden = true; lineupDone(); } }
+}
+function showCal() {
+  document.querySelectorAll("#lineup [data-head]").forEach(b => b.setAttribute("aria-pressed", String(!!calHead && b.dataset.head === calHead.join(":"))));
+  document.querySelectorAll("#lineup [data-dot]").forEach(b => b.setAttribute("aria-pressed", String(!!calHead && b.dataset.dot === calDot)));
+  document.querySelectorAll("#lineup [data-jog], #setdot, #calstop, #calmore input, #calclear").forEach(b => b.disabled = !calHead);
+  $("#doctor").disabled = !calHead || !!doc || !!tap; $("#docskip").disabled = $("#docstop").disabled = !doc;
+  $("#tapaim").disabled = !calHead || !!doc || !!tap; $("#tapdone").disabled = !tap;
+  $("#setdot").textContent = "Set " + DOTNAME[calDot];
+  $("#rawval").textContent = calHead ? `pan ${Math.round(raw[0] * 255)}, tilt ${Math.round(raw[1] * 255)}` : "";
+  const c = calHead && L ? headCal(calHead[0], calHead[1]) : null;
+  document.querySelectorAll("#calmore [data-cal]").forEach(i => {
+    const k = i.dataset.cal;
+    if (i.type === "checkbox") i.checked = !!(c && c[k]); else i.value = (c && c[k]) || (k === "pan_range" ? 540 : 180);
+  });
+}
+function calStatus() {   // what is set on this head, and how well the dots agree
+  if (!calHead) return "";
+  const [b, m] = calHead, c = headCal(b, m) || {}, set = ["center", ...Object.keys(c.points || {})].filter(k => k !== "center" || c.center);
+  const miss = L.derived && L.derived.miss ? L.derived.miss["bar" + b][m] : null;
+  const name = `GigBAR ${b} ${HEADNAME[m]}`;
+  if (!c.center) return `${name}: move its beam onto the center dot, then press Set center.`;
+  const next = ["near", "side"].find(k => !(c.points || {})[k]);
+  return `${name}: set ${set.map(k => DOTNAME[k]).join(", ")}.` + (miss !== null && miss !== undefined ? ` Worked out from the dots, its aim misses by ${Math.round(miss)}° at most.` : "") +
+    (next ? ` Next: the ${DOTNAME[next]} dot.` : " Done: press Center all to check, then Save my layout.");
+}
+document.querySelectorAll("#lineup [data-head]").forEach(b => b.addEventListener("click", () => {
+  lineOn = true; doc = null; tap = null; calHead = b.dataset.head.split(":").map(Number); calDot = headCal(calHead[0], calHead[1])?.center ? calDot : "center";
+  startAt(); sendCal(); if (!lightsOn) setLights(true); $("#cmsg").textContent = calStatus();
+}));
+document.querySelectorAll("#lineup [data-dot]").forEach(b => b.addEventListener("click", () => {
+  if (!calHead) return; calDot = b.dataset.dot; startAt(); sendCal(); $("#cmsg").textContent = calStatus();
+}));
+function jog(axis, steps) {
+  if (!calHead) return;
+  const k = axis === "pan" ? 0 : 1; raw[k] = Math.max(0, Math.min(1, Math.round(raw[k] * 255 + steps) / 255)); sendCal();
+}
+// Hold to move (1.16.7, the 11-09 recording: one press per step meant pressing 50 times): a
+// press moves one step (Shift: 5), and held it repeats, faster the longer it is held.
+const HOLD_WAIT_MS = 350, HOLD_EVERY_MS = 70;
+function holdSteps(ms) { return ms < 1000 ? 1 : ms < 2500 ? 3 : 6; }
+function holdToMove(b, move) {
+  let timer = null, t0 = 0;
+  const stop = () => { clearTimeout(timer); timer = null; };
+  b.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || b.disabled) return;
+    e.preventDefault(); b.setPointerCapture?.(e.pointerId);
+    const big = e.shiftKey; t0 = performance.now(); move(big ? 5 : 1);
+    const tick = () => { move(big ? 5 * holdSteps(performance.now() - t0) : holdSteps(performance.now() - t0)); timer = setTimeout(tick, HOLD_EVERY_MS); };
+    stop(); timer = setTimeout(tick, HOLD_WAIT_MS);
+  });
+  for (const ev of ["pointerup", "pointercancel", "lostpointercapture", "blur"]) b.addEventListener(ev, stop);
+  b.addEventListener("click", (e) => { if (e.detail === 0) move(e.shiftKey ? 5 : 1); });   // Enter / Space on the button
+}
+document.querySelectorAll("#lineup [data-jog]").forEach(b => {
+  const [axis, sign] = b.dataset.jog.split(":"); holdToMove(b, (n) => jog(axis, +sign * n)); });
+$("#setdot").addEventListener("click", () => {
+  if (!calHead || !L) return;
+  remember(); L = JSON.parse(JSON.stringify(L));
+  const c = headCal(calHead[0], calHead[1], true);
+  if (calDot === "center") c.center = raw.slice(); else { c.points = c.points || {}; c.points[calDot] = raw.slice(); }
+  if (calDot !== "center" && !c.center) { $("#cmsg").textContent = "Set the center dot first: the other dots are measured from it."; return; }
+  dirty = true; keepCal(() => { $("#cmsg").textContent = calStatus() + " Saved."; });
+  $("#cmsg").textContent = calStatus();
+});
+// --- the Light doctor (BL #11615): the app moves the head, he taps where each beam lands ----------
+// Five raw poses around today's aim (the server's derived.doctor); the server fits which way the
+// head turns, a swap and its center from the taps, and saves it like Set does. Skips are kept too:
+// Llano gets every pose, tapped or not.
+function docStep() {
+  if (!doc) return;
+  if (doc.k >= doc.poses.length) { docFit(); return; }
+  raw = doc.poses[doc.k].slice(); sendCal();
+  $("#cmsg").textContent = `Light doctor, GigBAR ${doc.head[0]} ${HEADNAME[doc.head[1]]}, beam ${doc.k + 1} of ${doc.poses.length}: ` +
+    "tap where it lands on the floor in the view from above, or press Can't see this one.";
+}
+async function docFit() {
+  const d = doc, taps = d.samples.filter(q => q.x !== undefined).length, name = `GigBAR ${d.head[0]} ${HEADNAME[d.head[1]]}`;
+  doc = null; showCal();
+  if (taps < 3) {
+    $("#cmsg").textContent = `${name}: only ${taps} of the beams landed where you could tap, and the doctor needs 3. ` +
+      "Check the bar faces the dance floor in the picture, then try again, or move the beam onto the dots by hand below.";
+    startAt(); sendCal(); return;
+  }
+  remember();
+  const s = await postLayout({action: "doctor", bar: d.head[0], m: d.head[1], samples: d.samples, layout: L});
+  if (!s) { $("#cmsg").textContent = $("#dmsg").textContent; startAt(); sendCal(); return; }
+  L = s.layout; dirty = true; showSizes(); showFlip(); calDot = "center"; startAt(); sendCal();
+  const said = `${name}: worked out from ${taps} taps; its aim misses them by ${Math.round(s.doctor.miss_deg)}° at most.` +
+    (s.doctor.miss_deg > 8 ? " That's a lot: run the doctor again and tap the middle of each beam." : "");
+  keepCal(() => { $("#cmsg").textContent = said + " Saved. Press Center all to check every head."; });
+}
+$("#doctor").addEventListener("click", () => {
+  if (!calHead || !L || !L.derived || !L.derived.doctor) return;
+  doc = {head: calHead.slice(), poses: L.derived.doctor["bar" + calHead[0]][calHead[1]], k: 0, samples: []};
+  if (!lightsOn) setLights(true);
+  showCal(); docStep();
+});
+$("#docskip").addEventListener("click", () => { if (!doc) return; doc.samples.push({p: raw[0], t: raw[1]}); doc.k++; docStep(); });
+$("#docstop").addEventListener("click", () => {
+  if (!doc) return; doc = null; showCal(); startAt(); sendCal(); $("#cmsg").textContent = "Light doctor stopped. Nothing changed.";
+});
+// --- tap to aim (11-09): he taps where the beam lands, then where it should; the server adds the tap
+// to the head's samples, works its aim out (one or two taps: the center only, its turn directions
+// kept; three or more: everything, like the doctor), aims it at his second tap and saves it. Each
+// round adds a tap, so the aim gets better the more he taps.
+function tapSay() {
+  const name = `GigBAR ${tap.head[0]} ${HEADNAME[tap.head[1]]}`;
+  $("#cmsg").textContent = tap.seen ? `${name}: now tap where it should land.`
+    : `${name}: tap where its beam lands now` + (tap.samples.length ? ", or press Done aiming if it's right." : ".");
+}
+async function tapStep(x, y) {
+  if (!tap.seen) { tap.seen = {p: raw[0], t: raw[1], x, y}; tap.want = null; tapSay(); return; }
+  const t = tap, samples = [...t.samples, t.seen], want = [x, y];
+  remember();
+  const s = await postLayout({action: "tapaim", bar: t.head[0], m: t.head[1], samples, want: {x, y}, layout: L});
+  if (tap !== t) return;   // he stopped or picked another head meanwhile
+  t.seen = null;
+  if (!s) { $("#cmsg").textContent = $("#dmsg").textContent; return; }
+  t.samples = samples; t.want = want;
+  L = s.layout; dirty = true; showSizes(); showFlip(); raw = s.pose.slice(); sendCal();
+  keepCal(() => { $("#cmsg").textContent = `GigBAR ${t.head[0]} ${HEADNAME[t.head[1]]}: aimed from ${samples.length} tap${samples.length > 1 ? "s" : ""} and saved. ` +
+    "If it still misses, tap where it lands now, then where it should. Done aiming when it's right."; });
+}
+$("#tapaim").addEventListener("click", () => {
+  if (!calHead || !L || doc) return;
+  tap = {head: calHead.slice(), samples: [], seen: null, want: null};
+  if (!lightsOn) setLights(true);
+  showCal(); tapSay();
+});
+$("#tapdone").addEventListener("click", () => {
+  if (!tap) return; const n = tap.samples.length; tap = null; showCal();
+  $("#cmsg").textContent = n ? "Tap to aim done. Press Center all to check every head." : "Tap to aim stopped. Nothing changed.";
+});
+$("#calstop").addEventListener("click", () => { stopCal(); $("#cmsg").textContent = "Calibration paused. Center all checks every head."; });
+document.querySelectorAll("#calmore [data-cal]").forEach(i => i.addEventListener("change", () => {
+  if (!calHead || !L) return;
+  remember(); L = JSON.parse(JSON.stringify(L));
+  const c = headCal(calHead[0], calHead[1], true), k = i.dataset.cal;
+  if (i.type === "checkbox") { if (i.checked) c[k] = true; else delete c[k]; }
+  else { const v = parseFloat(i.value); if (v >= +i.min && v <= +i.max) c[k] = v; }
+  dirty = true; keepCal(() => { showCal(); $("#cmsg").textContent = calStatus(); });
+}));
+$("#calclear").addEventListener("click", () => {
+  if (!calHead || !L) return;
+  remember(); L = JSON.parse(JSON.stringify(L)); const s = L.fixtures["bar" + calHead[0]];
+  if (s.cal) { s.cal[calHead[1]] = {}; if (!s.cal.some(h => h && Object.keys(h).length)) delete s.cal; }
+  clearedBars.add(calHead[0]);   // he cleared it: the save drops this bar's line-up on purpose
+  dirty = true; calDot = "center"; startAt(); sendCal(); keepCal(() => { $("#cmsg").textContent = calStatus(); });
+});
+$("#lineupsave").addEventListener("click", () => $("#save").click());
+addEventListener("pagehide", () => { if (calHead) { calHead = null; sendCal(true); } if (lu.step === 2 || lu.step === 3 || lu.step === 6) { lu.step = 1; luSend(true); } if (lineOn) { lineOn = false; sendLineup(true); } });   // leaving the view ends the line-up
+// Done (his 11-15 QA: with the line-up not saved, Done only wrote a line and stayed, and read as a button that
+// does nothing). Not saved: the choice, right where Done is: Save and finish, or Finish without saving. Saved on
+// this page: the wizard's last step, Saved, for 1.5 seconds, then back. Nothing to save: back at once.
+let finishing = false, doneWaiting = false;
+function endLineup(leaving) {   // leaving: sent with keepalive, so it reaches the app as the page goes
+  lineOn = false; if (lu.step === 2 || lu.step === 3 || lu.step === 6) { lu.step = 1; luSend(leaving); } sendLineup(leaving);
+}
+function leaveLineup() {   // back where he came from: the room picture inside the window, or the window itself
+  location.replace(document.body.classList.contains("embed") ? "/preview?embed=1" : "/");
+}
+const SAVED_WORDS = "Saved. This line-up is kept for this venue.";
+const CHOICE_NEED_NAME = "Type the venue's name, then press Save and finish.";
+function savedThenLeave() {
+  endLineup(true);
+  document.querySelectorAll("#lurail li").forEach(li => { li.className = li.dataset.step === "4" ? "now" : "done"; });
+  document.querySelectorAll("#lustrip .lupanel").forEach(p => p.classList.toggle("on", p.dataset.panel === "5"));
+  $("#lusay").textContent = SAVED_WORDS; say(SAVED_WORDS);
+  document.querySelectorAll("#lu button, #lustrip button").forEach(b => { b.disabled = true; });
+  setTimeout(leaveLineup, 1500);
+}
+function choiceBusy(on) { document.querySelectorAll("#luchoice button").forEach(b => { b.disabled = on; }); }
+function doneBusy(on) { for (const id of ["#ludone", "#lufinish", "#lineupdone"]) $(id).disabled = on; }
+async function lineupDone(from) {
+  if (!LINEVIEW) { const unsaved = dirty; endLineup(); say(unsaved ? "Line-up done. Save my layout to keep it at this venue." : "Line-up done."); return; }
+  if (finishing || doneWaiting) return;   // a second press while it leaves or waits
+  if (inflight.size) {   // a save or a solve still going: Done waits for it, then carries on from what it left
+    doneWaiting = true; doneBusy(true); $("#lusay").textContent = "Saving your line-up first.";
+    await settle(); doneWaiting = false; doneBusy(false);
+  }
+  if (dirty) {
+    const c = $("#luchoice"); (from && from.closest && from.closest(".lupanel") || $("#lu")).append(c);
+    $("#lusavename").value = $("#sname").value; $("#luchoiceerr").textContent = ""; $("#luleave").hidden = true; choiceBusy(false);
+    c.hidden = false; $("#lusavefinish").focus(); return;
+  }
+  finishing = true;
+  if (savedHere) savedThenLeave(); else { endLineup(true); leaveLineup(); }
+}
+$("#lineupdone").addEventListener("click", (ev) => lineupDone(ev.currentTarget));
+$("#lusavefinish").addEventListener("click", async () => {   // exactly what Save my layout does, then back
+  if (finishing) return;
+  finishing = true; choiceBusy(true); $("#luchoiceerr").textContent = "";
+  try {
+    await settle();   // a save already under way may have kept it
+    if (!dirty) { $("#luchoice").hidden = true; savedThenLeave(); return; }
+    $("#sname").value = $("#lusavename").value;
+    const ok = await saveLayout((why) => { $("#luchoiceerr").textContent = why === NEED_NAME ? CHOICE_NEED_NAME : "That did not save: " + why; });
+    if (!ok) { finishing = false; choiceBusy(false); if (!$("#lusavename").value.trim()) $("#lusavename").focus(); return; }
+    $("#luchoice").hidden = true; savedThenLeave();
+  } catch (e) {   // never stranded: the buttons come back with the reason
+    finishing = false; choiceBusy(false); $("#luchoiceerr").textContent = "That did not save: " + (e && e.message || e);
+  }
+});
+$("#lunosave").addEventListener("click", async () => {   // the show goes back to the room it played when the page opened
+  if (finishing) return;
+  finishing = true; choiceBusy(true); $("#luchoiceerr").textContent = "";
+  let s = null;
+  const failed = (why) => { $("#luchoiceerr").textContent = "That did not finish: " + why; };
+  try {
+    await settle();
+    if (baseline) s = await postLayout(baseline.saved ? {action: "use", name: baseline.name} : {action: "try", layout: baseline.layout}, failed);
+    else s = {ok: true};
+  } catch (e) { failed(e && e.message || e); }
+  if (!s) {   // the app did not answer: he can still leave, with the lights as they are
+    finishing = false; choiceBusy(false); $("#luleave").hidden = false; return;
+  }
+  dirty = false; endLineup(true); leaveLineup();
+});
+$("#lukeep").addEventListener("click", () => { $("#luchoice").hidden = true; });   // changes nothing
+$("#luleave").addEventListener("click", () => { finishing = true; endLineup(true); leaveLineup(); });
+if (LINEVIEW) { sendLineup(); showLights(); }
+
+// --- one spot (1.16.0, Llano PM #22505): pick a spot, every head aims there, he lines each head up on
+// it one at a time (the head being lined up bright, the others dim or off, nothing else lit), and the
+// app works out each bar's facing and height from where the heads had to point (venue.converge),
+// then saves it with the layout. A second spot adds to the first. Leaving puts the show back.
+const lu = {step: 1, spot: null, spotName: "", order: [], k: 0, poses: {}, samples: [], othersOff: false, busy: false};
+const luKey = (h) => h[0] + ":" + h[1];
+function luHead() { return lu.order[lu.k] || null; }
+function luName(h) { return `GigBAR ${h[0]} ${HEADNAME[h[1]]}`; }
+function luSpots() {
+  const f = L.floor, b = L.booth, inset = Math.min(0.4, f.w / 6, f.d / 6);
+  return {center: [f.x + f.w / 2, f.y + f.d / 2, "the middle of the floor"],
+          booth: [b.x + b.w / 2, Math.min(L.room.d, Math.max(f.y + inset, b.y + b.d + 0.6)), "the front of the DJ booth"],
+          near: [f.x + f.w / 2, f.y + inset, "the near edge"], left: [f.x + inset, f.y + f.d / 2, "the left edge"],
+          right: [f.x + f.w - inset, f.y + f.d / 2, "the right edge"]};
+}
+function luOrder() {   // tonight's heads, left to right as he stands on the dance floor
+  const hs = [];
+  for (let b = 1; b <= CNT.bars; b++) if (!L.fixtures["bar" + b].out) for (const m of [0, 1]) hs.push([b, m]);   // a bar marked out (BL #11766) sits it out
+  return hs.sort((p, q) => headsOf(p[0])[p[1]][0] - headsOf(q[0])[q[1]][0]);
+}
+function luSend(keepalive) {
+  const hs = (lu.step >= 2 && lu.step <= 3) || (lu.step === 6 && lim.pt) ? lu.order : [];
+  const body = hs.length ? {poses: hs.map(h => [h[0], h[1], ...lu.poses[luKey(h)]]), focus: lu.step === 3 ? luHead() : null, others: lu.othersOff ? 0 : 0.15} : {};
+  fetch("/aim", {method: "POST", headers: {"Content-Type": "application/json", "X-Llano-Token": TOKEN}, body: JSON.stringify(body), keepalive: !!keepalive})
+    .then(async r => { if (!r.ok) { const t = await r.text(); let e = t; try { e = JSON.parse(t).error || t; } catch (x) {} $("#lusay").textContent = e; } })
+    .catch(() => {});
+}
+function luShow() {
+  const at = lu.step === 6 ? 0 : lu.step;   // setting the head limits is beside the four line-up steps
+  if (lu.step !== 6 && !lu.busy) { lim.box = null; lim.pt = null; lim.edge = ""; }   // left the step: the saved box shows again
+  document.querySelectorAll("#lurail li").forEach(li => { const n = +li.dataset.step; li.className = n === at ? "now" : n < at ? "done" : ""; });
+  document.querySelectorAll("#lustrip .lupanel").forEach(p => p.classList.toggle("on", +p.dataset.panel === lu.step));
+  const say = {1: "Every other light is off while you line up the moving heads. Leaving puts the show back.",
+               2: `Every head is aiming at ${lu.spotName}.`, 3: "", 4: ""}[lu.step];
+  if (lu.step === 3 && luHead()) {
+    const h = luHead(), p = lu.poses[luKey(h)];
+    $("#luwho").textContent = `Head ${lu.k + 1} of ${lu.order.length}`; $("#luname").textContent = luName(h);
+    $("#lupips").innerHTML = lu.order.map((q, i) => `<i class="${i < lu.k ? "ok" : i === lu.k ? "at" : ""}" title="${luName(q)}"></i>`).join("");
+    $("#luraw").textContent = `pan ${Math.round(p[0] * 255)}, tilt ${Math.round(p[1] * 255)}`;
+    $("#lunext").textContent = lu.k + 1 < lu.order.length ? "It's on the spot: next head" : "It's on the spot: work it out";
+    $("#luothers").textContent = lu.othersOff ? "Others off" : "Others dim"; $("#luothers").setAttribute("aria-pressed", String(lu.othersOff));
+    $("#lusay").textContent = `${luName(h)} is the bright beam. Put it on ${lu.spotName}.`;
+  } else if (say) $("#lusay").textContent = say;
+  document.querySelectorAll("#lustrip button").forEach(b => { b.disabled = lu.busy; });
+  if (lu.step === 3) $("#luprev").disabled = lu.busy || lu.k === 0;
+}
+async function luPick(xy, name) {
+  if (!L || lu.busy) return;
+  stopCal(); lu.order = luOrder();
+  if (!lu.order.length) { $("#lusay").textContent = "No GigBAR is in tonight's rig. Add one under Tonight's lights."; return; }
+  lu.busy = true; luShow();
+  const s = await postLayout({action: "spotaim", layout: L, target: {x: xy[0], y: xy[1]}});
+  lu.busy = false;
+  if (!s) { $("#lusay").textContent = $("#dmsg").textContent; luShow(); return; }
+  lu.spot = [xy[0], xy[1]]; lu.spotName = name; lu.k = 0; lu.poses = {};
+  for (const h of lu.order) lu.poses[luKey(h)] = s.poses[luKey(h)].slice();
+  if (!lightsOn) setLights(true);
+  lineOn = true; lu.step = 2; luSend(); luShow();
+  // A saved line-up that can't be used (1.16.4): that head starts from the guess, facing the floor.
+  const bad = lu.order.filter(h => s.cal_problems && s.cal_problems[luKey(h)]);
+  if (bad.length) $("#lusay").textContent = bad.map(h => `${luName(h)}: ${s.cal_problems[luKey(h)]}, so it starts from Llano's guess, facing the floor.`).join(" ")
+    + " Put it on the spot with the arrows like the others; its old line-up is replaced when you finish.";
+}
+function luNudge(axis, steps) {
+  const h = luHead(); if (!h) return;
+  const p = lu.poses[luKey(h)], k = axis === "pan" ? 0 : 1;
+  p[k] = Math.max(0, Math.min(1, Math.round(p[k] * 255 + steps) / 255)); luSend(); luShow();
+}
+async function luLanded(x, y) {   // he tapped where the bright beam lands: one tap moves it onto the spot
+  const h = luHead(); if (!h || lu.busy) return;
+  const p = lu.poses[luKey(h)];
+  lu.busy = true; luShow();
+  const s = await postLayout({action: "tapaim", bar: h[0], m: h[1], layout: L, samples: [{p: p[0], t: p[1], x, y}], want: {x: lu.spot[0], y: lu.spot[1]}});
+  lu.busy = false;
+  if (s && s.pose) { L = s.layout; lu.poses[luKey(h)] = s.pose.slice(); luSend(); $("#lusay").textContent = `Moved ${luName(h)} toward the spot. Nudge it the last bit with the arrows.`; }
+  else $("#lusay").textContent = $("#dmsg").textContent;
+  luShow(); if (s && s.pose) $("#lusay").textContent = `Moved ${luName(h)} onto where the spot should be. Nudge it the last bit with the arrows.`;
+}
+function luSolve() { return track(luSolveNow()); }
+async function luSolveNow() {   // every head is on the spot: work out each bar and save it
+  const spotRows = lu.order.map(h => ({b: h[0], m: h[1], p: lu.poses[luKey(h)][0], t: lu.poses[luKey(h)][1], x: lu.spot[0], y: lu.spot[1]}));
+  const samples = [...lu.samples.filter(r => !(r.x === lu.spot[0] && r.y === lu.spot[1])), ...spotRows];
+  lu.busy = true; luShow();
+  remember();
+  const s = await postLayout({action: "converge", layout: L, samples});
+  lu.busy = false;
+  if (!s) { $("#lusay").textContent = $("#dmsg").textContent; luShow(); return; }
+  lu.samples = samples; L = s.layout; dirty = true; showSizes();
+  const lines = [];
+  for (const [b, r] of Object.entries(s.doctor.found.bars)) {
+    // Where the bar really stands (BL #11766): with 3+ spots its poses say, and the bar is moved there, plan kept.
+    const mv = r.moved, side = mv && Math.abs(mv.x - mv.from_x) >= 0.05 ? `${fmt(Math.abs(mv.x - mv.from_x))} ${mv.x > mv.from_x ? "right" : "left"}` : "";
+    const out = mv && Math.abs(mv.y - mv.from_y) >= 0.05 ? `${fmt(Math.abs(mv.y - mv.from_y))} ${mv.y > mv.from_y ? "further from" : "closer to"} the booth wall` : "";
+    if (mv) lines.push(`<span>GigBAR ${b}: your spots put it about ${fmt(mv.by_m)} from the plan (${[side, out].filter(Boolean).join(", ")}), ${fmt(r.height)} high. Saved as where it stands; Light positions on your phone shows it, and Back to plan undoes it.</span>`);
+    if (r.solved) lines.push(`<span>GigBAR ${b}: faces ${luTurn(r.facing, b)}, hangs ${fmt(r.height)} high` + (r.height !== r.was.height ? ` (the layout said ${fmt(r.was.height)})` : "") + ".</span>");
+    // a moved bar's line above says it; a bar that kept its place (BL #12381) is news, not a problem
+    else if (r.why && !mv) lines.push(`<span${r.stayed || r.why_code === "one_spot_apart" ? "" : ' class="bad"'} data-luwhy="${b}">${luWhy(b, r)}</span>`);
+  }
+  // Every spot he lined up stays put (BL #11766); a spot the heads can't agree on is named so he can check it.
+  const spotName = (x, y) => { const hit = Object.values(luSpots()).find(sp => Math.abs(sp[0] - x) < 0.01 && Math.abs(sp[1] - y) < 0.01); return hit ? hit[2] : `the spot at ${fmt(x)}, ${fmt(y)}`; };
+  const nSpots = new Set(samples.map(r => r.x + "," + r.y)).size;
+  if (nSpots > 1) lines.push(`<span>All ${nSpots} spots you lined up stay exactly where you put them.</span>`);
+  const odd = (s.doctor.found.disagree || [])[0], who = odd && luName([odd.bar, odd.head - 1]);
+  if (odd && !odd.held) lines.push(`<span class="bad">${who} couldn't hold ${spotName(odd.x, odd.y)}: its pose there is far from what its other spots say. Line that spot up again.</span>`);
+  else if (odd && nSpots === 2) lines.push(`<span class="bad">Your two spots don't quite agree (${who} by about ${fmt(odd.miss_m || 0)}). Both are held; line up a third spot and Llano names the one that's off.</span>`);
+  else if (!odd && nSpots > 2) lines.push(`<span>No single spot is off: every spot agrees with the others as well as the lights allow.</span>`);
+  else if (odd) lines.push(`<span class="bad">${spotName(odd.x, odd.y)} doesn't agree with your other spots (${who} by about ${fmt(odd.miss_m || 0)}). It's held anyway; if aims between spots look off, check that light's position under Light positions on your phone, or line that spot up again.</span>`);
+  lu.whys = s.doctor.found.bars;
+  $("#lures").innerHTML = lines.join("") + `<span style="color:var(--dim)">Saved for this venue. Every other spot is worked out from it.</span>`;
+  keepCal(() => { $("#layname").textContent = "Saved: " + L.label; });
+  lu.step = 4; lu.k = 0; luSend(); luShow();
+  $("#lusay").textContent = "Saved. Check another spot to be sure, or press Done.";
+}
+// The line-up's news for a bar that didn't solve (BL #12435): the server sends a code and its distances in
+// meters; this says what happened in the room's unit (fmt, as the sizes do), then what he can do. A code
+// this page doesn't know, or one missing its number, prints the server's own words.
+function luWhy(b, r) {
+  const far = (m) => { const s = fmt(m); return /^0(\.0)? /.test(s) ? `less than ${units === "ft" ? "1 ft" : "0.1 m"}` : `about ${s}`; };
+  const ok = (k) => typeof r[k] === "number" && isFinite(r[k]) && r[k] >= 0;
+  const say = {
+    one_spot_apart: ok("off_m") && `its heads land ${far(r.off_m)} apart on this spot, so one spot is not enough to tell where the bar faces. Line up a second spot and Llano holds both.`,
+    moved_spots_differ: ok("off_m") && ok("moved_m") && `your spots put it ${far(r.moved_m)} from the plan, so it was moved there; they still land ${far(r.off_m)} apart. Every spot you lined up is held exactly, and Back to plan undoes the move.`,
+    spots_differ: ok("off_m") && `no one bar position fits all ${r.spots || "your"} spots; they land ${far(r.off_m)} apart. The bar keeps the position shown and every spot you lined up is held exactly.`,
+  }[r.why_code];
+  return `GigBAR ${b}: ${say || r.why + "."}`;
+}
+$("#units").addEventListener("change", () => {   // the message on screen follows a switch of feet and meters
+  document.querySelectorAll("#lures [data-luwhy]").forEach(e => { const b = e.dataset.luwhy, r = (lu.whys || {})[b]; if (r) e.textContent = luWhy(b, r); });
+});
+function luTurn(facing, b) {   // "straight at the middle of the floor" or "8° left of it", as he sees it from the bar
+  const s = L.fixtures["bar" + b], f = L.floor, mid = Math.atan2(f.x + f.w / 2 - s.x, f.y + f.d / 2 - s.y) * 180 / Math.PI;
+  const d = Math.round(((facing - mid + 540) % 360) - 180);
+  // + turns toward big x: the right side of the room as he stands on the floor facing the booth
+  return Math.abs(d) < 2 ? "straight at the middle of the floor" : `${Math.abs(d)}° toward the ${d > 0 ? "right" : "left"} side of the room from the middle of the floor`;
+}
+function luNext() {
+  if (lu.busy) return;
+  if (lu.k + 1 < lu.order.length) { lu.k++; luSend(); luShow(); return; }
+  luSolve();
+}
+document.querySelectorAll("[data-luspot]").forEach(b => b.addEventListener("click", () => { const sp = luSpots()[b.dataset.luspot]; luPick([sp[0], sp[1]], sp[2]); }));
+document.querySelectorAll("[data-lunudge]").forEach(b => { const [a, sg] = b.dataset.lunudge.split(":"); holdToMove(b, (n) => luNudge(a, +sg * n)); });
+$("#lumatch").addEventListener("click", () => { lu.step = 3; lu.k = 0; luSend(); luShow(); });
+$("#lumeet").addEventListener("click", () => luSolve());
+$("#lurepick").addEventListener("click", () => { lu.step = 1; luSend(); luShow(); });   // the old aim ends here
+$("#luprev").addEventListener("click", () => { if (lu.k > 0) { lu.k--; luSend(); luShow(); } });
+$("#lunext").addEventListener("click", luNext);
+$("#luothers").addEventListener("click", () => { lu.othersOff = !lu.othersOff; luSend(); luShow(); });
+$("#luagain").addEventListener("click", () => { lu.step = 1; lu.spot = null; luSend(); luShow(); $("#lusay").textContent = "Pick a second spot, away from the first: the further apart, the better it checks."; });
+$("#lufinish").addEventListener("click", (ev) => lineupDone(ev.currentTarget));
+$("#ludone").addEventListener("click", (ev) => lineupDone(ev.currentTarget));
+$("#lulights").addEventListener("click", () => setLights(!lightsOn));
+$("#lutools").addEventListener("click", () => { const on = !document.body.classList.contains("tools");
+  document.body.classList.toggle("tools", on); $("#lutools").setAttribute("aria-pressed", String(on));
+  if (on && ((lu.step >= 2 && lu.step <= 3) || lu.step === 6)) { lu.step = 1; luSend(); luShow(); } });
+// --- How far the heads go (Llano PM #23796): every head on one point he steers to each edge he allows ----------
+const LIM_STEP = 0.15;   // meters per arrow press; Shift is 5 steps
+const LIM_EDGE = {far: "the highest", near: "the lowest", left: "the left edge", right: "the right edge"};
+function limStart() {
+  if (!L || lu.busy) return;
+  stopCal(); lu.order = luOrder();
+  if (!lu.order.length) { $("#lusay").textContent = "No GigBAR is in tonight's rig. Add one under Tonight's lights."; return; }
+  const b = limitBox(), f = L.floor;
+  lim.box = b ? {...b} : {x0: f.x, x1: f.x + f.w, y0: f.y, y1: f.y + f.d}; lim.kept = new Set(); lim.edge = ""; lim.pt = null;
+  lu.step = 6; luSend(); luShow(); limShow();
+  $("#lusay").textContent = "Pick an edge, then steer the beams with the arrows until they are where you want that edge.";
+}
+function limZ(edge) { return edge === "far" && [1, 2].every(b => !L.fixtures["bar" + b] || L.fixtures["bar" + b].out || (L.fixtures["bar" + b].z || 0) >= HEAD_CLEAR + 0.1) ? HEAD_CLEAR : 0; }
+let limSeq = 0;
+async function limAim() {   // every head on the point (at head height for the highest edge), lit, nothing else
+  const [x, y] = lim.pt, seq = ++limSeq; lu.busy = true; limShow();
+  const s = await postLayout({action: "spotaim", layout: L, target: {x, y, z: limZ(lim.edge)}});
+  if (seq !== limSeq) return;   // a newer point went out since: only its reply aims the heads
+  lu.busy = false;
+  if (lu.step !== 6 || !lim.pt) { limShow(); return; }   // he left the step while it was on its way
+  if (!s) { $("#limsay").textContent = $("#dmsg").textContent; limShow(); return; }
+  for (const h of lu.order) lu.poses[luKey(h)] = s.poses[luKey(h)].slice();
+  if (!lightsOn) setLights(true);
+  lineOn = true; luSend(); limShow();
+}
+function limPick(edge) {
+  if (lu.busy || !lim.box) return;
+  const bx = lim.box, cx = (bx.x0 + bx.x1) / 2, cy = (bx.y0 + bx.y1) / 2;
+  lim.edge = edge; lim.pt = {far: [cx, bx.y1], near: [cx, bx.y0], left: [bx.x0, cy], right: [bx.x1, cy]}[edge];
+  limAim();
+  $("#limsay").textContent = edge === "far" ? (limZ("far") ? "Every beam is on one point just over head height. Raise it with \u25b2 until it is as high as you allow, just over the dancers' heads, then Keep this edge."
+      : "The GigBARs hang below head height, so the highest edge is where the farthest beam lands. Steer it with the arrows, then Keep this edge.")
+    : `Every beam is on ${LIM_EDGE[edge]}. Steer it with the arrows to where you allow, then Keep this edge.`;
+}
+function limNudge(axis, steps) {
+  if (!lim.pt || lu.busy) return;
+  const k = axis === "x" ? 0 : 1, hi = k ? L.room.d : L.room.w;
+  lim.pt[k] = Math.round(Math.max(0, Math.min(hi, lim.pt[k] + steps * LIM_STEP)) * 100) / 100;
+  limAim();
+}
+function limKeep() {
+  if (!lim.pt || !lim.edge || lu.busy) return;   // never keep a point the beams aren't on yet
+  const bx = lim.box, [x, y] = lim.pt, MIN = 0.5;
+  if (lim.edge === "far") bx.y1 = Math.max(y, bx.y0 + MIN); else if (lim.edge === "near") bx.y0 = Math.min(y, bx.y1 - MIN);
+  else if (lim.edge === "left") bx.x0 = Math.min(x, bx.x1 - MIN); else bx.x1 = Math.max(x, bx.x0 + MIN);
+  lim.kept.add(lim.edge);
+  const next = ["far", "near", "left", "right"].find(e => !lim.kept.has(e));
+  $("#limsay").textContent = `Kept ${LIM_EDGE[lim.edge]}.` + (next ? ` Next: ${LIM_EDGE[next]}.` : " All four kept: press Save the limits.");
+  lim.edge = ""; lim.pt = null; luSend(); limShow();
+  if (next) limPick(next);
+}
+function limRect(bx) {   // to centimeters, never past the walls (rounding x and w apart could cross one)
+  const x = Math.max(0, Math.round(bx.x0 * 100) / 100), y = Math.max(0, Math.round(bx.y0 * 100) / 100);
+  return {x, y, w: Math.floor(Math.min(bx.x1, L.room.w) * 100 - x * 100) / 100, d: Math.floor(Math.min(bx.y1, L.room.d) * 100 - y * 100) / 100};
+}
+async function limSave() {
+  const bx = lim.box; if (!bx || lu.busy) return;
+  const before = L;
+  remember(); L = JSON.parse(JSON.stringify(L)); L.limits = limRect(bx); dirty = true;
+  lu.busy = true; limShow();
+  await keepCal(() => {});
+  lu.busy = false;
+  if (dirty) {   // keepCal clears dirty only when the save landed: say so, keep his edges, put the room back
+    L = before; showSizes(); limShow();
+    $("#limsay").textContent = "Not saved: " + ($("#dmsg").textContent.replace(/^Not applied: /, "") || "the app didn't answer") + ". Your edges are kept here: press Save the limits again.";
+    return;
+  }
+  lim.box = null; lim.pt = null; lim.edge = ""; showSizes();
+  lu.step = 1; luSend(); luShow();
+  $("#lusay").textContent = `Saved for this venue: the heads stay inside ${fmt(L.limits.w)} x ${fmt(L.limits.d)}`
+    + (limitsOver() ? ", the highest beam just over heads at the far edge" : "") + ". Every show, pad and Follow someone stays inside, moves made smaller to fit.";
+}
+async function limClear() {
+  if ((!L.limits && !lim.box) || lu.busy) return;
+  const before = L;
+  remember(); L = JSON.parse(JSON.stringify(L)); delete L.limits; dirty = true;
+  lu.busy = true; limShow();
+  await keepCal(() => {});
+  lu.busy = false;
+  if (dirty) { L = before; showSizes(); limShow(); $("#limsay").textContent = "Not removed: " + ($("#dmsg").textContent.replace(/^Not applied: /, "") || "the app didn't answer") + ". Try again."; return; }
+  lim.box = null; lim.pt = null; lim.edge = ""; showSizes();
+  lu.step = 1; luSend(); luShow();
+  $("#lusay").textContent = "Head limits removed for this venue: the heads go anywhere in front of the bars again.";
+}
+function limShow() {
+  document.querySelectorAll("[data-limedge]").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.limedge === lim.edge));
+    b.textContent = {far: "Highest", near: "Lowest", left: "Left edge", right: "Right edge"}[b.dataset.limedge] + (lim.kept.has(b.dataset.limedge) ? " \u2713" : ""); });
+  document.querySelectorAll("[data-limnudge], #limkeep").forEach(b => { b.disabled = lu.busy || !lim.pt; });
+  document.querySelectorAll("[data-limedge], #limsave, #limclear").forEach(b => { b.disabled = lu.busy; });
+  $("#limclear").hidden = !L || !L.limits;
+}
+$("#lulimits").addEventListener("click", limStart);
+document.querySelectorAll("[data-limedge]").forEach(b => b.addEventListener("click", () => limPick(b.dataset.limedge)));
+document.querySelectorAll("[data-limnudge]").forEach(b => { const [a, sg] = b.dataset.limnudge.split(":"); holdToMove(b, (n) => limNudge(a, +sg * n)); });
+$("#limkeep").addEventListener("click", limKeep);
+$("#limsave").addEventListener("click", () => track(limSave()));
+$("#limclear").addEventListener("click", () => track(limClear()));
+$("#limback").addEventListener("click", () => { lim.box = null; lim.pt = null; lim.edge = ""; lu.step = 1; luSend(); luShow(); });
+if (LINEVIEW) luShow();
+
+const _draw = draw;
+draw = function (u, t) { _draw(u, t); drawRoom(u, t); };
+buildRig(); loadPatch(); poll(); frame(); loadLayout();
+function designerFromHash() {
+  if (location.hash === "#designer" && !$("#edit").checked) { $("#edit").checked = true; $("#edit").dispatchEvent(new Event("change")); }
+}
+designerFromHash();
+addEventListener("hashchange", designerFromHash);  // the desktop window switches to the designer in place
+</script>
+<script>/* the window's "not running" screen instead of Edge's error page (sw.js, Llano BL #12377) */
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});</script>
+</body>
+</html>

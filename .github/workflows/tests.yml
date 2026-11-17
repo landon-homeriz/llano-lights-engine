@@ -1,0 +1,25 @@
+name: tests
+
+# GitHub-hosted runners only: this is a public repo, so a pull request from anyone runs here.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # numpy (locked version) so the audio-analysis test runs instead of skipping; soundfile so the
+      # wedding-night tests (cut files, holds, the build) run instead of skipping.
+      - run: pip install -q pytest numpy==2.4.6 soundfile==0.14.0
+      - run: PYTHONPATH=. python -m pytest tests/gigbar_lights/ -q

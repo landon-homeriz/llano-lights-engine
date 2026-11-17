@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MixxxControllerPreset mixxxVersion="2.5.0+" schemaVersion="1">
+    <info>
+        <name>Llano Light Link</name>
+        <author>Llano</author>
+        <description>Sends each deck's beat position, tempo and volume out as SysEx for the Llano Lights show. Load it on the loopMIDI port "Llano Mixxx". Read-only: it changes nothing in Mixxx.</description>
+    </info>
+    <controller id="LlanoLightLink">
+        <scriptfiles>
+            <file filename="Llano-Light-Link.js" functionprefix="LlanoLightLink"/>
+        </scriptfiles>
+        <controls/>
+        <outputs/>
+    </controller>
+</MixxxControllerPreset>

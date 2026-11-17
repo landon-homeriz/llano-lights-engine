@@ -1,0 +1,24 @@
+Llano Lights engine
+Copyright 2026 the Llano Lights authors
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes third-party material:
+
+- QLC+ fixture definitions (tools/gigbar_lights/fixtures/qlcplus/*.qxf), copied unmodified from
+  https://github.com/mcallegari/qlcplus (resources/fixtures/), Copyright Massimo Callegari and the
+  QLC+ contributors named in each file's <Creator><Author>. Licensed under the Apache License,
+  Version 2.0; see tools/gigbar_lights/fixtures/qlcplus/NOTICE.md and LICENSE-APACHE-2.0.txt there.
+
+- Open Fixture Library (https://open-fixture-library.org): tools/gigbar_lights/fixture_profiles.py
+  reads fixture definitions in the Open Fixture Library JSON format. Open Fixture Library data is
+  Copyright its contributors and licensed under the MIT License. The test fixtures include Open
+  Fixture Library files (tests/gigbar_lights/fixture_library/ofl/), with the MIT License beside them
+  (LICENSE-MIT.txt there) and a QLC+ file under Apache 2.0; see
+  tests/gigbar_lights/fixture_library/NOTICE.md.
+
+- Demo songs (tools/gigbar_lights/demo_songs/*.mp3): CC0 1.0 (public domain), via OpenGameArt;
+  each song's title, artist and source are in tools/gigbar_lights/demo_songs/songs.json.
+
+"Llano Lights" and "Llano" are names of the hosted product and are not licensed under the Apache
+License (section 6 of the License covers trademarks).

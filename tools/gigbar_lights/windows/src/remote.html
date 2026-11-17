@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07080b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Lights">
+<title>Llano Lights · local</title>
+<style>
+  /* The phone over the room's Wi-Fi (1.8.0; the Light studio in 1.20.0, Llano PM #23195). Everything
+     on it is drawn by studio_console.js, the same console the laptop's Live screen and
+     llano.app/lights draw, so the buttons are the same on every path (his rule, 2026-11-12). */
+  html { scroll-padding-top:calc(76px + env(safe-area-inset-top)); }   /* what scrolls into view lands below STOP's bar */
+  html, body { margin:0; background:#07080b; color:#eceef5; font:15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+  #note { margin:10px 12px 0; background:#0e1016; border:1px solid #262b3a; border-radius:12px; padding:10px 12px; color:#9aa1b5; font-size:13px; }
+  #note.bad { border-color:#ff6b6b66; color:#ffc2c2; }
+  #note a { color:#eceef5; }
+  #note[hidden] { display:none; }
+  .away { display:flex; justify-content:center; margin:6px 0 22px; }
+  .away a { color:#9aa1b5; font-size:13.5px; text-decoration:none; border:1px solid #262b3a; border-radius:999px; padding:0 18px; min-height:44px; display:inline-flex; align-items:center; }
+  /* Not paired (BL #11473): one plain screen and nothing else, no empty console under it. */
+  #pair { display:flex; min-height:100vh; align-items:center; justify-content:center; padding:24px 22px; box-sizing:border-box; text-align:center; }
+  #pair[hidden] { display:none; }
+  #pair .box { max-width:420px; }
+  #pair h1 { font-size:20px; margin:0 0 14px; }
+  #pair p { margin:0 0 12px; color:#c5cbd8; font-size:16px; line-height:1.5; }
+  #pair p.changed { color:#ffd9a3; font-weight:600; }
+  body.unpaired #note, body.unpaired #studio, body.unpaired .away, body.unpaired #connecting { display:none; }
+  #connecting { position:fixed; left:12px; right:12px; top:calc(76px + env(safe-area-inset-top)); z-index:44; text-align:center; padding:12px; border:1px solid #262b3a; border-radius:12px; background:#0e1016; color:#c5cbd8; font-size:15px; }
+  #connecting[hidden] { display:none; }
+  body:has(.lls-lost) #connecting { display:none; }   /* the not-answering message says it all */
+</style>
+</head>
+<body>
+<div id="pair" hidden><div class="box"><h1>Llano Lights</h1>
+  <p id="pairchanged" class="changed" hidden>The code changed: scan it again.</p>
+  <p>This phone is not connected to the laptop yet. On the laptop open Llano Lights, press Set up, find Llano Lights on your phone, and point this phone's camera at the code.</p></div></div>
+<div id="connecting" hidden>Connecting to the laptop...</div>
+<div id="studio"></div>
+<div id="note">Local control: this phone talks straight to the laptop over Wi-Fi, so it keeps working when the internet is down.</div>
+<!-- One phone app (Llano PM #22371): llano.app/lights is the app; this page is its local half, opened
+     by it when the internet path fails, or straight from the laptop's "On this Wi-Fi" code. -->
+<div class="away"><a id="full" href="https://llano.app/lights?via=internet">Full app over the internet</a></div>
+<script src="/studio_console.js"></script>
+<script>
+// The key comes in the link the laptop or llano.app gave this phone (#k=...), and is kept here.
+let KEY = "";
+try { KEY = localStorage.getItem("llano-local-key") || ""; } catch (e) {}
+let FROM_APP = false;
+function readHash() {   // a new code scanned while this page is open arrives as a new #k=
+  const hashArgs = new URLSearchParams(location.hash.slice(1));
+  const fromHash = hashArgs.get("k");
+  if (hashArgs.get("from") === "app") { try { sessionStorage.setItem("llano-from-app", "1"); } catch (e) {} }
+  if (fromHash) { KEY = fromHash; try { localStorage.setItem("llano-local-key", KEY); } catch (e) {} history.replaceState(null, "", location.pathname); }
+  try { FROM_APP = sessionStorage.getItem("llano-from-app") === "1"; } catch (e) {}
+  return !!fromHash;
+}
+readHash();
+const $ = (s) => document.querySelector(s);
+const RETRY_MS = 5000;     // unpaired: at most one try every 5 seconds (it was about three a second)
+const ASK_MS = 4000;       // a request to a laptop that left the Wi-Fi can hang: give up after this
+let said = "";
+function note(text, bad, link) {
+  const n = $("#note"), key = text + "|" + !!bad;
+  if (key === said) return;
+  said = key; n.hidden = !text; n.textContent = text; n.classList.toggle("bad", !!bad);
+  if (link) { const a = document.createElement("a"); a.href = $("#full").href; a.textContent = "Use the internet instead"; n.appendChild(a); }
+}
+const FROM_APP_NOTE = "Llano couldn't reach the laptop over the internet, so this phone is talking to it straight over Wi-Fi.";
+if (FROM_APP) note(FROM_APP_NOTE);
+async function call(path, body) {   // {ok, status, key, error?, ...}: the console says the words
+  // The timer runs until the whole answer is read: a laptop that sends the headers and then stalls
+  // must not hang this request (and every poll after it) for ever.
+  const key = KEY, ac = typeof AbortController === "function" ? new AbortController() : null;
+  const t = ac ? setTimeout(() => ac.abort(), ASK_MS) : 0;
+  let r, j;
+  try {
+    r = await fetch(path, {method: body ? "POST" : "GET", headers: {"X-Llano-Key": key, "Content-Type": "application/json"},
+                           body: body ? JSON.stringify(body) : undefined, cache: "no-store", signal: ac ? ac.signal : undefined});
+    j = await r.json().catch((e) => { if (ac && ac.signal.aborted) throw e; return {}; });
+  } catch (e) { return {ok: false, status: 0, key, error: "Llano Lights on the laptop is not answering."}; }
+  finally { clearTimeout(t); }
+  return r.ok ? {ok: true, ...j, key} : {...j, ok: false, status: r.status, key, error: j.error || ("The laptop said " + r.status + ".")};
+}
+// Paired or not: with no key, or a key the laptop refuses (403), the page shows only the "not
+// connected" screen and asks again at most every RETRY_MS. With no key there is nothing to ask.
+let studio = null, retryT = 0;
+function unpaired(changed) {
+  if (studio) { studio.destroy(); studio = null; }
+  document.body.classList.add("unpaired");
+  $("#pair").hidden = false; $("#pairchanged").hidden = !changed;
+  clearTimeout(retryT);
+  if (KEY) retryT = setTimeout(tryKey, RETRY_MS);
+}
+async function tryKey() {
+  clearTimeout(retryT);
+  if (!KEY) return unpaired(false);
+  if (!studio) $("#connecting").hidden = false;
+  const s = await call("/api/state");
+  if (s.key !== KEY) return;   // a newer code was scanned while this was on its way: its own try decides
+  if (s.status === 403) return unpaired(true);
+  paired();   // answered, or not answering at all: the console shows which (it dims itself when lost)
+}
+function paired() {
+  document.body.classList.remove("unpaired"); $("#pair").hidden = true;
+  if (studio || !window.LlanoStudio) return;
+  $("#connecting").hidden = false;   // until the first answer: never a blank page
+  studio = LlanoStudio.mount($("#studio"), {
+    layout: "phone", screen: "phone", pollMs: 300,
+    link: () => "Wi-Fi",
+    lostText: "Llano Lights on the laptop is not answering. Check that Llano Lights is still open on the laptop, and that this phone is on the laptop's Wi-Fi. This screen comes back by itself.",
+    // a phone that left the laptop's Wi-Fi but has signal can still reach the laptop through llano.app
+    lostLink: {href: $("#full").href, text: "If this phone has left the laptop's Wi-Fi: use the internet instead."},
+    onState: () => { $("#connecting").hidden = true; },
+    transport: {
+      state: async () => {
+        const s = await call("/api/state");
+        // the code changed on the laptop; an answer for a key that is no longer this page's key is ignored
+        if (s.status === 403 && s.key === KEY) { setTimeout(() => unpaired(true), 0); throw new Error(s.error); }
+        if (!s.ok) throw new Error(s.error);
+        return s;
+      },
+      send: (cmd) => call("/api/studio", cmd),
+      stop: () => call("/api/stop", {}),
+      run: (mode) => call("/api/go", {mode}),
+      settings: () => call("/api/settings"),
+      change: (ops) => call("/api/settings", {ops}),
+    },
+    // What this path cannot do stays in place, grayed, with the reason (his rule, 2026-11-12).
+    caps: {hover: "Hover follow is for the laptop's trackpad. On the phone, drag the spot with a finger."},
+  });
+}
+window.addEventListener("hashchange", () => { if (readHash()) tryKey(); });
+window.addEventListener("storage", (e) => { if (e.key === "llano-local-key" && e.newValue && e.newValue !== KEY) { KEY = e.newValue; tryKey(); } });
+if (!window.LlanoStudio) note("This laptop's copy of Llano Lights is missing the phone's screen. Update Llano Lights on the laptop.", true);
+else if (!KEY) unpaired(false);
+else tryKey();
+</script>
+</body>
+</html>

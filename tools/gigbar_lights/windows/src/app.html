@@ -1,0 +1,1331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="llano-token" content="__LLANO_TOKEN__">
+<title>__LLANO_TITLE__</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
+<style>
+  :root { --bg:#07080b; --panel:#0f1117; --raise:#161924; --line:#232734; --text:#e8eaf0; --dim:#8a90a2; --faint:#5f6577;
+          --accent:#7cf0c8; --warn:#ffb454; --bad:#ff6b6b; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 "Segoe UI", system-ui, sans-serif;
+         display:flex; flex-direction:column; overflow:hidden; }
+  button { font:inherit; color:var(--text); background:var(--raise); border:1px solid var(--line); border-radius:8px;
+           padding:7px 12px; cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.38; cursor:default; }
+  button.primary { background:var(--accent); color:#06120d; border-color:var(--accent); font-weight:600; }
+  button.danger { border-color:var(--bad); color:var(--bad); }
+
+  header { display:flex; align-items:center; gap:14px; padding:10px 18px; border-bottom:1px solid var(--line); flex:none; flex-wrap:wrap; }
+  .brand { white-space:nowrap; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:600; font-size:16px; }
+  .brand i { width:12px; height:12px; border-radius:50%; background:var(--accent); box-shadow:0 0 14px 2px #7cf0c866; }
+  .ver { font-size:11.5px; color:var(--faint); font-weight:400; }
+  .upd { display:flex; align-items:center; gap:8px; white-space:nowrap; font-size:12.5px; color:var(--dim); }
+  .upd button { padding:4px 10px; font-size:12.5px; }
+  .upd .bad { color:var(--bad); }
+  /* what the lights box, loopMIDI and Mixxx are doing, always in sight (his recording, 7:46) */
+  .conn { display:flex; gap:6px; flex-wrap:wrap; }
+  .conn span { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; border:1px solid var(--line);
+               background:var(--raise); color:var(--dim); font-size:12px; white-space:nowrap; }
+  .conn span i { width:8px; height:8px; border-radius:50%; background:var(--faint); }
+  .conn span.ok i { background:var(--accent); box-shadow:0 0 8px #7cf0c888; } .conn span.ok { color:var(--text); }
+  .conn span.bad i { background:var(--bad); } .conn span.bad { color:#ffb3b3; border-color:#ff6b6b55; }
+  header .grow { flex:1; }
+  #livelink { color:var(--accent); border:1px solid var(--accent); border-radius:8px; padding:6px 12px; text-decoration:none; font-weight:600; white-space:nowrap; }
+  #livelink[hidden] { display:none; }
+
+  #banners:empty { display:none; }
+  .banner { display:flex; align-items:center; gap:12px; padding:10px 18px; border-bottom:1px solid var(--line); background:#0d1a16; flex-wrap:wrap; }
+  .banner.warn { background:#1d150a; }
+  .banner button.close { margin-left:auto; padding:2px 10px; font-size:18px; line-height:1; background:transparent; border-color:transparent; }
+  .banner b { font-weight:600; }
+  .banner .msg { flex:1 1 300px; }
+  .banner ul.landed { margin:4px 0 0; padding-left:18px; font-size:13px; opacity:.85; }
+  .bar { flex:0 0 160px; height:6px; border-radius:3px; background:var(--line); overflow:hidden; }
+  .bar span { display:block; height:100%; background:var(--accent); }
+
+  .wrap { flex:1; display:flex; min-height:0; }
+  aside { flex:0 0 310px; border-right:1px solid var(--line); overflow-y:auto; padding:14px 14px 24px; }
+  h2 { font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); font-weight:600; margin:6px 2px 10px; }
+  h2 + .hint { margin-top:-6px; }
+  .hint { color:var(--faint); font-size:12px; margin:0 2px 10px; }
+  .mode { display:block; width:100%; text-align:left; padding:10px 12px; margin-bottom:8px; border-radius:10px; background:var(--panel); }
+  .mode b { display:block; font-weight:600; font-size:13.5px; }
+  .mode span { display:block; color:var(--dim); font-size:12px; margin-top:2px; }
+  .mode.live { border-color:#7cf0c866; }
+  .mode.active { border-color:var(--accent); background:#0d1a16; opacity:1; }
+  /* what is running, and Stop beside it, pinned in the header so it never scrolls away (his
+     recording, 0:36 and 3:27). Stop takes two clicks; the first turns it solid red and pulsing and
+     it reads "Click again to stop", the way the Shows page does (Llano BL #11473). Its size never
+     changes (1.10.0), and no hint text about it sits on the page. */
+  .now { display:flex; align-items:center; gap:10px; padding:5px 6px 5px 12px; border:1px solid var(--line); border-radius:10px;
+         background:var(--panel); min-width:0; max-width:460px; }
+  .now.on { border-color:#7cf0c866; background:#0d1a16; }
+  .now div { flex:1; min-width:0; }
+  .now b { display:block; font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .now span { display:block; color:var(--dim); font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .now span:empty { display:none; }
+  #stop { flex:none; width:148px; padding:7px 0; font-weight:600; white-space:nowrap; }   /* fits both words: no jump on the first click */
+  #stop.armed { background:var(--bad); color:#fff; border-color:var(--bad); animation:arm .5s ease-in-out infinite alternate; }
+  @keyframes arm { from { box-shadow:0 0 0 0 #ff6b6b00; } to { box-shadow:0 0 0 5px #ff6b6b66; } }
+  .opt { display:flex; gap:8px; align-items:flex-start; margin:-2px 2px 12px; color:var(--dim); font-size:12px; cursor:pointer; }
+  .opt input { margin-top:2px; accent-color:var(--accent); }
+  /* local mode (1.8.0): pair a phone that keeps control with no internet */
+  #local { margin-top:12px; padding-top:10px; border-top:1px solid var(--line); }
+  #local .qrs { display:flex; gap:10px; flex-wrap:wrap; margin:8px 0; }
+  #local figure { margin:0; flex:1 1 120px; max-width:150px; }
+  #local figure img { width:100%; display:block; border-radius:8px; background:#fff; }
+  #local figure.small { flex:0 1 92px; max-width:92px; } #local figure.small figcaption { font-size:11px; }
+  #local .phonehead { display:block; margin:0 2px 8px; font-size:13px; }
+  #local figcaption { color:var(--dim); font-size:11.5px; margin-top:4px; }
+  #local figcaption .sub { display:block; font-size:10.5px; margin-top:2px; user-select:all; }
+  #local code { display:block; font:12px Consolas, monospace; color:var(--text); word-break:break-all; margin:4px 0; }
+  #local .btns { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  #local .btns button { padding:5px 9px; font-size:12.5px; }
+  #local .hsnote { font-size:12.5px; margin:8px 0 2px; padding:7px 9px; border-radius:7px; border:1px solid var(--line); color:var(--text); background:var(--raise); }
+  #local .hsnote.bad { border-color:#ff6b6b55; color:#ffb3b3; }
+  #songbox { margin:-2px 0 12px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--panel); }
+  #songbox label { display:block; color:var(--dim); font-size:12px; margin-bottom:6px; }
+  #songbox .row { display:flex; gap:6px; }
+  #song { flex:1; min-width:0; font:inherit; font-size:13px; color:var(--text); background:var(--raise); border:1px solid var(--line);
+          border-radius:8px; padding:6px 8px; }
+  #sound { padding:6px 9px; font-size:12.5px; }
+  #seek { display:none; margin-top:8px; }
+  #seek.on { display:block; }
+  #seek .row { align-items:center; }
+  #seek button { padding:5px 8px; font-size:12px; }
+  #seekbar { flex:1; min-width:0; accent-color:var(--accent); }
+  #seektime { color:var(--dim); font-size:12px; font-variant-numeric:tabular-nums; margin-top:4px; }
+  #credit { color:var(--faint); font-size:11.5px; margin:8px 0 0; }
+  #credit a { color:var(--dim); }
+  .setup { margin-top:22px; }
+  .patchh { font-size:14px; margin:16px 0 2px; }
+  .patchlist { list-style:none; margin:6px 0; padding:0; font-size:13px; }
+  .patchlist li { display:grid; grid-template-columns:auto 1fr; gap:0 10px; padding:5px 0; border-top:1px solid rgba(127,127,127,.25); }
+  .patchlist li.off { opacity:.5; }
+  .patchlist .a { font:700 18px/1.1 ui-monospace,Consolas,monospace; grid-row:span 2; align-self:center; }
+  .patchlist small { color:var(--dim, #8a90a0); }
+  .patchwarn:empty { display:none; }
+  .patchwarn { color:#ff6b6b; font-weight:700; font-size:13px; }
+  #setupwhen { margin:0 2px 8px; color:var(--text); }
+  #setupwhen:empty { display:none; }
+  .setup.flash { animation:seen 1.2s ease-out; }
+  @keyframes seen { from { background:#7cf0c822; } to { background:transparent; } }
+  /* Tonight's lights, the rig picker (1.13.0, his 11-08 "I've only got 3 tetras running right now") */
+  #rig .cnt { display:flex; align-items:center; gap:8px; margin-top:6px; }
+  #rig .cnt span { flex:1; } #rig .cnt b { min-width:22px; text-align:center; font-variant-numeric:tabular-nums; }
+  #rig .cnt button { width:28px; padding:3px 0; }
+  #rig .saved { display:flex; gap:6px; align-items:center; margin-top:6px; font-size:12.5px; }
+  #rig .saved span { flex:1; min-width:0; } #rig .saved button { padding:3px 8px; font-size:12px; }
+  #rig .row { display:flex; gap:6px; margin-top:8px; } #rig .row input { flex:1; min-width:0; font:inherit; font-size:13px;
+    color:var(--text); background:var(--raise); border:1px solid var(--line); border-radius:8px; padding:5px 8px; }
+  /* Control a light (1.10.0, his recording 6:09) */
+  #manual select { width:100%; font:inherit; font-size:13px; color:var(--text); background:var(--raise); border:1px solid var(--line);
+                   border-radius:8px; padding:6px 8px; }
+  #manual .row { display:flex; gap:6px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  #manual .row button { padding:5px 10px; font-size:12.5px; }
+  #mon[aria-pressed="true"] { background:var(--accent); color:#06120d; border-color:var(--accent); font-weight:600; }
+  #manual .sw { width:19px; height:19px; padding:0; border-radius:50%; border:2px solid var(--line); }
+  #manual .sw.on { border-color:#fff; }
+  #mcolor { width:30px; height:24px; padding:0; border:1px solid var(--line); border-radius:6px; background:none; }
+  #manual label.sl { display:flex; align-items:center; gap:8px; color:var(--dim); font-size:12px; margin-top:8px; }
+  #mgig select { flex:1; width:auto; min-width:0; }
+  #manual label.sl span { flex:0 0 74px; } #manual label.sl input { flex:1; min-width:0; accent-color:var(--accent); }
+  .item { display:flex; gap:10px; padding:8px 2px; border-top:1px solid var(--line); }
+  .item:first-of-type { border-top:none; }
+  .dot { flex:none; width:9px; height:9px; border-radius:50%; margin-top:6px; background:var(--faint); }
+  .dot.ok { background:var(--accent); } .dot.bad { background:var(--bad); }
+  .item b { display:block; font-weight:600; font-size:13px; }
+  .item span { display:block; color:var(--dim); font-size:12px; word-break:break-word; }
+
+  section { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .controls { display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:10px 14px; border-bottom:1px solid var(--line); flex:none; }
+  .controls button { padding:6px 9px; font-size:13px; white-space:nowrap; }
+  /* a toggle says whether it is on (his recording, 1:28) */
+  .controls button[aria-pressed="true"] { background:var(--accent); color:#06120d; border-color:var(--accent); font-weight:600; }
+  .controls button[aria-pressed="true"]::after { content:" on"; }
+  .controls button[data-on="blackout"][aria-pressed="true"] { background:var(--bad); border-color:var(--bad); color:#fff; }
+  .controls button[data-on="strobe"][aria-pressed="true"] { background:#fff; border-color:#fff; color:#07080b; box-shadow:0 0 16px -2px #fff; }
+  .controls .grp { display:inline-flex; align-items:center; gap:4px; }
+  .controls .grp b { font-weight:600; font-size:12.5px; min-width:38px; text-align:center; font-variant-numeric:tabular-nums; color:var(--dim); }
+  /* the beat the lights are on (his recording, 1:45): one dot per beat of the bar */
+  .beat { display:inline-flex; align-items:center; gap:5px; padding:4px 8px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+  .beat i { width:9px; height:9px; border-radius:50%; background:var(--line); transition:background .06s; }
+  .beat i.on { background:var(--accent); box-shadow:0 0 10px 1px #7cf0c8aa; }
+  .beat i.on:first-child { background:#fff; box-shadow:0 0 10px 1px #ffffffaa; }
+  .beat b { font-weight:600; font-size:12.5px; min-width:42px; text-align:right; font-variant-numeric:tabular-nums; }
+  .beat span { color:var(--dim); font-size:12px; }
+  /* Scenes and Moments share one row, one set at a time (1.11.4, his 2:40 PM recording 3:11: the top took too much room) */
+  .scenes { display:flex; flex-wrap:wrap; gap:7px; align-items:center; padding:8px 14px; border-bottom:1px solid var(--line); flex:none; }
+  .padset { display:flex; flex-wrap:wrap; gap:7px; align-items:center; flex:1 1 0; min-width:0; }
+  .padset[hidden] { display:none; }
+  .padtabs { display:inline-flex; align-self:flex-start; border:1px solid var(--line); border-radius:999px; padding:2px; margin-right:4px; }
+  .padtabs button { border:none; background:none; padding:5px 11px; font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:.06em; }
+  .padtabs button[aria-selected="true"] { background:var(--raise); color:var(--text); font-weight:600; }
+  .padtabs button.live::after { content:""; display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--accent); margin-left:6px; vertical-align:middle; }
+  .scenes button { padding:7px 13px; font-size:13.5px; border-radius:999px; }
+  .scenes button[aria-pressed="true"] { background:var(--accent); color:#06120d; border-color:var(--accent); font-weight:600; box-shadow:0 0 18px -4px var(--accent); }
+  .scenes .flash { user-select:none; -webkit-user-select:none; touch-action:none; }
+  .scenes .flash[aria-pressed="true"] { background:#fff; color:#07080b; border-color:#fff; box-shadow:0 0 40px 6px #ffffffaa; }
+  .scenes button[data-scene="blackout"][aria-pressed="true"] { background:var(--bad); border-color:var(--bad); color:#fff; box-shadow:none; }
+  #moments button { padding:6px 10px; font-size:12.5px; }
+  #sceneback { margin-left:auto; align-self:flex-start; }
+  #timing b { min-width:70px; }
+  .controls kbd { font:11px Consolas, monospace; color:var(--faint); margin-right:5px; }
+  #status { flex:1 1 220px; min-width:0; font:12.5px Consolas, monospace; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 2px; }
+  #view { flex:1; border:0; width:100%; min-height:0; background:var(--bg); }
+  details { flex:none; border-top:1px solid var(--line); }
+  summary { cursor:pointer; padding:8px 16px; color:var(--dim); font-size:12.5px; list-style:none; display:flex; gap:10px; }
+  summary::before { content:"▸"; } details[open] summary::before { content:"▾"; }
+  #lastline { color:var(--faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #log { margin:0; padding:4px 16px 12px; height:190px; overflow-y:auto; font:12px/1.5 Consolas, monospace; color:#b8bdcb; white-space:pre-wrap; }
+  /* a Python traceback folds shut behind one plain line (Llano BL #11473); the detail stays inside for Llano */
+  #log details.tb { border:none; margin:2px 0; }
+  #log details.tb summary { padding:0; font:inherit; color:var(--warn); display:inline-flex; gap:6px; }
+  #log details.tb pre { margin:2px 0 4px 14px; font:inherit; color:var(--faint); white-space:pre-wrap; }
+  #log .runhead { color:var(--text); }
+  #sceneback.idle { opacity:.55; }
+  #rignote { margin:6px 2px 0; color:var(--warn); }
+  #rignote:empty { display:none; }
+  #gone { display:none; position:fixed; inset:0; background:#07080bee; align-items:center; justify-content:center; text-align:center; padding:30px; }
+  #gone.on { display:flex; }
+  /* a laptop screen: the show buttons stay on one row, with every toggle on (his recording, 6:14) */
+  @media (max-width:1440px) { aside { flex-basis:270px; } .controls { gap:5px; padding:10px 10px; } .controls button { padding:6px 7px; }
+                              .beat { padding:4px 6px; gap:4px; } .beat span { display:none; } }
+  @media (max-width:900px) { .wrap { flex-direction:column; overflow-y:auto; } aside { flex:none; border-right:none; border-bottom:1px solid var(--line); }
+                             section { min-height:80vh; } }
+  .testbadge { margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600;
+               background: #f5a524; color: #1a1200; vertical-align: middle; }
+  .testbadge[hidden], .goback[hidden] { display: none; }
+  .goback { margin-left: 8px; font-size: 12px; padding: 2px 10px; }
+</style>
+</head>
+<body>
+<header>
+  <a id="livelink" href="/" hidden title="Back to the Live screen: pads, spots, tonight's list">&#8592; Live</a>
+  <div class="brand"><i></i>Llano Lights <span class="ver" id="ver"></span><span class="testbadge" id="testbadge" hidden></span><button class="goback" id="goback" hidden>Go back to stable</button></div>
+  <div class="now" id="now"><div><b id="nowtitle">Nothing running</b><span id="nowhint"></span></div>
+    <button id="stop" class="danger" disabled title="Stop: click, then click again">Stop</button></div>
+  <div class="conn" id="conn" aria-label="What is connected"></div>
+  <div class="grow"></div>
+  <div class="upd"><button id="checkupd">Check for updates</button><span id="updstatus"></span></div>
+</header>
+<div id="banners"></div>
+<div class="wrap">
+  <aside>
+    <h2>Start</h2>
+    <p class="hint">One at a time.</p>
+    <div id="modes"></div>
+    <div class="setup" id="rig">
+      <h2>Tonight's lights</h2>
+      <p class="hint">How many of each are set up. The show, the room picture and the line-up use only these.</p>
+      <div id="rigcounts"></div>
+      <div id="rigsaved"></div>
+      <div class="row"><input id="rigname" placeholder="Save as, like small gig" maxlength="40" aria-label="Name for this rig"><button id="rigsave" title="Keep tonight's counts under the name you typed">Save</button></div>
+      <p class="hint" id="rignote" role="status"></p>
+      <h3 class="patchh">Which light is which</h3>
+      <p class="hint">Set each light's own display to the address and mode in its row, then put it where the row says.</p>
+      <div id="patchwarn" class="patchwarn" role="alert"></div>
+      <ol id="patchlist" class="patchlist" aria-label="Every light's DMX address"></ol>
+      <div class="row"><button id="patchprint" type="button">Print the patch sheet</button></div>
+    </div>
+    <div class="setup" id="manual">
+      <h2>Control a light</h2>
+      <p class="hint">Pick a light and make it do anything, to test it. No music needed.</p>
+      <select id="mlight" aria-label="Which light"></select>
+      <div class="row"><button id="mon" aria-pressed="false">Off</button></div>
+      <div class="row" data-for="light par"><span id="mswatches" style="display:flex;gap:4px;flex-wrap:wrap"></span><input type="color" id="mcolor" value="#ffffff" title="Any color"></div>
+      <label class="sl" data-for="light spot par strobes"><span>Brightness</span><input type="range" id="mdim" min="0" max="100" value="100"></label>
+      <label class="sl" data-for="light spot par derby"><span>Strobe</span><input type="range" id="mstrobe" min="0" max="100" value="0"></label>
+      <div id="maim"><label class="sl"><span>Left / right</span><input type="range" id="mpan" min="0" max="100" value="50"></label>
+        <label class="sl" title="The heads hang under the bar: 0 points straight down, 100 points level at the dance floor"><span>Down / out</span><input type="range" id="mtilt" min="0" max="100" value="0"></label></div>
+      <div id="mgig">
+        <label class="sl" data-for="spot"><span>Head color</span><select id="mhcolor" data-k="head_color" data-int="1"></select></label>
+        <label class="sl" data-for="spot"><span>Head gobo</span><select id="mgobo" data-k="gobo" data-int="1"></select></label>
+        <label class="sl" data-for="derby"><span>Derbies</span><select id="mderby" data-k="derby"></select></label>
+        <label class="sl" data-for="derby" title="Middle = still; left = counter-clockwise, right = clockwise"><span>Derby spin</span><input type="range" id="mderbyspin" data-k="derby_spin" data-signed="1" min="-100" max="100" value="0"></label>
+        <label class="sl" data-for="laser"><span>Laser</span><select id="mlaser" data-k="laser"></select></label>
+        <label class="sl" data-for="laser"><span>Laser strobe</span><input type="range" id="mlaserstrobe" data-k="laser_strobe" min="0" max="100" value="0"></label>
+        <label class="sl" data-for="laser" title="Middle = still; left = counter-clockwise, right = clockwise"><span>Laser spin</span><input type="range" id="mlaserspin" data-k="laser_spin" data-signed="1" min="-100" max="100" value="0"></label>
+        <label class="sl" data-for="strobes" title="The bar's white strobe; it and the UV strobe never run together (Chauvet manual)"><span>White strobe</span><input type="range" id="mwhite" data-k="white" min="0" max="100" value="0"></label>
+        <label class="sl" data-for="strobes" title="The bar's UV strobe; off while the white strobe is up"><span>UV strobe</span><input type="range" id="muv" data-k="uv" min="0" max="100" value="0"></label>
+        <label class="sl" data-for="par" title="The par's own UV, beside its color"><span>Par UV</span><input type="range" id="mparuv" data-k="par_uv" min="0" max="100" value="0"></label>
+        <label class="sl" data-for="strobes"><span>Flash speed</span><input type="range" id="mflash" data-k="flash_speed" min="0" max="100" value="50"></label>
+      </div>
+      <div class="row"><button id="malloff">All lights off</button></div>
+      <p class="hint" id="mnote" style="margin-top:8px"></p>
+    </div>
+    <div class="setup" id="setupbox">
+      <h2>Your setup</h2>
+      <p class="hint">Green is ready; red is missing; grey is not set up yet or not plugged in.</p>
+      <p class="hint" id="setupwhen"></p>
+      <div id="setup"><p class="hint">Checking...</p></div>
+      <button id="recheck" style="margin-top:8px">Check again</button>
+    </div>
+    <div class="setup" id="llano">
+      <h2>Llano</h2>
+      <div class="item"><i class="dot" id="llanodot"></i><div><b id="llanoline">Checking...</b>
+        <span>Change the show's colors, strobe and looks from llano.app/lights or by asking the Conductor. The lights always run here, with or without internet.</span></div></div>
+      <div id="llanolink" style="display:none;gap:6px;margin-top:8px">
+        <input id="llanocode" placeholder="Code from llano.app/lights" maxlength="14" autocomplete="off" spellcheck="false"
+               style="flex:1;min-width:0;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--text)">
+        <button id="llanogo">Link to Llano</button>
+      </div>
+      <button id="llanoun" style="display:none;margin-top:8px">Unlink from Llano</button>
+      <div id="local">
+        <b class="phonehead">Llano Lights on your phone</b>
+        <label class="opt" style="margin:0 0 6px"><input type="checkbox" id="localon"><span><b style="color:var(--text)">Phone control without internet.</b>
+          Your phone talks straight to this laptop over Wi-Fi, so it keeps control when the venue's internet drops.</span></label>
+        <div id="localbody"></div>
+      </div>
+    </div>
+  </aside>
+  <section>
+    <div class="controls" id="controls">
+      <span class="beat" title="The beat the lights are on: one dot per beat, the first of each bar in white"><i></i><i></i><i></i><i></i><b id="bpm" title="beats per minute">--</b><span>BPM</span></span>
+      <button data-k="b" data-on="blackout" aria-pressed="false" title="Blackout (B): every light off until you press it again">Blackout</button>
+      <button data-k="s" data-on="strobe" aria-pressed="false" title="Strobe (S): every light flashes fast until you press it again">Strobe</button>
+      <button data-k="a" data-on="autoloops" aria-pressed="false" title="Autoloops (A): short repeating patterns on the moving heads">Autoloops</button>
+      <button data-k="h" data-on="hold" aria-pressed="false" title="Hold (H): keep the look that is showing now">Hold</button>
+      <button data-k="c" data-on="color" aria-pressed="false" title="Color (C): every light on one color; press again for the next color">Color</button>
+      <button data-k="p" title="Previous look (P): go back to the look before this one">&#9664; Look</button><button data-k="n" title="Next look (N): change to a new look now">Look &#9654;</button>
+      <span class="grp"><button data-k="-" aria-label="Dimmer" title="Dimmer (-): every light a little dimmer">&minus;</button><b id="master" title="How bright the lights are">100%</b><button data-k="+" aria-label="Brighter" title="Brighter (+): every light a little brighter">+</button></span>
+      <span class="grp" id="timing">
+        <button data-k="[" title="Earlier ([): move the lights a little earlier against the beat">Earlier</button><b id="offset" title="How far the lights are moved against the beat">on time</b><button data-k="]" title="Later (]): move the lights a little later against the beat">Later</button><button data-k="0" id="offreset" title="Reset (0): put the lights back on the beat">Reset</button></span>
+      <button id="lineupbtn" hidden title="Aim both GigBARs at the dance floor when you arrive">Line up my lights</button>
+      <div id="status"></div>
+    </div>
+    <div class="scenes" id="pads">
+      <span class="padtabs" role="tablist"><button role="tab" id="tabscenes" aria-selected="true">Scenes</button><button role="tab" id="tabmoments" aria-selected="false">Moments</button></span>
+      <div class="padset" id="scenes" role="group" aria-label="Scene pads">
+        <button data-scene="calm" aria-pressed="false">Calm</button><button data-scene="party" aria-pressed="false">Party</button>
+        <button data-scene="hype" aria-pressed="false">Hype</button><button data-scene="party-mode" aria-pressed="false">Party mode</button>
+        <button id="flash" class="flash" aria-pressed="false">Hold for white-out</button>
+        <button data-scene="blackout" aria-pressed="false">Blackout</button>
+      </div>
+      <div class="padset" id="moments" role="group" aria-label="Wedding moments" hidden></div>
+      <button id="sceneback" class="idle" title="Let go of the scene or moment you picked, and go back to the show's own looks">Back to the show</button>
+    </div>
+    <iframe id="view" src="/preview?embed=1" title="The lights and the room"></iframe>
+    <details id="logbox">
+      <summary>What the app is doing <span id="lastline"></span></summary>
+      <div id="log" role="log"></div>
+    </details>
+  </section>
+</div>
+<div id="gone"><div><h2 style="font-size:15px;text-transform:none;letter-spacing:0;color:var(--text)" id="gonemsg">Llano Lights has closed.</h2>
+  <p class="hint" id="gonehint">Open Llano Lights again from its desktop icon; this window closes by itself when it is back.</p></div></div>
+<script>
+const TOKEN = document.querySelector('meta[name="llano-token"]').content;
+const $ = (s) => document.querySelector(s);
+const ABOUT = {
+  live: "The 12 lights follow what you play in Mixxx, Spotify or YouTube Music. This app makes no sound itself: start the music there. Needs the ENTTEC box.",
+  preview: "Like the live show, with nothing sent to the lights: play music in Mixxx, Spotify or YouTube Music and watch the room here.",
+  demo: "A real song played right here, or the pretend song. No Mixxx needed. Tick the box below to run it on the lights too.",
+  designer: "Place the lights in your room, line them up when you arrive, and watch the pretend song play there.",
+  test: "Each light turns white for 2 seconds, one after another: on the lights when the ENTTEC box is plugged in, and always in the room picture.",
+  analyze: "Finds intro, build, drop and breakdown in your Mixxx songs and keeps them in this app. Nothing changes in Mixxx: when Mixxx plays a song, the lights look its sections up here. Slow the first time.",
+  check: "Checks the app's files, the loopMIDI port, Spotify and YouTube Music following, the Mixxx music library, the Mixxx mapping and the ENTTEC box, and shows each under Your setup.",
+};
+const TITLE = {live: "Live show", preview: "Music, no lights", demo: "Demo", designer: "Show Designer",
+               test: "Test each light", analyze: "Find song sections", check: "Check my setup"};
+const ORDER = ["live", "preview", "demo", "designer", "test", "analyze", "check"];  // manual + scenes start from their panels
+TITLE.manual = "Control a light"; TITLE.scenes = "Scenes, no music";
+let S = null, failures = 0, built = false;
+
+async function post(path, body) {
+  try {
+    const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json", "X-Llano-Token": TOKEN},
+                                 body: JSON.stringify(body || {})});
+    const s = await r.json().catch(() => ({}));
+    if (!r.ok && s.error && !s.warned) flash(plainError(s.error), plainError(s.error) !== s.error);
+    if (s.warned) refresh().then(render);
+    return r.ok;
+  } catch (e) { return false; }
+}
+let flashMsg = "", flashUntil = 0, flashRefusal = false;
+function flash(t, refusal) { flashMsg = t; flashUntil = Date.now() + 6000; flashRefusal = !!refusal; render(); }
+// A refusal names its way out (Llano BL #11473): the app answers "'<what>' is running; stop it first",
+// and the page says where Stop is and that it takes two presses.
+function plainError(e) {
+  const m = /^'([^']+)' is running; stop it first$/.exec(String(e || ""));
+  if (!m) return e;
+  // the app's long name ("Test each light (on the lights, and in the room picture)") in the page's short words
+  const key = Object.keys(TITLE).find(k => m[1].startsWith(TITLE[k])) || (S && S.running) || "";
+  const what = TITLE[key] || m[1].split(/[:(]/)[0].trim();
+  // Stop ends every run but Check my setup: the app lets a check finish (gigbar_app.App.stop)
+  if (key === "check") return `${what} is running. It finishes by itself in a moment, then start this.`;
+  return `${what} is running. Press Stop at the top of this page twice, then start this.`;
+}
+
+function buildModes(modes) {
+  const label = Object.fromEntries(modes.map(m => [m.key, m.label]));
+  const box = $("#modes");
+  box.append(guideButton());
+  for (const k of ORDER.filter(k => label[k])) {
+    const b = document.createElement("button");
+    b.className = "mode" + (k === "live" ? " live" : ""); b.dataset.mode = k;
+    b.innerHTML = `<b></b><span></span>`;
+    b.querySelector("b").textContent = TITLE[k] || label[k];
+    b.querySelector("span").textContent = ABOUT[k] || label[k];
+    b.addEventListener("click", () => k === "demo" ? startDemo() : k === "check" ? checkSetup() : post("/api/run", {mode: k}));
+    box.append(b);
+    if (k === "live") box.append(autoLiveBox());
+    if (k === "demo" && S.songs && S.songs.length) box.append(songBox(S.songs));
+    if (k === "demo") box.append(showsButton());
+  }
+  built = true;
+}
+
+// The setup guide (1.21, Llano PM #23415): his "I don't have a clue as to what to do". One numbered
+// path from the cables to a built night; each step checks itself and sends him to the page that does it.
+function guideButton() {
+  const b = document.createElement("button");
+  b.className = "mode"; b.id = "guide";
+  b.innerHTML = `<b>Setup guide</b><span>Step by step, from plugging in the lights to a night built in Mixxx. Each step checks itself and says what to do if it didn't work.</span>`;
+  b.addEventListener("click", () => { location.href = "/guide"; });
+  return b;
+}
+
+// Shows (1.11.0, his recording 2026-11-08, 1:10): a playlist designed into a whole show, saved by name.
+function showsButton() {
+  const b = document.createElement("button");
+  b.className = "mode"; b.id = "shows";
+  b.innerHTML = `<b>Shows</b><span>Design a whole show from a playlist: every song analyzed, laid out front to back, its lights previewed here, saved by name.</span>`;
+  b.addEventListener("click", () => { location.href = "/shows"; });
+  return b;
+}
+
+// Start with Mixxx (his recording, 5:44): with this on, opening Mixxx starts the live show, so the
+// music and the lights both start from Mixxx.
+function autoLiveBox() {
+  const l = document.createElement("label"); l.className = "opt";
+  l.innerHTML = `<input type="checkbox" id="autolive"><span>Start the live show when Mixxx opens. Then press play in Mixxx and the lights follow.</span>`;
+  l.querySelector("input").addEventListener("change", (e) => post("/api/auto-live", {on: e.target.checked}));
+  return l;
+}
+
+// --- demo songs: the window plays the music and tells the app where it is ----------------------
+const audio = new Audio(); audio.loop = true; audio.preload = "auto"; audio.volume = 0.85;
+let playingUrl = "", changing = false;
+try { audio.muted = localStorage.getItem("llano-sound") === "off"; } catch (e) {}
+const songById = (id) => (S && S.songs || []).find(s => s.id === id);
+
+function songBox(songs) {
+  const d = document.createElement("div"); d.id = "songbox";
+  d.innerHTML = `<label for="song">Demo song</label><div class="row"><select id="song"></select>` +
+                `<button id="sound" title="Sound on or off"></button></div>` +
+                `<div id="seek"><div class="row"><button id="playpause" title="Pause or play the song (Space)">Pause</button>` +
+                `<button id="back10" title="Back 10 seconds">&#8634; 10s</button>` +
+                `<input id="seekbar" type="range" min="0" max="1" step="0.1" value="0" aria-label="Where in the song">` +
+                `<button id="fwd10" title="Forward 10 seconds">10s &#8635;</button></div>` +
+                `<div id="seektime">0:00 / 0:00</div></div><p id="credit"></p>` +
+                `<label class="opt" style="margin:8px 0 0"><input type="checkbox" id="onlights"><span>Also on the lights (ENTTEC box plugged in)</span></label>`;
+  const sel = d.querySelector("#song");
+  sel.append(new Option("Pretend song (no music)", ""));
+  for (const s of songs) sel.append(new Option(s.title, s.id));
+  let saved = songs[0].id;
+  try { const v = localStorage.getItem("llano-song"); if (v !== null && (v === "" || songs.some(s => s.id === v))) saved = v; } catch (e) {}
+  sel.value = saved;
+  sel.addEventListener("change", () => {
+    try { localStorage.setItem("llano-song", sel.value); } catch (e) {}
+    showCredit();
+    if (S && S.running === "demo") switchSong();
+  });
+  d.querySelector("#sound").addEventListener("click", () => {
+    audio.muted = !audio.muted;
+    try { localStorage.setItem("llano-sound", audio.muted ? "off" : "on"); } catch (e) {}
+    showCredit();
+  });
+  const bar = d.querySelector("#seekbar");
+  bar.addEventListener("input", () => { dragging = true; showTime(+bar.value); });
+  bar.addEventListener("change", () => { dragging = false; seekTo(+bar.value); });
+  d.querySelector("#playpause").addEventListener("click", togglePlay);
+  d.querySelector("#back10").addEventListener("click", () => seekTo(audio.currentTime - 10));
+  d.querySelector("#fwd10").addEventListener("click", () => seekTo(audio.currentTime + 10));
+  setTimeout(showCredit);
+  return d;
+}
+
+// --- moving through the demo song: the lights jump with it ---------------------------------------
+let dragging = false;
+const clock = (t) => { t = Math.max(0, Math.floor(t || 0)); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
+function songLength() {
+  const s = S && S.running === "demo" ? songById(S.song) : null;
+  return isFinite(audio.duration) && audio.duration > 0 ? audio.duration : (s ? s.duration_s : 0);
+}
+function showTime(t) { $("#seektime").textContent = clock(t) + " / " + clock(songLength()); }
+function reportClock() {  // tell the app where the song is; after a jump it re-syncs beat, bar and section
+  if (S && S.running === "demo" && S.song && playingUrl)
+    return fetch("/api/demo-clock", {method: "POST", headers: {"Content-Type": "application/json", "X-Llano-Token": TOKEN},
+                                     body: JSON.stringify({song: S.song, t: audio.currentTime, playing: !audio.paused})}).catch(() => {});
+}
+function seekTo(t) {
+  const len = songLength();
+  if (!len || !playingUrl) return;
+  audio.currentTime = Math.max(0, Math.min(len - 0.25, t));
+  showTime(audio.currentTime);
+  reportClock();
+}
+audio.addEventListener("seeked", reportClock);  // the exact spot the player landed on
+// Pause and play the demo song (Space or the button); the lights hold while it is paused.
+function songInWindow() { return !!(S && S.running === "demo" && S.song && playingUrl); }
+function togglePlay() {
+  if (!songInWindow()) return false;
+  if (audio.paused) audio.play().catch(() => flash("The window couldn't start the music. Click Pause again to retry."));
+  else audio.pause();
+  return true;
+}
+function showPlayState() { const b = $("#playpause"); if (b) b.textContent = audio.paused ? "Play" : "Pause"; }
+audio.addEventListener("pause", () => { showPlayState(); reportClock(); });
+audio.addEventListener("play", () => { showPlayState(); reportClock(); });
+function syncSeek() {
+  const box = $("#seek"); if (!box) return;
+  const on = !!(S && S.running === "demo" && S.song && playingUrl);
+  box.classList.toggle("on", on);
+  if (!on || dragging) return;
+  const bar = $("#seekbar"), len = songLength();
+  bar.max = String(len || 1);
+  bar.value = String(audio.currentTime || 0);
+  showTime(audio.currentTime);
+}
+
+function showCredit() {
+  const id = $("#song") ? $("#song").value : "", s = songById(id), c = $("#credit");
+  $("#sound").textContent = audio.muted ? "Sound off" : "Sound on";
+  $("#sound").disabled = !s;
+  if (!c) return;
+  c.innerHTML = s ? `<b style="color:var(--dim);font-weight:600">${esc(s.feel)}, ${Math.round(s.bpm)} BPM</b><br>${esc(s.credit)}. <a href="${esc(s.license_url)}" target="_blank" rel="noopener">${esc(s.license)}</a> · ` +
+                    `<a href="${esc(s.source)}" target="_blank" rel="noopener">source</a>`
+                  : "A made-up 128 BPM song with every kind of section, no sound.";
+}
+
+function playSong(s) {  // called from a click, so the window may start sound
+  if (!s) { audio.pause(); playingUrl = ""; return; }
+  if (playingUrl !== s.url) { audio.src = s.url; playingUrl = s.url; }
+  audio.currentTime = 0;
+  audio.play().catch(() => flash("The window couldn't start the music; the lights run on their own clock. Click Demo again to retry."));
+}
+
+function startDemo() {
+  const id = $("#song") ? $("#song").value : "";
+  playSong(songById(id));
+  post("/api/run", {mode: "demo", song: id, lights: !!($("#onlights") && $("#onlights").checked)});
+}
+
+async function switchSong() {  // a new pick mid-demo: stop, then start the new song
+  if (changing) return; changing = true;
+  const id = $("#song").value;
+  playSong(songById(id));
+  await post("/api/stop");
+  for (let i = 0; i < 40 && S && S.running; i++) { await new Promise(r => setTimeout(r, 150)); await refresh(); }
+  await post("/api/run", {mode: "demo", song: id, lights: !!(S && S.lights)});
+  changing = false;
+}
+
+function syncAudio() {  // the app decides what runs; the player follows it
+  const s = S && S.running === "demo" ? songById(S.song) : null;
+  if (!s) { if (!changing && !audio.paused) audio.pause(); return; }
+  if (playingUrl !== s.url) { audio.src = s.url; playingUrl = s.url; audio.play().catch(() => {}); }
+}
+
+setInterval(() => { reportClock(); syncSeek(); }, 250);
+
+function banner(cls, html, buttons) {
+  const d = document.createElement("div"); d.className = "banner " + (cls || "");
+  d.innerHTML = `<div class="msg">${html}</div>`;
+  for (const b of buttons || []) d.append(b);
+  return d;
+}
+function btn(text, cls, fn, disabled) {
+  const b = document.createElement("button"); b.textContent = text; if (cls) b.className = cls;
+  b.disabled = !!disabled; b.addEventListener("click", fn); return b;
+}
+const esc = (t) => String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// next to the version: Check for updates, and in plain words what it found
+const UPDATE_STATUS = {checking: "Checking...", current: "Up to date", unreachable: "Can't reach the update server",
+                       downloading: "Downloading the update...", ready: "Downloaded: Install now when the show is stopped",
+                       restarting: "Restarting into the update...",
+                       failed: "The update didn't install"};
+let updKey = "";
+function updateStatus(u, running, t) {
+  $("#checkupd").disabled = ["checking", "downloading", "ready", "restarting"].includes(u.state);
+  const key = JSON.stringify([u.state, u.version, !!running, !!u.later, t && t.later && t.version]);
+  if (key === updKey) return;
+  updKey = key;
+  const el = $("#updstatus"); el.innerHTML = "";
+  el.classList.remove("bad");
+  if (u.state === "offered") {
+    // one Update now on screen (BL #11612): the banner's, or this one once he said Later to the banner
+    if (u.later) el.append(`${u.version} ready: `, btn("Update now", "primary", () => post("/api/update"), !!running));
+    else el.textContent = `${u.version} ready`;
+  } else if (t && t.later && !["downloading", "ready", "restarting"].includes(u.state)) {
+    // the test banner's X (Llano BL #12145): its Update stays here until he installs it
+    el.append(`Test build ${t.build} ready: `, btn("Update", "primary", () => post("/api/test-update"), !!running));
+  } else {
+    el.textContent = UPDATE_STATUS[u.state] || "";
+    el.classList.toggle("bad", u.state === "unreachable" || u.state === "failed");
+  }
+}
+
+let bannerKey = "";
+function render() {
+  if (!S) return;
+  $("#ver").textContent = "version " + S.version + (S.built ? " \u00b7 built " + S.built : "");
+  // Test channel (1.14.0): a test build says so, and can always go back to the stable copy on disk.
+  const tb = $("#testbadge");
+  tb.hidden = S.channel !== "test";
+  tb.textContent = "Test channel \u00b7 build " + S.build;
+  tb.title = S.test_update || "A test build from Llano. Go back to stable puts the stable copy back.";
+  $("#goback").hidden = !S.can_go_back;
+  $("#ver").title = S.root ? "Running from " + S.root : "";
+  document.title = "Llano Lights " + S.version + (S.built ? " (built " + S.built + ")" : "");
+  $("#livelink").hidden = !S.studio_on;   // the Live screen is the front page (1.20.0): this window is Set up
+  const running = S.running;
+  $("#stop").disabled = !running;
+  if (!running) disarmStop();
+  $("#now").classList.toggle("on", !!running);
+  $("#nowtitle").textContent = running ? (TITLE[running] || S.running_label) + (S.lights ? " on the lights" : "") + " is running" : "Nothing running";
+  $("#nowhint").textContent = !running ? "" : waitingForMusic() ||
+    (running === "test" ? "Watch each light, and the room picture." : running === "scenes" ? "Pick a scene or a moment below." : "");
+  document.querySelectorAll(".mode").forEach(b => {
+    b.disabled = !!running && b.dataset.mode !== running;
+    b.classList.toggle("active", b.dataset.mode === running);
+  });
+  document.querySelectorAll("#controls button[data-k]").forEach(b => b.disabled = !S.show);
+  const lv = S.live;
+  document.querySelectorAll("#controls button[data-on]").forEach(b => b.setAttribute("aria-pressed", String(!!(lv && lv[b.dataset.on]))));
+  $("#master").textContent = lv ? Math.round(lv.master * 100) + "%" : "100%";
+  const off = lv ? lv.offset_ms || 0 : 0;   // + = lights earlier than the music
+  $("#offset").textContent = off > 0 ? off + " ms early" : off < 0 ? -off + " ms late" : "on time";
+  $("#offreset").disabled = !S.show || !off;
+  $("#status").textContent = Date.now() < noteUntil ? noteMsg
+    : S.show ? S.status : running ? (S.status || "") : (failedRun() || S.last_run || "Pick something to start on the left.");
+  $("#status").title = $("#status").textContent;
+  if ($("#autolive")) $("#autolive").checked = !!S.auto_live;
+
+  updateStatus(S.update, running, S.test_offer);
+
+  // banners: update offer / progress, one-time notice, short-lived errors
+  if (flashRefusal && prevRunning && !running) flashUntil = 0;   // the run it named has just ended
+  const u = S.update, flashing = Date.now() < flashUntil;
+  const t = S.test_offer;
+  const ld = S.llano && S.llano.linked && S.llano.landed && S.llano.landed.changes && S.llano.landed.changes.length && !S.llano.landed.seen ? S.llano.landed : null;
+  const warning = staleWarning(running) ? null : S.warning;
+  const key = JSON.stringify([u.state, u.version, !!u.later, Math.round(u.progress * 50), S.notice, !!running, flashing && flashMsg, warning, t && t.version, t && t.later, ld && ld.rev]);
+  if (key !== bannerKey) {
+    bannerKey = key;
+    const box = $("#banners"); box.innerHTML = "";
+    if (flashing) box.append(banner("warn", esc(flashMsg)));
+    if (warning) box.append(banner("warn", (warning.level === "bad" ? "<b>Not started.</b> " : "") + esc(warning.text),
+                                     [btn("OK", "", () => post("/api/warning-ok").then(() => refresh().then(render)))]));
+    if (S.notice) box.append(banner("", `<b>${esc(S.notice)}</b>`, [btn("OK", "", () => post("/api/dismiss"))]));
+    // Changes sent from Llano (a show edit, the Conductor) are in force here (Llano BL #12370): say so,
+    // with what each was, until he presses OK. The Llano line below keeps the change number.
+    if (ld) {
+      const n = ld.changes.length, at = ld.at ? new Date(ld.at * 1000).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}) : "";
+      box.append(banner("", `<b>${n === 1 ? "A change" : n + " changes"} from Llano landed${at ? ", " + esc(at) : ""}. Everything Llano sent is here (change #${esc(String(ld.rev))}).</b>` +
+        `<ul class="landed">${ld.changes.map(c => `<li>#${esc(String(c.rev))} ${esc(c.what)}</li>`).join("")}</ul>`,
+        [btn("OK", "", () => post("/api/llano-landed-ok").then(() => refresh().then(render)))]));
+    }
+    if (u.state === "offered" && !u.later)
+      box.append(banner("", `<b>Llano Lights ${esc(u.version)} is ready${u.built ? " (built " + esc(u.built) + ")" : ""}.</b> ${esc(u.notes)}` +
+        (running ? " Stop the show to update." : " Updating takes about a minute and keeps your saved layouts."),
+        [btn("Update now", "primary", () => post("/api/update"), !!running),
+         btn("Later", "", () => post("/api/update-later").then(() => refresh().then(render)))]));
+    if (t && !t.later && !["downloading", "ready", "restarting"].includes(u.state))
+      box.append(banner("", `<b>Test build ${esc(t.build)} ready</b>${t.built ? " (built " + esc(t.built) + ")" : ""}. ${esc(t.notes)}` +
+        (running ? " Stop the show to update." : " Your layouts, calibration and settings stay. Go back to stable is always one click."),
+        [btn("Update", "primary", () => post("/api/test-update"), !!running),
+         Object.assign(btn("\u00d7", "close", () => post("/api/test-hide").then(() => refresh().then(render))),
+                       {title: "Hide this until the next test build. Update stays by Check for updates.",
+                        ariaLabel: "Hide this test build notice"})]));
+    if (u.state === "downloading")   // the show keeps working meanwhile (Llano BL #12377)
+      box.append(banner("", `Downloading Llano Lights ${esc(u.version)}... The lights keep working; nothing restarts during a show.`,
+        [Object.assign(document.createElement("div"), {className: "bar", innerHTML: `<span style="width:${Math.round(u.progress * 100)}%"></span>`})]));
+    if (u.state === "ready")   // downloaded during a show: it waits for him (Llano BL #12377)
+      box.append(banner("", `<b>Llano Lights ${esc(u.version)} is downloaded.</b> ` +
+        (running ? "It installs when you stop the show and press Install now." : "Install now restarts Llano Lights (about a minute) and keeps your settings."),
+        [btn("Install now", "primary", () => post("/api/install-update"), !!running)]));
+    if (u.state === "restarting") {
+      const what = u.note ? u.note.charAt(0).toUpperCase() + u.note.slice(1) : "Restarting into Llano Lights " + u.version;
+      box.append(banner("", `<b>${esc(what)}.</b> The window comes back on its own.`));
+    }
+    if (u.state === "failed") box.append(banner("warn", esc(u.note)));
+  }
+
+  renderConn();
+  renderRig();
+  renderManual();
+  renderPads();
+  $("#recheck").disabled = !!S.setup_busy;
+  $("#recheck").textContent = S.setup_busy ? "Checking..." : "Check again";
+  $("#setupwhen").textContent = S.setup_busy ? "" : setupSummary();
+  const setup = $("#setup");
+  if (S.setup.length) {
+    setup.innerHTML = S.setup.map(it => `<div class="item"><i class="dot ${it.ok ? "ok" : it.ok === false ? "bad" : ""}"></i>` +
+      `<div><b>${esc(it.label)}</b><span>${esc(it.detail)}</span></div></div>`).join("");
+  }
+  renderLog();
+  openLogOnFailure();
+  if ($("#song")) $("#song").disabled = !!running && running !== "demo";
+  const ll = S.llano;
+  if (ll) {
+    $("#llanoline").textContent = ll.line + (ll.pending ? ` (${ll.pending} change${ll.pending > 1 ? "s" : ""} to send)` : "");
+    $("#llanodot").className = "dot " + (ll.online ? "ok" : ll.linked ? "bad" : "");
+    $("#llanolink").style.display = ll.enabled && !ll.linked ? "flex" : "none";
+    $("#llanoun").style.display = ll.linked ? "" : "none";
+  }
+  renderLocal();
+  syncAudio();
+  prevRunning = running;
+}
+
+// A heads-up about a run clears when that run ends (Llano BL #11473): "the ENTTEC lights box isn't
+// plugged in, so the test runs in the room picture only" and "Lights not connected" are about the run,
+// so once nothing runs the page presses the banner's OK itself. A heads-up that shows up while nothing
+// runs (a run about to start) waits a few seconds first. "Not started." warnings stay until OK.
+const WARN_IDLE_MS = 5000;
+let prevRunning = null, warnIdle = 0, warnCleared = "";
+function staleWarning(running) {
+  const w = S.warning;
+  if (!w || running) { warnIdle = 0; warnCleared = ""; return false; }
+  if (w.level === "bad") return false;
+  if (warnCleared === w.text) return true;   // OK already pressed; the app has not caught up yet
+  // a run that didn't start keeps the heads-up that may say why ("Mixxx isn't open"): his OK only
+  if (runFailed(S.last_run)) return false;
+  if (!prevRunning) {
+    if (!warnIdle) warnIdle = Date.now();
+    if (Date.now() - warnIdle < WARN_IDLE_MS) return false;
+  }
+  warnCleared = w.text; warnIdle = 0;
+  post("/api/warning-ok");
+  return true;
+}
+
+// The log strip: a Python traceback folds shut behind one plain line (Llano BL #11473), the detail
+// inside for Llano. Each line is its own row, so a failed start can scroll to where its run began.
+const TB_LINE = "A technical error was logged. Llano can read it here.";
+const STAMP = /^\d\d:\d\d:\d\d /;
+const bare = (l) => String(l).replace(STAMP, "");
+const tbStart = (t) => t.startsWith("Traceback (most recent call last)");
+const TB_CHAIN = /^(During handling of the above exception|The above exception was the direct cause)/;
+const RULE = /^-{8,}$/;
+function logBlocks(lines) {   // [{tb, lines}]: plain lines one by one, each traceback as one block
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!tbStart(bare(lines[i]))) { out.push({tb: false, lines: [lines[i]]}); continue; }
+    const blk = [];
+    // the server's lead-in: a dashed rule, then "Exception occurred during processing of request ..."
+    const prev = () => out.length && !out[out.length - 1].tb ? bare(out[out.length - 1].lines[0]) : null;
+    if (/^Exception (occurred|in thread)/.test(prev() || "")) blk.unshift(out.pop().lines[0]);
+    if (RULE.test(prev() || "")) blk.unshift(out.pop().lines[0]);
+    let j = i;
+    for (; j < lines.length; j++) {
+      const t = bare(lines[j]);
+      blk.push(lines[j]);
+      if (j === i || /^\s/.test(t) || TB_CHAIN.test(t) || tbStart(t)) continue;
+      if (j + 1 < lines.length && TB_CHAIN.test(bare(lines[j + 1]))) continue;   // a chained traceback follows
+      break;   // the first line at the margin is the error itself
+    }
+    if (j + 1 < lines.length && RULE.test(bare(lines[j + 1]))) blk.push(lines[++j]);
+    out.push({tb: true, lines: blk});
+    i = j;
+  }
+  return out;
+}
+let logText = null;
+const tbOpen = new Set();
+function renderLog() {
+  const log = $("#log"), text = S.log.join("\n");
+  if (text === logText) return;
+  logText = text;
+  const atEnd = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+  log.querySelectorAll("details.tb").forEach(d => { if (d.open) tbOpen.add(d.dataset.k); else tbOpen.delete(d.dataset.k); });
+  const blocks = logBlocks(S.log);
+  log.innerHTML = blocks.map(b => {
+    if (!b.tb) return `<div${/^--- .+ ---$/.test(bare(b.lines[0])) ? ' class="runhead"' : ""}>${esc(b.lines[0])}</div>`;
+    const k = b.lines[0] + "|" + b.lines[b.lines.length - 1], at = (STAMP.exec(b.lines[0]) || [""])[0];
+    return `<details class="tb" data-k="${esc(k)}"${tbOpen.has(k) ? " open" : ""}><summary>${esc(at + TB_LINE)}</summary>` +
+           `<pre>${esc(b.lines.join("\n"))}</pre></details>`;
+  }).join("");
+  if (atEnd) log.scrollTop = log.scrollHeight;
+  const last = blocks[blocks.length - 1];
+  $("#lastline").textContent = !last ? "" : last.tb ? TB_LINE : last.lines[0];
+}
+
+// A start that fails opens the log strip and brings it into view (Llano BL #11473), and the status
+// line says why when the log has the reason: the last thing the run printed before it gave up.
+const FAILED = /: didn't start; the log below says why$/;
+const runFailed = (lr) => FAILED.test(lr || "") || /: something went wrong \(/.test(lr || "");
+// a line is shown as the reason only when it reads like one
+const REASON = /not found|isn't|is not|aren't|can't|cannot|couldn't|could not|\bno\b|missing|busy|refused|failed|error|denied|unavailable/i;
+function runReason(lr) {
+  const name = lr.replace(FAILED, ""), head = `--- ${name} ---`, lines = S.log.map(bare);
+  const from = lines.lastIndexOf(head);
+  if (from < 0) return "";
+  const said = [];
+  for (const b of logBlocks(S.log.slice(from + 1)))
+    if (!b.tb && bare(b.lines[0]) !== lr && !/^(Updates:|connection check failed)/.test(bare(b.lines[0])) && REASON.test(bare(b.lines[0])))
+      said.push(bare(b.lines[0]));
+  return (said.pop() || "").replace(/\.$/, "");
+}
+function failedRun() {
+  const lr = S.last_run || "";
+  if (!FAILED.test(lr)) return "";
+  const why = runReason(lr);
+  return lr.replace(FAILED, why ? ": didn't start: " + why : ": didn't start; the log is open below");
+}
+// A failed run is known by its words AND the stamped header line of the run: the same failure twice
+// has the same words, and a new header each time.
+let seenLastRun;
+function openLogOnFailure() {
+  const lr = S.last_run || "";
+  const name = lr.replace(FAILED, "").replace(/: something went wrong \(.*$/, "");
+  const header = [...S.log].reverse().find(l => bare(l) === `--- ${name} ---`) || "";
+  const seen = lr + "|" + header, justEnded = !!prevRunning && !S.running;
+  if (seenLastRun === undefined) { seenLastRun = seen; return; }   // what was there when the page opened stays put
+  if (seen === seenLastRun && !justEnded) return;
+  seenLastRun = seen;
+  if (!runFailed(lr)) return;
+  const box = $("#logbox"), log = $("#log");
+  box.open = true;
+  const rows = [...log.children], head = rows.map(r => bare(r.textContent)).lastIndexOf(`--- ${name} ---`);
+  log.scrollTop = head >= 0 ? rows[head].offsetTop - log.offsetTop : log.scrollHeight;
+  box.scrollIntoView({behavior: "smooth", block: "end"});
+}
+
+// Local mode: the codes a phone scans, and the laptop's own Wi-Fi.
+let localKey = "";
+function qr(text, caption, small, sub) {
+  return `<figure${small ? ' class="small"' : ""}><img alt="" src="/api/qr?d=${encodeURIComponent(text)}" onerror="this.parentNode.style.display='none'"><figcaption>${esc(caption)}` +
+         (sub ? `<span class="sub">${esc(sub)}</span>` : "") + `</figcaption></figure>`;
+}
+// The one code to scan (1.20): llano.app/lights carrying this laptop's Wi-Fi address and key in the
+// part of the link that never leaves the phone, so one scan pairs the phone app for the internet AND
+// for this Wi-Fi. llano.app keeps them (localControl.ts pairFromHash); with no internet on the phone
+// the installed app's own offline page does (public/sw.js).
+function pairedApp(lc) {
+  const lan = (lc.urls || []).slice(0, 4).map(u => u.replace(/^http:\/\/|\/$/g, "")).join(",");
+  return lan && lc.key ? `${PHONE_APP}#k=${encodeURIComponent(lc.key)}&lan=${lan}` : PHONE_APP;
+}
+// The phone app is llano.app/lights, one app for both paths (Llano PM #22371): its code is always
+// here. With Phone control without internet on, that code also carries this laptop's Wi-Fi pairing
+// (pairedApp). Two codes at most (his ask on 1.19.4, "why 3?"): 1 joins the hotspot (a standard
+// WIFI: code, hotspot.wifi_qr_text, so the camera joins with no typing), 2 opens Llano Lights. The
+// laptop's own page is only the typed address under them: the app link opens on the hotspot whenever
+// the phone has any internet (its own data, or the laptop's shared), and an installed app opens its
+// offline console with none, so only a never-opened phone with no internet at all needs that address.
+const PHONE_APP = "https://llano.app/lights";
+const internetQr = () => qr(PHONE_APP, "Over the internet: llano.app/lights");
+function renderLocal() {
+  const lc = S.local; if (!lc) return;
+  $("#localon").checked = !!lc.pref; $("#localon").disabled = !lc.enabled;
+  const key = JSON.stringify([lc.enabled, lc.pref, lc.on, lc.urls, lc.key, lc.hotspot.on, lc.hotspot.starting, lc.hotspot.note, lc.hotspot.ssid, lc.hotspot.password]);
+  if (key === localKey) return;
+  localKey = key;
+  const box = $("#localbody");
+  const appHint = `<p class="hint">Add it to your phone's home screen once. It works from anywhere, and switches to this laptop's Wi-Fi by itself when the internet drops.</p>`;
+  if (!lc.enabled) { box.innerHTML = `<div class="qrs">${internetQr()}</div>` + appHint + `<p class="hint">Phone control without internet is switched off on this laptop (LLANO_LIGHTS_LOCAL=0).</p>`; return; }
+  if (!lc.pref) { box.innerHTML = `<div class="qrs">${internetQr()}</div>` + appHint + `<p class="hint">Turn on Phone control without internet and this code also pairs your phone with this laptop's Wi-Fi, so it keeps working with no internet at all.</p>`; return; }
+  const hs = lc.hotspot, url = lc.urls[0] ? lc.urls[0] + "#k=" + lc.key : "";
+  let h = "";
+  if (!url) h += `<div class="qrs">${internetQr()}</div>` + appHint + `<p class="hint">This laptop isn't on a Wi-Fi network yet. Join one, or press Start hotspot below and the laptop makes its own.</p>`;
+  else {
+    const join = hs.on && hs.qr;
+    h += `<div class="qrs">` +
+         (join ? qr(hs.qr, `1. Join the Wi-Fi "${hs.ssid}": point your camera here and tap Join`, false,
+                    hs.password ? `Password, if it asks: ${hs.password}` : "") : "") +
+         qr(pairedApp(lc), (join ? "2. " : "") + "Open Llano Lights: over the internet, and on this Wi-Fi when the internet drops") +
+         `</div>` + appHint +
+         `<p class="hint" style="margin:0">No internet on the phone and the app never opened? On this Wi-Fi, type:</p><code>${esc(url)}</code>`;
+  }
+  // The press always shows (BL #12109): the button says it is starting, and what Windows answered
+  // sits right under it in a box, never a faint line he can miss.
+  // Start hotspot (his word for it, 2026-11-13): the laptop's own Wi-Fi network for the phone to join
+  // when the venue has none. Once on, its name and password are right here in words, not only in a code.
+  const hsLabel = hs.on ? "Hotspot is on" : hs.starting ? "Starting the hotspot..." : hs.note ? "Try Start hotspot again" : "Start hotspot";
+  h += `<div class="btns"><button id="hotspot" title="Turns on this laptop's own Wi-Fi network (Windows Mobile hotspot) for your phone to join when the venue has no Wi-Fi"${hs.on || hs.starting ? " disabled" : ""}>${hsLabel}</button>` +
+       (hs.note && !hs.on && !hs.starting ? `<button id="hssettings">Open Windows hotspot settings</button>` : "") +
+       `<button id="newkey" title="Phones paired before stop working until they scan the new code">New key</button></div>`;
+  if (hs.on) h += `<p class="hsnote" id="hsnet">On your phone, ` + (hs.qr ? `scan code 1 to join <b>${esc(hs.ssid)}</b> (or join it with the password <b>${esc(hs.password)}</b>)` : `join the Wi-Fi network <b>${esc(hs.ssid)}</b> (its password is on Windows' Mobile hotspot screen)`) + `, then scan the Llano Lights code.</p>`;
+  if (hs.note && !hs.on) h += `<p class="hsnote${hs.starting ? "" : " bad"}" id="hsnote">${esc(hs.starting ? hs.note : "The hotspot didn't start: " + hs.note)}</p>`;
+  box.innerHTML = h;
+  $("#hotspot").addEventListener("click", async e => {
+    e.target.disabled = true; e.target.textContent = "Starting the hotspot...";
+    await post("/api/hotspot"); await refresh(); localKey = ""; render();   // redraw from the app's real state, even if the press failed
+  });
+  if ($("#hssettings")) $("#hssettings").addEventListener("click", () => post("/api/hotspot-settings"));
+  $("#newkey").addEventListener("click", () => { if (confirm("Make a new key? Phones paired before stop working until they scan the new code.")) post("/api/local-key"); });
+}
+
+// The header's connection dots: the lights box, loopMIDI and Mixxx (his recording, 7:46).
+const CONN = [["enttec", "Lights box"], ["loopmidi", "loopMIDI"], ["mixxx", "Mixxx"]];
+let connKey = "";
+function renderConn() {
+  const c = S.conn || {}, key = JSON.stringify(c);
+  if (key === connKey) return;
+  connKey = key;
+  $("#conn").innerHTML = CONN.filter(([k]) => c[k]).map(([k, label]) =>
+    `<span class="${c[k].ok ? "ok" : c[k].ok === false ? "bad" : ""}" title="${esc(label + ": " + c[k].detail)}"><i></i>${esc(label)}</span>`).join("");
+}
+
+// Check my setup answers at once: what it found, and when (a recording showed presses that seemed to do nothing).
+function setupSummary() {
+  if (!S.setup_at || !S.setup.length) return "";
+  const fix = S.setup.filter(it => !it.ok).map(it => it.label);
+  const at = new Date(S.setup_at * 1000).toLocaleTimeString([], {hour: "numeric", minute: "2-digit", second: "2-digit"});
+  return `Checked at ${at}: ` + (fix.length ? `${fix.length} not ready (${fix.join(", ")}).` : "everything is ready.");
+}
+async function checkSetup() {
+  $("#setupwhen").textContent = "";
+  const box = $("#setupbox");
+  box.scrollIntoView({behavior: "smooth", block: "nearest"});
+  box.classList.remove("flash"); void box.offsetWidth; box.classList.add("flash");
+  await post("/api/check"); await refresh(); render();
+}
+
+// Tonight's lights (1.13.0): a count per kind, and saved rigs by name. Saved here, it shows on llano.app/lights too.
+const RIG_KINDS = [["bars", "GigBARs"], ["tetras", "Tetras"], ["sticks", "Freedom Sticks"]];
+let rigBuilt = false, rigKey = "";
+async function rigPost(body) { if (await post("/api/rig", body)) { await refresh(); render(); } }
+function renderRig() {
+  if (!S.rig) return;
+  if (!rigBuilt) {
+    for (const [k, label] of RIG_KINDS) {
+      const row = document.createElement("div"); row.className = "cnt";
+      row.innerHTML = `<span>${label}</span><button data-d="-1" aria-label="One fewer ${label}">&minus;</button><b id="rig-${k}"></b><button data-d="1" aria-label="One more ${label}">+</button>`;
+      row.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+        const n = S.rig.counts[k] + +b.dataset.d;
+        if (n >= 0 && n <= S.rig.most[k]) rigPost({counts: {[k]: n}});
+      }));
+      $("#rigcounts").append(row);
+    }
+    $("#rigsave").addEventListener("click", () => {
+      const n = $("#rigname").value.trim();
+      if (!n) { $("#rignote").textContent = "Type a name for this set of lights first."; $("#rigname").focus(); return; }
+      $("#rignote").textContent = "";
+      rigPost({save: n}).then(() => { $("#rigname").value = ""; });
+    });
+    $("#rigname").addEventListener("input", () => { $("#rignote").textContent = ""; });
+    rigBuilt = true;
+  }
+  const c = S.rig.counts;
+  for (const [k] of RIG_KINDS) {
+    $("#rig-" + k).textContent = c[k];
+    const [minus, plus] = $("#rig-" + k).parentNode.querySelectorAll("button");
+    minus.disabled = c[k] <= 0; plus.disabled = c[k] >= S.rig.most[k];
+    // a greyed button says why (Llano BL #11473)
+    const label = RIG_KINDS.find(r => r[0] === k)[1];
+    minus.title = minus.disabled ? `No ${label} are set up tonight, so there are none to take out.` : `One fewer ${label}`;
+    plus.title = plus.disabled ? `All ${S.rig.most[k]} ${label} are already set up: that is the most this app runs.` : `One more ${label}`;
+  }
+  const key = JSON.stringify([S.rig.saved, c]);
+  if (key === rigKey) return;
+  rigKey = key;
+  const box = $("#rigsaved"); box.innerHTML = "";
+  for (const [name, n] of Object.entries(S.rig.saved)) {
+    const same = RIG_KINDS.every(([k]) => n[k] === c[k]);
+    const row = document.createElement("div"); row.className = "saved";
+    row.innerHTML = `<span><b>${esc(name.replace(/-/g, " "))}</b>: ${n.bars} GigBAR${n.bars === 1 ? "" : "s"}, ${n.tetras} Tetra${n.tetras === 1 ? "" : "s"}, ${n.sticks} stick${n.sticks === 1 ? "" : "s"}</span>`;
+    row.append(btn(same ? "In use" : "Use", "", () => rigPost({use: name}), same), btn("Delete", "", () => rigPost({delete: name})));
+    box.append(row);
+  }
+}
+
+// Which light is which (BL #12378, his 11-15 "I can see the number of the light but I can't see the actual
+// address"): every light's DMX start address and channel mode from the rig block in force, and where it
+// stands in the layout in use. /api/patch is what /patch.html prints and the room picture labels.
+let patchKey = "";
+async function loadPatch() {
+  try {
+    const j = await (await fetch("/api/patch", {cache: "no-store"})).json(), key = JSON.stringify(j);
+    if (key !== patchKey) {
+      patchKey = key;
+      const box = $("#patchlist"); box.innerHTML = "";
+      for (const r of j.rows || []) {
+        const li = document.createElement("li"); li.className = r.present ? "" : "off";
+        const a = r.address == null ? "?" : String(r.address).padStart(3, "0");
+        li.innerHTML = `<span class="a">${a}</span><span><b>${r.n}. ${esc(r.name)}</b>: ${esc(r.mode)} mode${r.present ? "" : ", not set up tonight"}</span>`
+          + `<small>${esc(r.where || r.model)}</small>`;
+        box.append(li);
+      }
+      $("#patchwarn").textContent = (j.overlaps || []).join(". ");
+    }
+  } catch (e) { /* keeps the last list; tries again */ }
+  setTimeout(loadPatch, 5000);
+}
+$("#patchprint").addEventListener("click", () => { window.open("/patch.html", "_blank"); });
+loadPatch();
+
+// Control a light: one light (or all of them), on or off, a color, brightness, strobe and aim.
+// A GigBAR's other lights (1.12.3): derbies, laser, white / UV strobe, head color wheel and gobo.
+const GIG_DEFAULT = {derby: "off", derby_spin: 0, laser: "off", laser_strobe: 0, laser_spin: 0, white: 0, uv: 0, flash_speed: 0.5, head_color: 0, gobo: 0, par_uv: 0};
+const GIG_OPTIONS = {
+  derby: [["off", "Off"], ["red", "Red"], ["green", "Green"], ["blue", "Blue"], ["yellow", "Red + green"], ["magenta", "Red + blue"],
+          ["cyan", "Green + blue"], ["white", "All three"], ["auto", "Automatic, one color"], ["auto2", "Automatic, two colors"]],
+  laser: [["off", "Off"], ["red", "Red"], ["green", "Green"], ["both", "Red + green"], ["red_flash", "Green, red flashing"],
+          ["green_flash", "Red, green flashing"], ["alternate", "Red and green flashing in turn"]],
+  // the real wheel in rainbow order, each its own slot (rig.HEAD_WHEEL / HEAD_DOT_ORDER, BL #12147)
+  head_color: [[0, "White (open)"], [3, "Red"], [2, "Orange"], [5, "Yellow"], [6, "Green"], [4, "Light blue"], [1, "Dark blue"], [7, "Purple"]],
+  gobo: [0, 1, 2, 3, 4, 5, 6, 7].map(i => [i, i ? "Gobo " + i : "Open (round spot)"]),
+};
+const SWATCHES = ["#ffffff", "#ff0000", "#ff8800", "#ffee00", "#00ff44", "#00ccff", "#0033ff", "#cc00ff", "#ff0088"];
+let mBuilt = false, mSel = "all", mSendTimer = 0, mPending = {};
+function mState() {
+  const m = (S && S.manual) || {};
+  const id = mSel === "all" ? "0" : mSel;
+  return Object.assign({on: false, color: "#ffffff", dim: 1, strobe: 0, pan: 0.5, tilt: 0.5}, GIG_DEFAULT, m[id] || {});
+}
+function mSend(change) {  // a slider sends at most every 80 ms; the last value always lands
+  Object.assign(mPending, change);
+  if (mSendTimer) return;
+  mSendTimer = setTimeout(async () => {
+    const body = Object.assign({light: mSel}, mPending); mPending = {}; mSendTimer = 0;
+    await post("/api/manual", body); await refresh(); render();
+  }, 80);
+}
+function buildManual() {
+  const sel = $("#mlight");
+  sel.append(new Option("All the lights", "all"));
+  for (const l of S.lights_list || []) {
+    sel.append(new Option(`${l.name} (address ${String(l.address).padStart(3, "0")})${l.parts ? ", whole bar" : ""}`, String(l.id)));
+    for (const p of l.parts || []) sel.append(new Option("\u00a0\u00a0" + p.name, p.id));   // a GigBAR's 11 parts by name (1.14.1)
+  }
+  sel.addEventListener("change", () => { mSel = sel.value; mShow(true); });
+  for (const c of SWATCHES) {
+    const b = document.createElement("button"); b.className = "sw"; b.style.background = c; b.title = c; b.dataset.c = c;
+    b.addEventListener("click", () => { $("#mcolor").value = c; mSend({color: c, on: true}); });
+    $("#mswatches").append(b);
+  }
+  $("#mon").addEventListener("click", () => mSend({on: $("#mon").getAttribute("aria-pressed") !== "true"}));
+  $("#mcolor").addEventListener("input", (e) => mSend({color: e.target.value, on: true}));
+  for (const [id, k] of [["#mdim", "dim"], ["#mstrobe", "strobe"], ["#mpan", "pan"]])
+    $(id).addEventListener("input", (e) => mSend({[k]: +e.target.value / 100, on: true}));
+  // the heads hang under the bar (Chauvet manual p. 8): tilt 0.5 is straight down, 1 is level at the floor
+  $("#mtilt").addEventListener("input", (e) => mSend({tilt: 0.5 + +e.target.value / 200, on: true}));
+  $("#malloff").addEventListener("click", async () => { await post("/api/manual-off"); await refresh(); render(); });
+  document.querySelectorAll("#mgig select").forEach(el => {
+    for (const [v, t] of GIG_OPTIONS[el.dataset.k]) el.append(new Option(t, String(v)));
+    el.addEventListener("change", () => mSend({[el.dataset.k]: el.dataset.int ? +el.value : el.value, on: true}));
+  });
+  document.querySelectorAll("#mgig input").forEach(el => el.addEventListener("input", () => mSend({[el.dataset.k]: +el.value / 100, on: true})));
+  mBuilt = true;
+}
+function mShow(force) {
+  const st = mState(), busy = document.activeElement && document.activeElement.closest && document.activeElement.closest("#manual input");
+  $("#mon").setAttribute("aria-pressed", String(!!st.on)); $("#mon").textContent = st.on ? "On" : "Off";
+  document.querySelectorAll("#mswatches .sw").forEach(b => b.classList.toggle("on", !!st.on && b.dataset.c === st.color));
+  if (force || !busy) {
+    $("#mcolor").value = st.color; $("#mdim").value = Math.round(st.dim * 100); $("#mstrobe").value = Math.round(st.strobe * 100);
+    $("#mpan").value = Math.round(st.pan * 100); $("#mtilt").value = Math.max(0, Math.round((st.tilt - 0.5) * 200));
+    document.querySelectorAll("#mgig select, #mgig input").forEach(el => { el.value = el.tagName === "SELECT" ? String(st[el.dataset.k]) : Math.round(st[el.dataset.k] * 100); });
+  }
+  // only tonight's lights in the picker (1.13.0); a light taken out of the rig falls back to all
+  for (const o of $("#mlight").options) { const x = (S.lights_list || []).find(y => String(y.id) === o.value.split(":")[0]); o.hidden = !!x && x.present === false; }
+  if ((S.lights_list || []).some(x => String(x.id) === mSel.split(":")[0] && x.present === false)) { mSel = "all"; $("#mlight").value = "all"; }
+  const [lid, part] = mSel.split(":"), l = (S.lights_list || []).find(x => String(x.id) === lid);
+  const whole = mSel === "all" || (l && l.aim && !part), kind = part ? part.replace(/_[lr]$/, "") : "light";
+  $("#maim").style.display = whole || kind === "spot" ? "" : "none";
+  $("#mgig").style.display = whole || part ? "" : "none";   // the GigBARs are the lights with heads
+  // one part shows only its own controls (1.14.1): a spot aims and has its wheels, a par has color and UV
+  document.querySelectorAll("#manual [data-for]").forEach(e => { e.style.display = whole || e.dataset.for.split(" ").includes(kind) ? "" : "none"; });
+}
+function renderManual() {
+  if (!S.lights_list) return;
+  if (!mBuilt) buildManual();
+  // Only while something else really runs does the panel wait, and it says on what (Llano BL #11473):
+  // a check finishes by itself (Stop leaves it be); anything else waits for Stop.
+  const other = !!S.running && S.running !== "manual" ? S.running : "";
+  document.querySelectorAll("#manual select, #manual button, #manual input").forEach(el => el.disabled = !!other);
+  $("#mnote").textContent = !other ? (S.running === "manual" ? S.status : "Touch any control to start. Works without the lights box too: watch the room picture.")
+    : other === "check" ? `${TITLE[other]} is running. It finishes by itself in a moment, then Control a light works again.`
+    : `Stop ${TITLE[other] || "what is running"} first to control a light by hand: press Stop at the top of this page twice.`;
+  mShow(false);
+}
+
+// Scenes and moments work with no music (his recording, 9:30) and mirror the phone (11:12).
+let padsBuilt = false;
+function renderPads() {
+  if (!padsBuilt && S.moments) {
+    for (const m of S.moments) {
+      const b = document.createElement("button"); b.dataset.moment = m.key; b.textContent = m.name; b.title = m.note;
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", () => pickMoment(S.moment === m.key ? "" : m.key));
+      $("#moments").append(b);
+    }
+    padsBuilt = true;
+  }
+  const blocked = !!S.running && !S.show;
+  document.querySelectorAll("#scenes button, #moments button").forEach(b => { if (b.id !== "sceneback") b.disabled = blocked; });
+  document.querySelectorAll("#moments button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.moment === S.moment)));
+  if (!holding) {
+    const sc = S.live ? S.live.scene : null;
+    if (sc !== scene) { scene = sc; showScene(); }
+  }
+  $("#sceneback").classList.toggle("idle", !scene && !S.moment);
+  $("#tabscenes").classList.toggle("live", !!scene);
+  $("#tabmoments").classList.toggle("live", !!S.moment);
+}
+// One set of pads at a time; the other tab's dot says when one of its pads is playing.
+function padTab(which) {
+  $("#tabscenes").setAttribute("aria-selected", String(which !== "moments"));
+  $("#tabmoments").setAttribute("aria-selected", String(which === "moments"));
+  $("#scenes").hidden = which === "moments";
+  $("#moments").hidden = which !== "moments";
+  try { localStorage.setItem("llano-pads", which); } catch (e) {}
+}
+$("#tabscenes").addEventListener("click", () => padTab("scenes"));
+$("#tabmoments").addEventListener("click", () => padTab("moments"));
+try { if (localStorage.getItem("llano-pads") === "moments") padTab("moments"); } catch (e) {}
+// Line up my lights opens its own page (lineup.html); shown once this build has it.
+fetch("/lineup.html", {cache: "no-store"}).then(r => { if (r.ok) $("#lineupbtn").hidden = false; }).catch(() => {});
+$("#lineupbtn").addEventListener("click", () => { location.href = "/lineup.html"; });
+async function pickMoment(key) { await post("/api/moment", {key}); await refresh(); render(); }
+
+// A window from an earlier run (an update, a crash and a fresh start) closes itself: the new run
+// opens its own window (his recording, 0:07).
+let launch = "";
+function closeSelf(msg) {  // never reload into the new run: that would be a second live window
+  $("#gonemsg").textContent = msg; $("#gonehint").style.display = "none"; $("#gone").classList.add("on");
+  stopped = true;
+  try { window.close(); } catch (e) {}
+}
+let stopped = false;
+
+// A live show with nothing playing says where the music comes from (his recording, 7:00).
+function waitingForMusic() {
+  return S && (S.running === "live" || S.running === "preview") && S.live && !S.live.playing
+    ? "Waiting for music: start a song in Mixxx, Spotify or YouTube Music. This app makes no sound itself." : "";
+}
+
+// The beat light runs on its own between polls, from the beat and BPM the show last reported.
+function beatLoop() {
+  const lv = S && S.live, dots = document.querySelectorAll(".beat i");
+  let on = -1;
+  if (lv && lv.playing && lv.bpm > 0) {
+    const beat = lv.beat + (Date.now() / 1000 - lv.at) * lv.bpm / 60, frac = beat - Math.floor(beat);
+    if (frac < 0.35) on = ((Math.floor(beat) % 4) + 4) % 4;
+  }
+  dots.forEach((d, i) => d.classList.toggle("on", i === on));
+  $("#bpm").textContent = lv && lv.bpm > 0 ? lv.bpm.toFixed(1) : "--";
+  requestAnimationFrame(beatLoop);
+}
+requestAnimationFrame(beatLoop);
+
+async function refresh() {
+  try { S = await (await fetch("/api/app", {cache: "no-store"})).json(); } catch (e) {}
+}
+
+let lastRunning = null;
+async function poll() {
+  try {
+    const r = await fetch("/api/app", {cache: "no-store"});
+    S = await r.json(); failures = 0;
+    if (!launch) launch = S.launch || "";
+    else if (S.launch && S.launch !== launch) { closeSelf("Llano Lights opened again in a new window. You can close this one."); return; }
+    if (!built) buildModes(S.modes);
+    if (S.running !== lastRunning) {  // the designer opens with "move lights" on
+      const want = "/preview?embed=1" + (S.running === "designer" ? "#designer" : "");
+      // replace, never push: a window whose history stays one page long may close itself (closeSelf)
+      if (S.running === "designer" || lastRunning === "designer") $("#view").contentWindow.location.replace(want);
+      lastRunning = S.running;
+    }
+    $("#gone").classList.remove("on");
+    render();
+  } catch (e) {
+    if (++failures >= 3) {
+      const updating = S && S.update.state === "restarting";
+      $("#gonemsg").textContent = updating ? "Installing the update. The new version opens in its own window." : "Llano Lights has closed.";
+      $("#gonehint").style.display = updating ? "none" : "";
+      $("#gone").classList.add("on");
+      if (updating) closeSelf("Installing the update. The new version opens in its own window.");
+    }
+  }
+  if (!stopped) setTimeout(poll, S && S.show ? 500 : 1000);
+}
+
+// Stop takes two clicks (his recording, 0:36): the first turns it red and pulsing and it reads
+// "Click again to stop" (the Shows page's words, Llano BL #11473); left alone it goes back to Stop
+// after a few seconds. The second click stops.
+const STOP_ARM_MS = 4000;
+let stopTimer = 0;
+function disarmStop() {
+  clearTimeout(stopTimer); stopTimer = 0;
+  const b = $("#stop"); b.classList.remove("armed"); b.textContent = "Stop"; b.title = "Stop: click, then click again";
+}
+$("#stop").addEventListener("click", () => {
+  const b = $("#stop");
+  if (stopTimer) { disarmStop(); post("/api/stop").then(() => refresh()).then(render); return; }
+  b.classList.add("armed"); b.textContent = "Click again to stop"; b.title = "Click again to stop what is running";
+  stopTimer = setTimeout(disarmStop, STOP_ARM_MS);
+});
+$("#checkupd").addEventListener("click", () => post("/api/check-update"));
+$("#goback").addEventListener("click", () => {
+  if (confirm("Go back to the stable copy on this laptop? Llano Lights restarts (about 10 seconds); your layouts, calibration and settings stay."))
+    post("/api/go-back");
+});
+$("#recheck").addEventListener("click", checkSetup);
+async function llanoLink() {
+  const code = $("#llanocode").value.trim();
+  if (!code) { flash("Type the code shown on llano.app/lights (Link a laptop)."); return; }
+  $("#llanogo").disabled = true;
+  if (await post("/api/llano-link", {code})) { $("#llanocode").value = ""; flash("Linked to Llano."); }
+  $("#llanogo").disabled = false;
+  refresh();
+}
+$("#llanogo").addEventListener("click", llanoLink);
+$("#localon").addEventListener("change", (e) => post("/api/local", {on: e.target.checked}));
+$("#llanocode").addEventListener("keydown", e => { if (e.key === "Enter") { e.stopPropagation(); llanoLink(); } });
+$("#llanoun").addEventListener("click", async () => {
+  if (!confirm("Unlink this laptop from Llano? The show keeps its current settings and keeps working.")) return;
+  await post("/api/llano-unlink"); refresh();
+});
+// Scene pads (1.6.0): a scene plays over the show until Back to the show; white-out lasts as long
+// as the hold. A scene pressed here wins over one from Llano.
+let scene = null;
+function showScene() {
+  document.querySelectorAll("#scenes button[data-scene]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.scene === scene)));
+  $("#flash").setAttribute("aria-pressed", String(scene === "whiteout"));
+  $("#sceneback").classList.toggle("idle", !scene && !(S && S.moment));
+}
+function setScene(s) {  // with nothing running this starts Scenes, no music
+  scene = s; showScene();
+  post("/api/scene", {name: s || ""}).then(() => refresh()).then(render);
+}
+let under = null, holding = false;
+function flashOn() { if (holding) return; holding = true; under = scene === "whiteout" ? null : scene; setScene("whiteout"); }
+function flashOff() { if (!holding) return; holding = false; setScene(under); }
+document.querySelectorAll("#scenes button[data-scene]").forEach(b =>
+  b.addEventListener("click", () => setScene(scene === b.dataset.scene ? null : b.dataset.scene)));
+$("#sceneback").addEventListener("click", () => {
+  if (!scene && !(S && S.moment)) {   // nothing held: say so instead of doing nothing (Llano BL #11473)
+    note(S && S.running ? "Nothing is held: the show is already running its own looks."
+                        : "Nothing is held, and nothing is running. Pick a scene, or start something on the left.");
+    return;
+  }
+  if (S && S.moment) pickMoment(""); setScene(null);
+});
+const fl = $("#flash");
+fl.addEventListener("pointerdown", e => { fl.setPointerCapture && fl.setPointerCapture(e.pointerId); flashOn(); });
+["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => fl.addEventListener(ev, flashOff));
+fl.addEventListener("keydown", e => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); e.stopPropagation(); flashOn(); } });
+fl.addEventListener("keyup", e => { if (e.key === " " || e.key === "Enter") { e.stopPropagation(); flashOff(); } });
+fl.addEventListener("contextmenu", e => e.preventDefault());
+window.addEventListener("blur", flashOff);
+document.addEventListener("pointerup", flashOff);
+document.querySelectorAll("#controls button[data-k]").forEach(b => b.addEventListener("click", () => pressKey(b.dataset.k)));
+// Every press on the controls bar says what it did in the bar's status line (Llano BL #11473).
+let noteMsg = "", noteUntil = 0;
+function note(t, ms) { noteMsg = t; noteUntil = Date.now() + (ms || 4000); render(); }
+const KEY_NAME = {b: "Blackout", s: "Strobe", a: "Autoloops", h: "Hold", c: "Color"};
+function pressResult(k, a, z, moved) {   // a = the live state before the press, z = after; moved: the state changed
+  if (!z) return "";
+  // the state did not move: say only what is really so (Color again on = the next color; a limit
+  // that really is reached), never guess
+  if (!moved && PRESS_FIELD[k]) {
+    if (k === "c" && a && a.color && z.color) return "Color: the next color";
+    if ((k === "+" || k === "=") && z.master >= 1) return `Brightness is already at its brightest, ${Math.round(z.master * 100)}%`;
+    if ((k === "-" || k === "_") && z.master <= 0.1) return `Brightness is already at its dimmest, ${Math.round(z.master * 100)}%`;
+    return "";
+  }
+  const pct = (v) => Math.round(v * 100) + "%";
+  if (k in KEY_NAME) {
+    const key = {b: "blackout", s: "strobe", a: "autoloops", h: "hold", c: "color"}[k], on = !!z[key];
+    if (k === "c" && a && a.color && on) return "Color: the next color";
+    if (k === "h") return on ? "Hold is on: the look that is showing now stays" : "Hold is off: the looks change again";
+    if (k === "c") return on ? "Color is on: every light on one color" : "Color is off";
+    return `${KEY_NAME[k]} ${k === "a" ? "are" : "is"} ${on ? "on" : "off"}`;
+  }
+  if (k === "n") return "Next look";
+  if (k === "p") return "Previous look";
+  if (k === "+" || k === "=" || k === "-" || k === "_") {
+    const up = k === "+" || k === "=";
+    return `Brightness ${pct(z.master)}`;
+  }
+  if (k === "[" || k === "]" || k === "0") {
+    const was = a ? a.offset_ms || 0 : 0, now = z.offset_ms || 0, d = now - was;
+    const where = now > 0 ? `${now} ms early in all` : now < 0 ? `${-now} ms late in all` : "on the beat";
+    if (k === "0") return "Lights back on the beat";
+    return `Lights ${Math.abs(d)} ms ${d > 0 ? "earlier" : "later"}, ${where}`;
+  }
+  return "";
+}
+function pressKey(k) {
+  const before = S && S.live ? {...S.live} : null;
+  answerPress(k, before, fetch("/key?k=" + encodeURIComponent(k), {method: "POST", headers: {"X-Llano-Token": TOKEN}}), false);
+}
+// One answer loop at a time, never one per auto-repeat (the lead's review: a held minus at 30 repeats
+// a second must stay one POST per repeat, not a flood of state reads into the process that runs the
+// lights). A repeat only remembers the newest press; the answer comes once the repeats stop. A newer
+// press replaces what a running loop will report.
+const PRESS_FIELD = {b: "blackout", s: "strobe", a: "autoloops", h: "hold", c: "color", "+": "master", "=": "master",
+                     "-": "master", "_": "master", "[": "offset_ms", "]": "offset_ms", "0": "offset_ms"};
+const REPEAT_SETTLE_MS = 350;
+let pressNext = null, pressBusy = false, pressSettle = 0;
+function answerPress(k, before, sent, repeat) {   // sent: the press's fetch, already on its way
+  sent.then(r => { if (!r || !r.ok) throw new Error(String(r && r.status)); })
+      .catch(() => { pressNext = null; note("That press didn't reach the lights. Press it again."); });
+  // a burst of the same key reports from its first press's state: "Brightness 60%" after holding minus
+  const first = pressNext && pressNext.k === k ? pressNext.before : before;
+  pressNext = {k, before: first, sent};
+  clearTimeout(pressSettle);
+  if (repeat) pressSettle = setTimeout(answerLoop, REPEAT_SETTLE_MS);
+  else answerLoop();
+}
+async function answerLoop() {
+  if (pressBusy) return;   // the loop running now picks up the newest press when it is done
+  pressBusy = true;
+  try {
+    while (pressNext) {
+      const p = pressNext; pressNext = null;
+      try { await p.sent; } catch (e) { continue; }
+      // the show takes the key on its next frame: read until the state moved (or give up after ~1 s)
+      const field = PRESS_FIELD[p.k];
+      let moved = false;
+      for (let i = 0; i < 10 && !pressNext; i++) {
+        await refresh();
+        moved = !!(field && p.before && S && S.live && S.live[field] !== p.before[field]);
+        if (!field || moved) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      if (pressNext) continue;   // a newer press came in: report that one instead
+      const said = pressResult(p.k, p.before, S && S.live, moved);
+      if (said) note(said); else render();
+    }
+  } finally { pressBusy = false; }
+}
+// One key, the same wherever the focus is: the room view below hands its keys up here.
+// Space pauses or plays the song the window plays, and never scrolls the page (his recording,
+// 0:10). With no song here (a Mixxx show) it still taps the tempo; T always does.
+function onKey(key, repeat) {  // true = the key was ours (the page must not act on it too)
+  if (key === " " && (repeat || togglePlay())) return true;
+  if (!S || !S.show || !"bsanphct+-=_[]0 ".includes(key)) return key === " ";
+  const before = S.live ? {...S.live} : null;
+  const sent = fetch("/key?k=" + encodeURIComponent(key), {method: "POST", headers: {"X-Llano-Token": TOKEN}});
+  if (typeof answerPress === "function") answerPress(key, before, sent, repeat);   // the status line says what it did
+  return true;
+}
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  if (e.target.id === "stop" && (e.key === " " || e.key === "Enter")) return;   // a focused Stop takes Space and Enter
+  if (onKey(e.key, e.repeat)) e.preventDefault();
+});
+addEventListener("message", (e) => {
+  if (e.origin === location.origin && e.source === $("#view").contentWindow && typeof e.data?.llanoKey === "string")
+    onKey(e.data.llanoKey.slice(0, 1), !!e.data.repeat);
+});
+poll();
+</script>
+<script>/* the window's "not running" screen instead of Edge's error page (sw.js, Llano BL #12377) */
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});</script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+{
+ "schema": 1,
+ "palettes": {
+  "warm": [
+   [
+    0.02,
+    0.08
+   ],
+   [
+    0.95,
+    0.06
+   ],
+   [
+    0.08,
+    0.0
+   ]
+  ],
+  "cool": [
+   [
+    0.62,
+    0.5
+   ],
+   [
+    0.7,
+    0.55
+   ],
+   [
+    0.55,
+    0.78
+   ]
+  ],
+  "hot": [
+   [
+    0.33,
+    0.83
+   ],
+   [
+    0.0,
+    0.62
+   ],
+   [
+    0.15,
+    0.75
+   ],
+   [
+    0.83,
+    0.5
+   ],
+   [
+    0.58,
+    0.08
+   ]
+  ],
+  "calm": [
+   [
+    0.08,
+    0.75
+   ],
+   [
+    0.58,
+    0.08
+   ],
+   [
+    0.83,
+    0.5
+   ],
+   [
+    0.42,
+    0.75
+   ]
+  ],
+  "neon": [
+   [
+    0.9,
+    0.4
+   ]
+  ]
+ },
+ "section_palette": {
+  "intro": "calm",
+  "verse": "warm",
+  "build": "warm",
+  "drop": "hot",
+  "main": "hot",
+  "breakdown": "cool",
+  "outro": "calm"
+ },
+ "saturation": {
+  "intro": 1.0,
+  "verse": 1.0,
+  "build": 1.0,
+  "drop": 0.3,
+  "main": 1.0,
+  "breakdown": 1.0,
+  "outro": 1.0
+ },
+ "drop": {
+  "intensity": 0.6,
+  "burst": true
+ },
+ "strobe": {
+  "intensity": 0.5,
+  "speed": 0.6,
+  "build_ramp": true,
+  "loop_auto": true
+ },
+ "looks": {
+  "autoloops": [
+   "color pulse",
+   "chase",
+   "sweep",
+   "rainbow"
+  ],
+  "autoloop_bars": 8
+ },
+ "master": 0.7,
+ "layouts": {
+  "in_use": "",
+  "saved": {}
+ }
+}

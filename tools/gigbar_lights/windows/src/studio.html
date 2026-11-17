@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="llano-token" content="__LLANO_TOKEN__">
+<title>__LLANO_TITLE__</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
+<style>
+  /* The Live screen (1.20.0, the Light studio, Llano PM #23195). Everything on it is drawn by
+     studio_console.js, the one console the phone draws too; this page only gives it the window:
+     the room picture to steer on, the keyboard, and the laptop's own doors (start the live show,
+     preview a pad, Set up). */
+  html, body { height:100%; margin:0; background:#07080b; overflow:hidden; }
+  #studio { height:100vh; }
+  #gone { display:none; position:fixed; inset:0; z-index:90; background:#07080bee; color:#eceef5; align-items:center; justify-content:center;
+          text-align:center; padding:30px; font:15px/1.5 "Segoe UI", system-ui, sans-serif; }
+  #gone.on { display:flex; }
+  #gone p { color:#9aa1b5; font-size:13px; }
+  /* Changes from Llano that landed, and an app update waiting (Llano BL #12370): this window only. */
+  #notes { position:fixed; top:58px; right:12px; z-index:60; display:grid; gap:8px; max-width:min(400px, calc(100vw - 24px));
+           font:13px/1.45 "Segoe UI", system-ui, sans-serif; color:#eceef5; }
+  #notes .note { background:#0d1a16; border:1px solid #2b6b52; border-radius:12px; padding:10px 12px; box-shadow:0 10px 40px #000a; }
+  #notes .note.upd { background:#141a2b; border-color:#3a4a7a; }
+  #notes ul { margin:4px 0 6px; padding-left:18px; color:#c5cbd8; }
+  #notes button { font:inherit; color:inherit; background:#232a3d; border:1px solid #3a4258; border-radius:8px; padding:3px 12px; cursor:pointer; margin-right:6px; }
+</style>
+</head>
+<body>
+<div id="studio"></div>
+<div id="notes" role="status" aria-live="polite"></div>
+<div id="gone"><div><b id="gonemsg">Llano Lights has closed.</b>
+  <p id="gonehint">Open Llano Lights again from its desktop icon; this window closes by itself when it is back.</p></div></div>
+<script src="/studio_console.js"></script>
+<script>
+const TOKEN = document.querySelector('meta[name="llano-token"]').content;
+async function call(path, body) {   // {ok, error?, ...} whatever happens: the console says the words
+  try {
+    const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json", "X-Llano-Token": TOKEN}, body: JSON.stringify(body || {})});
+    let out = {};
+    try { out = await r.json(); } catch (e) {}
+    return r.ok ? {ok: true, ...out} : {...out, ok: false, error: out.error || "The laptop refused that (" + r.status + ")."};
+  } catch (e) { return {ok: false, error: "Llano Lights isn't answering. Is it still open?"}; }
+}
+// A window from an earlier run (an update, a crash and a fresh start) closes itself: the new run
+// opens its own window. Never reload into the new run: that would be a second live window.
+let launch = "", closed = false, titled = "", restarting = false;
+function gone(msg, hint) {
+  document.getElementById("gonemsg").textContent = msg;
+  document.getElementById("gonehint").style.display = hint ? "" : "none";
+  document.getElementById("gone").classList.add("on");
+}
+// Llano's changes landed / an update waiting (Llano BL #12370), redrawn only when what it says changes.
+let notesKey = "";
+const escHtml = (t) => String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+function notes(s) {
+  const ld = s.llano && s.llano.landed, u = s.update || {};
+  const upd = u.state === "offered" && !u.later && u.version ? u : null;
+  // downloading / downloaded (Llano BL #12377): the show keeps working; it installs only on his press
+  const busy = (u.state === "downloading" || u.state === "ready") && u.version ? u : null;
+  const key = JSON.stringify([ld && ld.rev, upd && upd.version, busy && busy.state, busy && busy.version, !!s.running]);
+  if (key === notesKey) return;
+  notesKey = key;
+  const box = document.getElementById("notes");
+  box.innerHTML = "";
+  if (ld && ld.changes && ld.changes.length) {
+    const n = ld.changes.length, at = ld.at ? new Date(ld.at * 1000).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"}) : "";
+    const d = document.createElement("div");
+    d.className = "note";
+    d.innerHTML = `<b>${n === 1 ? "A change" : n + " changes"} from Llano landed${at ? ", " + escHtml(at) : ""}.</b> Everything Llano sent is here (change #${escHtml(ld.rev)}).` +
+      `<ul>${ld.changes.map(c => `<li>#${escHtml(c.rev)} ${escHtml(c.what)}</li>`).join("")}</ul>`;
+    const ok = document.createElement("button");
+    ok.textContent = "OK";
+    ok.addEventListener("click", () => { call("/api/llano-landed-ok"); box.removeChild(d); });
+    d.append(ok);
+    box.append(d);
+  }
+  if (upd) {
+    const d = document.createElement("div");
+    d.className = "note upd";
+    d.innerHTML = `<b>Llano Lights ${escHtml(upd.version)} is ready.</b> ${escHtml(upd.notes || "")} ` +
+      (s.running ? "Stop the show, then update." : "Updating takes about a minute and keeps your settings.") + "<br>";
+    const go = document.createElement("button");
+    go.textContent = "Update now";
+    go.disabled = !!s.running;
+    go.addEventListener("click", () => call("/api/update"));
+    const later = document.createElement("button");
+    later.textContent = "Later";
+    later.addEventListener("click", () => { call("/api/update-later"); box.removeChild(d); });
+    d.append(go, later);
+    box.append(d);
+  }
+  if (busy) {
+    const d = document.createElement("div");
+    d.className = "note upd";
+    if (busy.state === "downloading") {
+      d.innerHTML = `<b>Downloading Llano Lights ${escHtml(busy.version)}.</b> The lights keep working; nothing restarts during a show.`;
+    } else {
+      d.innerHTML = `<b>Llano Lights ${escHtml(busy.version)} is downloaded.</b> ` +
+        (s.running ? "Stop the show, then press Install now." : "Install now restarts Llano Lights (about a minute) and keeps your settings.") + "<br>";
+      const go = document.createElement("button");
+      go.textContent = "Install now";
+      go.disabled = !!s.running;
+      go.addEventListener("click", () => call("/api/install-update"));
+      d.append(go);
+    }
+    box.append(d);
+  }
+}
+LlanoStudio.mount(document.getElementById("studio"), {
+  layout: "wide", keys: true, stageFrame: "/preview?embed=1&stage=1", pollMs: 200,
+  links: {setup: "/setup", shows: "/shows"},
+  lostText: "Llano Lights is not answering. Check that it is still open. This window comes back by itself.",
+  transport: {
+    // the timer covers the body too, so a stalled answer never stops the polling (Llano BL #11473)
+    state: async () => { if (closed) throw new Error("closed");
+      const ac = new AbortController(), t = setTimeout(() => ac.abort(), 4000);
+      try { return await (await fetch("/api/studio", {cache: "no-store", signal: ac.signal})).json(); } finally { clearTimeout(t); } },
+    send: (cmd) => call("/api/studio", cmd),
+    stop: () => call("/api/stop"),
+    run: (mode) => call("/api/studio-go", {mode}),
+    peek: (key) => call("/api/studio-peek", {key}),
+    ack: () => call("/api/warning-ok"),
+    settings: async () => (await fetch("/api/settings", {cache: "no-store"})).json(),
+    change: (ops) => call("/api/settings", {ops}),
+  },
+  caps: {},
+  onState: (s) => {
+    const title = "Llano Lights " + s.version + (s.built ? " (built " + s.built + ")" : "");
+    if (title !== titled) document.title = titled = title;
+    if (!launch) launch = s.launch || "";
+    else if (s.launch && s.launch !== launch) { closed = true; gone("Llano Lights opened again in a new window. You can close this one."); try { window.close(); } catch (e) {} return; }
+    document.getElementById("gone").classList.remove("on");
+    restarting = !!(s.update && s.update.state === "restarting");
+    notes(s);
+  },
+  onLost: (n) => {
+    if (n < 6 || closed) return;
+    if (restarting) gone("Installing the update. The new version opens in its own window in about a minute.");
+    else gone("Llano Lights has closed.", true);
+  },
+});
+</script>
+<script>/* the window's "not running" screen instead of Edge's error page (sw.js, Llano BL #12377) */
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});</script>
+</body>
+</html>

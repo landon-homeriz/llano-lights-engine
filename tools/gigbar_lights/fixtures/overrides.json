@@ -1,0 +1,72 @@
+{
+  "_about": "What the fixture libraries lack, by profile key (manufacturer/model) and mode (fixture_profiles.apply_overrides). Per channel (by its library name): id (the app's name for it), element (the part it belongs to), attr (rename a one-attribute channel), hold (a fixed byte, so the light never runs its own program), functions (replace how it is driven: kind level/bipolar/choice/fixed, attr, lo, hi, positive, offset, aliases, byte, when, unless). 'elements' renames a part everywhere. Every value here was checked on the real rig (Llano BL #12147 head wheel, BL #11606 strobes) and is pinned byte for byte by tests/gigbar_lights/test_fixture_profiles.py.",
+  "chauvet/gigbar-move": {
+    "default_role": "wash",
+    "roles": {"par": "wash", "derby": "effects", "laser": "effects", "strobe": "strobes", "head": "movers"},
+    "notes": [
+      "35-channel is the only mode with per-head pan, tilt, color and gobo (manual Rev. 4).",
+      "Head 1 is channels 24-29, the bar's own left as it faces out.",
+      "The heads' color wheel slots, in order: White, Dark blue, Orange, Red, Light blue, Yellow, Green, Purple (seen on the real heads, Llano BL #12147; neither Chauvet nor QLC+ names them).",
+      "White strobe (ch21) and UV strobe (ch22) can't be used together (manual): white wins."
+    ],
+    "elements": {"mover1": "head1", "mover2": "head2"},
+    "modes": {
+      "35-channel": {
+        "channels": {
+          "Derby 1 Color": {"functions": [{"kind": "choice", "attr": "color", "offset": 5,
+            "aliases": {"off": 0, "red": 1, "green": 2, "blue": 3, "yellow": 4, "magenta": 5, "cyan": 6, "white": 7, "auto": 8, "auto2": 9}}]},
+          "Derby 2 Color": {"functions": [{"kind": "choice", "attr": "color", "offset": 5,
+            "aliases": {"off": 0, "red": 1, "green": 2, "blue": 3, "yellow": 4, "magenta": 5, "cyan": 6, "white": 7, "auto": 8, "auto2": 9}}]},
+          "Laser Color": {"element": "laser", "functions": [{"kind": "choice", "attr": "color", "offset": 5,
+            "aliases": {"off": 0, "red": 1, "green": 2, "both": 3, "red_flash": 4, "green_flash": 5, "alternate": 6}}]},
+          "Laser Strobe": {"element": "laser"},
+          "Laser Movement Speed": {"element": "laser"},
+          "Strobe Patterns": {"element": "strobe", "id": "strobe.program", "functions": [
+            {"kind": "choice", "attr": "program", "positive": true, "offset": 5},
+            {"kind": "fixed", "byte": 200, "when": ["strobe.white", "strobe.uv"]}]},
+          "White Strobe Dimmer": {"element": "strobe", "attr": "white"},
+          "UV Strobe Dimmer": {"element": "strobe", "id": "strobe.uv", "functions": [
+            {"kind": "fixed", "byte": 0, "when": ["strobe.white"]},
+            {"kind": "level", "attr": "uv"}]},
+          "White / UV Strobe Speed": {"element": "strobe", "functions": [{"kind": "level", "attr": "speed"}]},
+          "Mover 1 Strobe": {"functions": [{"kind": "level", "attr": "strobe", "lo": 10, "hi": 255, "positive": true}]},
+          "Mover 2 Strobe": {"functions": [{"kind": "level", "attr": "strobe", "lo": 10, "hi": 255, "positive": true}]},
+          "Mover 1 Color": {"functions": [{"kind": "choice", "attr": "color", "offset": 4,
+            "aliases": {"open": 0, "white": 0, "dark blue": 1, "orange": 2, "red": 3, "light blue": 4, "yellow": 5, "green": 6, "purple": 7}}]},
+          "Mover 2 Color": {"functions": [{"kind": "choice", "attr": "color", "offset": 4,
+            "aliases": {"open": 0, "white": 0, "dark blue": 1, "orange": 2, "red": 3, "light blue": 4, "yellow": 5, "green": 6, "purple": 7}}]},
+          "Mover 1 Pattern": {"functions": [{"kind": "choice", "attr": "gobo", "offset": 4}]},
+          "Mover 2 Pattern": {"functions": [{"kind": "choice", "attr": "gobo", "offset": 4}]}
+        }
+      }
+    }
+  },
+  "venue/tetra-6": {
+    "default_role": "wash",
+    "notes": ["6 Channel mode: R, G, B, Amber, Dimmer, Strobe."],
+    "modes": {
+      "6 Channel": {
+        "channels": {
+          "Strobe": {"functions": [{"kind": "level", "attr": "strobe", "lo": 10, "hi": 255, "positive": true}]}
+        }
+      }
+    }
+  },
+  "chauvet/freedom-stick": {
+    "default_role": "wash",
+    "wireless": "D-Fi",
+    "notes": [
+      "Reached over Chauvet D-Fi wireless through a D-Fi Hub 2 on the DMX line; set each stick's D-Fi channel to the hub's.",
+      "8-CH mode. Color macros, auto programs and their speed are held at 0 (no function) so the stick follows the show's RGB and never runs its own."
+    ],
+    "modes": {
+      "8 Channel": {
+        "channels": {
+          "Color Macros": {"id": "macro", "hold": 0},
+          "Auto Programs": {"id": "program", "hold": 0},
+          "Auto Speed (Ch7 is 011–234), Sound Sensitivity (Ch7 is 235–255)": {"id": "speed", "hold": 0}
+        }
+      }
+    }
+  }
+}

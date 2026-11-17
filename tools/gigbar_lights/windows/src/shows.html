@@ -1,0 +1,1831 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="llano-token" content="__LLANO_TOKEN__">
+<title>__LLANO_TITLE__ · Shows</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+  :root { --bg:#07080b; --panel:#0f1117; --raise:#161924; --line:#232734; --text:#e8eaf0; --dim:#8a90a2; --faint:#5f6577;
+          --accent:#7cf0c8; --warn:#ffb454; --bad:#ff6b6b;
+          --intro:#3d5a80; --verse:#2a9d8f; --build:#e9a23b; --drop:#ff4d8d; --main:#d6336c; --breakdown:#7b5cd6; --outro:#34495e; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 "Segoe UI", system-ui, sans-serif; display:flex; flex-direction:column; }
+  button, select, input, textarea { font:inherit; color:var(--text); }
+  button { background:var(--raise); border:1px solid var(--line); border-radius:8px; padding:6px 11px; cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.45; cursor:default; }
+  button.primary { background:var(--accent); color:#06120d; border-color:var(--accent); font-weight:600; }
+  button.danger { color:var(--bad); }
+  button.small { padding:2px 7px; font-size:12px; border-radius:6px; }
+  input, select, textarea { background:var(--bg); border:1px solid var(--line); border-radius:7px; padding:6px 8px; min-width:0; }
+  textarea { width:100%; resize:vertical; min-height:90px; font:12.5px/1.5 Consolas, monospace; }
+  header { display:flex; align-items:center; gap:14px; padding:10px 16px; border-bottom:1px solid var(--line); flex:none; }
+  header a { color:var(--dim); text-decoration:none; } header a:hover { color:var(--accent); }
+  header h1 { font-size:15px; margin:0; font-weight:600; }
+  header .grow { flex:1; }
+  #msg { color:var(--warn); font-size:12.5px; }
+  .wrap { flex:1; display:flex; min-height:0; }
+  aside { flex:0 0 250px; border-right:1px solid var(--line); padding:14px; overflow-y:auto; background:var(--panel); }
+  main { flex:1; min-width:0; overflow-y:auto; padding:14px 18px 40px; }
+  h2 { font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); margin:18px 0 8px; font-weight:600; }
+  h2:first-child { margin-top:0; }
+  .hint { color:var(--dim); font-size:12.5px; margin:4px 0 8px; }
+  .saved button { display:block; width:100%; text-align:left; margin-bottom:6px; background:var(--bg); }
+  .saved button b { display:block; } .saved button span { color:var(--dim); font-size:12px; }
+  .saved button.on { border-color:var(--accent); background:#0d1a16; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .namebar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .namebar input { flex:1; min-width:200px; font-size:16px; font-weight:600; padding:7px 10px; }
+  .tabs { display:flex; gap:4px; margin-top:6px; flex-wrap:wrap; }
+  .tabs button[aria-selected="true"] { border-color:var(--accent); color:var(--accent); }
+  .tabpane { display:none; margin-top:8px; padding:10px; border:1px solid var(--line); border-radius:9px; background:var(--panel); }
+  .tabpane.on { display:block; }
+  .jobs { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin-top:8px; }
+  .job { border:1px solid var(--line); border-radius:9px; background:var(--panel); padding:10px 12px; }
+  .job h3 { margin:0 0 7px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); font-weight:700; }
+  .job .hint { margin:7px 0 0; }
+  button.linkish { background:none; border:0; padding:0; color:var(--dim); text-decoration:underline; font:inherit; cursor:pointer; }
+  @media (max-width:900px) { .jobs { grid-template-columns:1fr; } }
+  #results { margin-top:8px; max-height:220px; overflow-y:auto; }
+  #results div { display:flex; gap:8px; align-items:center; padding:3px 0; border-bottom:1px solid #1a1d27; }
+  #results div span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .stage { display:grid; grid-template-columns:minmax(0, 1fr); gap:10px; margin-top:12px; }
+  #view { width:100%; height:300px; border:1px solid var(--line); border-radius:10px; background:var(--bg); }
+  .player { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #nowline { color:var(--dim); font:12.5px Consolas, monospace; flex:1; min-width:200px; }
+  #timeline { position:relative; display:flex; height:64px; border:1px solid var(--line); border-radius:9px; overflow:hidden; cursor:pointer; background:var(--panel); }
+  #timeline .song { position:relative; height:100%; display:flex; flex-direction:column; border-right:2px solid var(--bg); min-width:6px; }
+  #timeline .song:last-child { border-right:0; }
+  #timeline .secs { display:flex; flex:1; }
+  #timeline .secs i { display:block; height:100%; }
+  #timeline .lbl { position:absolute; left:4px; top:3px; right:4px; font-size:11px; line-height:1.2; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+                   text-shadow:0 1px 2px #000, 0 0 4px #000; pointer-events:none; }
+  #timeline .lbl small { display:block; color:#e8eaf0cc; }
+  #timeline .song.now { outline:2px solid var(--accent); outline-offset:-2px; }
+  #playhead { position:absolute; top:0; bottom:0; width:2px; background:#fff; box-shadow:0 0 6px #fff; pointer-events:none; display:none; }
+  #timeinfo { display:flex; justify-content:space-between; color:var(--faint); font:11.5px Consolas, monospace; margin-top:3px; }
+  .legend { display:flex; gap:10px; flex-wrap:wrap; font-size:11.5px; color:var(--dim); margin-top:4px; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:-1px; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; }
+  th { text-align:left; font-weight:600; color:var(--dim); font-size:11.5px; padding:4px 6px; border-bottom:1px solid var(--line); }
+  td { padding:5px 6px; border-bottom:1px solid #1a1d27; vertical-align:middle; }
+  tr.now td { background:#0d1a16; }
+  td.num { color:var(--faint); width:28px; font:12px Consolas, monospace; }
+  td.song b { display:block; font-weight:600; } td.song span { color:var(--dim); font-size:12px; }
+  td.meta { color:var(--dim); font:12px Consolas, monospace; white-space:nowrap; }
+  td.why { color:var(--faint); font-size:12px; }
+  td.acts { white-space:nowrap; text-align:right; }
+  /* Starts at / Ends at (Llano PM #23751) */
+  .cut { margin-top:4px; font:12px Consolas, monospace; }
+  .cut button.cutbtn { font:12px Consolas, monospace; padding:2px 6px; white-space:nowrap; }
+  .cut .flag { display:inline-block; margin-top:3px; font:11px "Segoe UI", system-ui, sans-serif; padding:1px 7px; border:1px solid #ffb45466; color:var(--warn); border-radius:20px; }
+  .cut .mine { color:var(--accent); }
+  tr.cutedit td { background:var(--panel); padding:10px 12px; }
+  .cutgrid { display:grid; grid-template-columns:auto minmax(0, 1fr); gap:8px 12px; align-items:center; }
+  .cutgrid .ctl { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .cutgrid input { width:78px; font:13px Consolas, monospace; }
+  #cutsum { margin:6px 0 0; }
+  .badge { display:inline-block; font-size:11px; padding:1px 6px; border-radius:20px; border:1px solid var(--line); color:var(--dim); white-space:nowrap; }
+  .badge.ok { color:var(--accent); border-color:#7cf0c855; } .badge.est { color:var(--warn); border-color:#ffb45455; }
+  .empty { padding:24px; text-align:center; color:var(--dim); border:1px dashed var(--line); border-radius:10px; margin-top:12px; }
+  .elsewhere { margin-top:18px; display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px; }
+  .card { border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--panel); }
+  .card b { display:block; margin-bottom:3px; }
+  .card p { margin:0 0 8px; color:var(--dim); font-size:12.5px; }
+  label.opt { display:flex; gap:6px; align-items:center; color:var(--dim); font-size:12.5px; }
+  /* the set arranger (1.18.0) */
+  #arranger { display:none; margin-top:12px; border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:12px 14px; }
+  #arranger.on { display:block; }
+  #arranger .top { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #arranger .top .grow { flex:1; }
+  .curves { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px; margin-top:10px; }
+  .curve { border:1px solid var(--line); border-radius:9px; padding:6px 8px 4px; background:var(--bg); }
+  .curve b { font-size:12px; color:var(--dim); font-weight:600; } .curve b span { color:var(--faint); font-weight:400; }
+  .curve svg { display:block; width:100%; height:90px; overflow:visible; }
+  .curve .tgt { fill:none; stroke:var(--faint); stroke-width:1; stroke-dasharray:3 3; }
+  .curve .was { fill:none; stroke:#8a90a266; stroke-width:1.5; }
+  .curve .now { fill:none; stroke:var(--accent); stroke-width:2; }
+  .curve circle { fill:var(--accent); cursor:pointer; } .curve circle.focus { fill:#fff; r:5; } .curve circle.moment { fill:#ffd166; }
+  .arrlist { margin-top:10px; }
+  .arrlist h3 { font-size:12px; margin:12px 0 4px; color:var(--text); }
+  .arow { display:grid; grid-template-columns:26px minmax(0, 1.4fr) 92px 112px 132px minmax(0, 2fr); gap:8px; align-items:center;
+          padding:4px 0; border-bottom:1px solid #1a1d27; font-size:12.5px; }
+  .arow.focus { background:#0d1a16; }
+  .arow { cursor:grab; } .arow.drop { box-shadow:inset 0 2px 0 var(--accent); } .arow.dragging { opacity:.4; }
+  .arow .n { color:var(--faint); font:12px Consolas, monospace; }
+  .arow .t { min-width:0; } .arow .t b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .arow .t span { color:var(--dim); font-size:11.5px; }
+  .arow .m { color:var(--dim); font:11.5px Consolas, monospace; white-space:nowrap; }
+  .arow .r { color:var(--dim); }
+  .arow select { font-size:12px; padding:3px 4px; width:100%; }
+  .pin { color:var(--warn); font-size:11px; }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .chip { font-size:12px; border-radius:20px; padding:3px 10px; color:var(--text); }
+  .chip.note { cursor:default; color:var(--dim); border-style:dashed; white-space:normal; border-radius:12px; max-width:100%; }
+  /* the seven steps (1.20) */
+  .steps { position:sticky; top:-14px; z-index:5; display:flex; gap:4px; flex-wrap:wrap; margin:10px -18px 0; padding:10px 18px;
+           background:var(--bg); border-bottom:1px solid var(--line); }
+  .steps a { display:flex; align-items:center; gap:7px; padding:5px 10px 5px 6px; border-radius:20px; border:1px solid var(--line);
+             color:var(--dim); text-decoration:none; font-size:12.5px; background:var(--panel); }
+  .steps a:hover { border-color:var(--accent); color:var(--text); }
+  .steps a i, .stepsec h2 i { font-style:normal; display:inline-grid; place-items:center; width:20px; height:20px; border-radius:50%;
+             border:1.5px solid var(--faint); font:600 11px "Segoe UI", system-ui, sans-serif; color:var(--dim); }
+  .steps a.done { color:var(--text); } .steps a.done i { background:var(--accent); border-color:var(--accent); color:#06120d; }
+  .steps a.done i::before { content:"\2713"; } .steps a.done i { font-size:0; } .steps a.done i::before { font-size:11px; }
+  .steps a.next { color:var(--text); border-color:#7cf0c877; background:#0d1a16; }
+  .stepsec { padding:18px 0 6px; border-bottom:1px solid #1a1d27; scroll-margin-top:52px; }
+  .stepsec:last-child { border-bottom:0; }
+  .stepsec > h2 { display:flex; align-items:center; gap:9px; font-size:15px; letter-spacing:0; text-transform:none; color:var(--text); margin:0 0 6px; }
+  .stepsec.done > h2 i { background:var(--accent); border-color:var(--accent); color:#06120d; }
+  h3.sub { font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); margin:18px 0 4px; font-weight:600; }
+  .lock { font-size:11px; font-weight:600; color:var(--dim); border:1px solid var(--line); border-radius:20px; padding:1px 8px; }
+  .lock::before { content:"\1F512  "; font-size:10px; }
+  .moods { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px; margin:6px 0; }
+  .mood { border:1px solid var(--line); border-radius:9px; background:var(--panel); padding:10px 12px; }
+  .mood b { display:block; margin-bottom:6px; } .mood .row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:6px 0; }
+  .mood .sw { width:28px; height:28px; border-radius:50%; border:1px solid var(--line); padding:0; cursor:pointer; }
+  .mood .sw.on { outline:2px solid var(--text); outline-offset:2px; }
+  .mood .kind button.on { outline:2px solid var(--accent); }
+  .mood .strip { height:16px; border-radius:6px; margin-top:6px; border:1px solid var(--line); }
+  table.rules { margin-top:4px; border:1px solid var(--line); border-radius:9px; border-collapse:separate; border-spacing:0; background:var(--panel); }
+  table.rules td, table.rules th { padding:7px 10px; } table.rules tr:last-child td { border-bottom:0; }
+  .meter { height:6px; border-radius:6px; background:var(--raise); overflow:hidden; max-width:420px; margin-top:6px; }
+  .meter b { display:block; height:100%; width:0; background:var(--accent); transition:width .3s; }
+  .chip.soft { display:inline-block; margin-top:3px; font-size:11px; padding:1px 7px; border:1px solid #ffd16655; color:#ffd166; border-radius:20px; white-space:nowrap; }
+  .chip.tag { display:inline-block; margin-top:3px; font-size:11px; padding:1px 9px; border:1px solid var(--line); border-radius:20px; white-space:nowrap; cursor:pointer; background:transparent; }
+  .chip.tag.hype { border-color:#ff5c8a88; color:#ff8fb0; } .chip.tag.dance { border-color:#7cf0c888; color:#7cf0c8; } .chip.tag.slow { border-color:#9db4ff88; color:#b8c8ff; }
+  td.part select { font-size:12px; padding:3px 4px; }
+  details.else { margin-top:14px; } details.else summary { cursor:pointer; color:var(--dim); font-size:12.5px; }
+  /* the wedding night (1.19.0) */
+  #night { margin-top:8px; }
+  .nightgrid { display:grid; grid-template-columns:auto minmax(150px, 220px) 84px minmax(0, 1fr); gap:6px 10px; align-items:center; margin:8px 0; max-width:900px; }
+  .nightgrid input[type=checkbox]:not(:checked) + .nm { color:var(--faint); text-decoration:line-through; }
+  .nightgrid input[type=checkbox]:not(:checked) + .nm + .t + input.sg { border-color:var(--line); opacity:.5; }
+  main a { color:var(--accent); }
+  .nightgrid input[type=text] { width:100%; min-width:0; }
+  .nightgrid .nm { color:var(--text); }
+  .nightgrid .none { color:var(--dim); font-size:12px; }
+  .nightgrid input.sg:placeholder-shown { border-color:#ffb45466; }
+  #night ol { margin:6px 0 0; padding-left:20px; color:var(--dim); font-size:12.5px; }
+  #night ol b, #night li b { display:inline; color:var(--text); }
+  #nightchecks li.ok, #nightmixxx li.ok { color:var(--accent); }
+  /* what only he can settle, at the top of Review (Llano BL #11473) */
+  #step-2 input.bad { border-color:var(--warn); outline:1px solid var(--warn); }
+  #nopart { margin:4px 0 12px; } #nopart .warns { margin:0; } #nopart .ok { color:var(--accent); font-size:12.5px; margin:0; }
+  @media (max-width:760px) { .nightgrid { grid-template-columns:auto 1fr; } .nightgrid .t, .nightgrid .sg { grid-column:2; } }
+  .warns { color:var(--warn); font-size:12px; margin:6px 0 0; padding-left:18px; }
+  .talk { margin-top:12px; border-top:1px solid var(--line); padding-top:10px; }
+  .talk .log { max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
+  .talk .q { align-self:flex-end; background:var(--raise); border-radius:10px 10px 2px 10px; padding:5px 10px; max-width:80%; }
+  .talk .a { align-self:flex-start; color:var(--text); background:#0d1a16; border:1px solid #7cf0c833; border-radius:10px 10px 10px 2px; padding:6px 10px; max-width:92%; }
+  .talk .row input { flex:1; min-width:220px; }
+  @media (max-width:900px) { .arow { grid-template-columns:22px minmax(0, 1fr) 100px; } .arow .m, .arow .r { grid-column:2 / -1; } }
+  @media (max-width:900px) { .wrap { flex-direction:column; overflow-y:auto; } aside { flex:none; border-right:0; border-bottom:1px solid var(--line); }
+                             main { overflow:visible; } td.why { display:none; } }
+</style>
+</head>
+<body>
+<header>
+  <a href="/" title="Back to Llano Lights">&#8592; Llano Lights</a>
+  <h1>Shows</h1>
+  <span id="msg" role="status"></span>
+  <div class="grow"></div>
+  <span id="runline" class="hint" style="margin:0"></span>
+</header>
+<div class="wrap">
+  <aside>
+    <h2>Saved shows</h2>
+    <div class="saved" id="saved"><p class="hint">Loading...</p></div>
+    <button id="new" class="primary" style="width:100%;margin-top:4px">New show</button>
+    <h2>How it works</h2>
+    <p class="hint">Give it a playlist or a handful of songs. It reads every song's sections (intro, build, drop, breakdown), gives each song a look for its place in the night, and lays the whole show out front to back. Preview its lights here, change any song's look, move songs, add or drop them, and save it by name. On the night the music plays in Mixxx and the lights follow it.</p>
+    <p class="hint">Songs in your Mixxx library get exact sections and make sound in the preview here. Songs only on Spotify get estimated sections, and at the party the lights find their beat by listening.</p>
+  </aside>
+  <main>
+    <div class="namebar">
+      <input id="title" placeholder="Name this show, like Megan's birthday party" maxlength="80" autocomplete="off">
+      <button id="save" class="primary">Save show</button>
+      <button id="del" class="danger" disabled>Delete</button>
+    </div>
+    <p class="hint" id="savewhy">A show is saved with its songs: add the songs in step 1 first, then Save show keeps them under this name.</p>
+    <p class="hint" id="savedline"></p>
+
+    <!-- The seven steps (1.20, the clean flow in the room llano-lights-show-designer). Every element id the
+         script uses is kept; the markup moved, the logic did not. The strip marks the steps that are done. -->
+    <nav class="steps" id="steps" aria-label="The steps">
+      <a href="#step-1" data-step="1"><i>1</i>Load</a>
+      <a href="#step-2" data-step="2"><i>2</i>Moments</a>
+      <a href="#step-3" data-step="3"><i>3</i>Listen</a>
+      <a href="#step-4" data-step="4"><i>4</i>Mood</a>
+      <a href="#step-5" data-step="5"><i>5</i>Review</a>
+      <a href="#step-6" data-step="6"><i>6</i>Build</a>
+      <a href="#step-7" data-step="7"><i>7</i>Rehearse</a>
+    </nav>
+
+    <section class="stepsec" id="step-1" aria-labelledby="h-step-1">
+      <h2 id="h-step-1"><i>1</i>Load the songs</h2>
+      <p class="hint">Numbered folders become the parts of the night, in their order: 1 Cocktail Hour, 2 Dinner, 3 Dancing, and a Moments folder for the dances' songs.</p>
+      <!-- Get my songs from Drive, and Add a song from this laptop (Llano BL #12342) -->
+      <div class="drivebox" id="drivebox">
+        <h3 class="sub">From your Drive folder</h3>
+        <div class="row"><button id="driveconnect" class="primary" title="Connects this laptop to the song folder Llano keeps for you in Drive. Once.">Connect my Drive folder</button>
+          <select id="drivepick" hidden aria-label="Your Drive song folders"></select><button id="drivepickgo" hidden>Connect this one</button>
+          <button id="driveget" class="primary" hidden title="Downloads only what is new or changed, then puts each song in its part of the night">Get my songs</button>
+          <span class="hint" id="drivename" style="margin:0"></span></div>
+        <p class="hint" id="driveline" aria-live="polite"></p>
+        <p class="hint">From your phone: put the song in its part's folder in Drive, then press Get my songs here.</p>
+        <h3 class="sub">Add a song from this laptop</h3>
+        <div class="row"><button id="addfilebrowse" title="Opens the Windows file picker">Choose the song...</button>
+          <input id="addfile" placeholder="or paste the song file's path" style="flex:1" autocomplete="off" aria-label="The song file's path">
+          <select id="addfilepart" aria-label="Its part of the night"></select><button id="addfilego">Add it</button></div>
+        <p class="hint">It is copied into this show's song folder, in that part's folder, so the night build finds it. A song added here stays when you press Get my songs.</p>
+        <h3 class="sub">Or load them another way</h3>
+      </div>
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="folder" aria-selected="true">A folder</button>
+        <button role="tab" data-tab="mixxx" aria-selected="false">Mixxx playlist</button>
+        <button role="tab" data-tab="search" aria-selected="false">Search my music</button>
+        <button role="tab" data-tab="paste" aria-selected="false">Paste a list</button>
+        <button role="tab" data-tab="spotify" aria-selected="false">Spotify playlist</button>
+      </div>
+      <div class="tabpane on" id="tab-folder">
+        <div class="row"><button id="browse" class="primary" title="Opens the Windows folder picker. Choose the folder and its songs are added.">Browse...</button>
+          <input id="folder" placeholder="or paste the folder's path, like C:\Users\you\Music\Wedding" style="flex:1" autocomplete="off" aria-label="The folder's path"><button id="addfolder">Add these songs</button></div>
+        <p class="hint">A folder of songs on this laptop, like the wedding folder synced from Drive. Subfolders named Cocktail Hour, Dinner or Dancing set each song's part of the night; files named Artist - Title read best, and tempo, key and year come from the files' tags.</p>
+        <p class="hint">The songs come in by folder name, then file name, A to Z: a folder named 1 - Cocktail Hour comes before 2 - Dinner, and inside each the files run in name order. They go after any songs already in the show.</p>
+      </div>
+      <div class="tabpane" id="tab-mixxx">
+        <div class="row"><select id="lists" style="flex:1"></select><button id="addlist">Add these songs</button></div>
+        <p class="hint" id="mixxxhint">Your Mixxx playlists and crates, in their order.</p>
+      </div>
+      <div class="tabpane" id="tab-search">
+        <div class="row"><input id="q" placeholder="Artist or song" style="flex:1" autocomplete="off"><button id="go">Search</button></div>
+        <div id="results"></div>
+      </div>
+      <div class="tabpane" id="tab-paste">
+        <textarea id="paste" placeholder="One song per line, like:&#10;Earth, Wind &amp; Fire - September&#10;At Last by Etta James&#10;Mr. Brightside by The Killers"></textarea>
+        <div class="row" style="margin-top:6px"><button id="addpaste">Add these songs</button>
+          <span class="hint" style="margin:0">A CSV export with artist and title columns works too.</span></div>
+      </div>
+      <div class="tabpane" id="tab-spotify">
+        <div class="row"><input id="spot" placeholder="https://open.spotify.com/playlist/..." style="flex:1" autocomplete="off"><button id="addspot">Add these songs</button></div>
+        <p class="hint">In Spotify: the playlist's &middot;&middot;&middot; menu, Share, Copy link to playlist. It must be public. This reads only the song names and lengths; Spotify doesn't share song structure, so these songs get estimated sections unless they're also in your Mixxx library.</p>
+      </div>
+      <p class="hint" id="progress" style="margin:6px 0 0"></p>
+    </section>
+
+    <section class="stepsec" id="step-2" aria-labelledby="h-step-2">
+      <h2 id="h-step-2"><i>2</i>Name the moments</h2>
+      <p class="hint">Pick each moment's song from the list: click a song box and choose. Untick a moment that isn't happening. Times are optional; with them, the night says where you are short on music.</p>
+      <p class="hint" id="momentsfrom"></p>
+      <div class="row">
+        <label class="opt">Cocktail hour starts <input id="nt-cocktail" type="text" placeholder="5:00" size="6" autocomplete="off"></label>
+        <label class="opt">Dinner starts <input id="nt-dinner" type="text" placeholder="6:15" size="6" autocomplete="off"></label>
+        <label class="opt">Dancing starts <input id="nt-dancing" type="text" placeholder="7:45" size="6" autocomplete="off"></label>
+      </div>
+      <p class="hint" id="timebad" hidden style="color:var(--warn)">Type it like 6:30. A time that can't be read is left out.</p>
+      <div class="grid nightgrid" id="nightmoments"></div>
+      <datalist id="momentsongs"></datalist>
+    </section>
+
+    <section class="stepsec" id="step-3" aria-labelledby="h-step-3">
+      <h2 id="h-step-3"><i>3</i>Listen</h2>
+      <p class="hint">Llano Lights reads every song: its tempo, its energy, and where the intro, the builds and the drops are. It starts by itself when songs come in. Then it reads each song's own file for where the dancing really starts and stops, for the Starts at and Ends at in Review.</p>
+      <div class="meter" aria-hidden="true"><b id="listenbar"></b></div>
+      <p class="hint" id="listenline" role="status"></p>
+    </section>
+
+    <section class="stepsec" id="step-4" aria-labelledby="h-step-4">
+      <h2 id="h-step-4"><i>4</i>Set the mood</h2>
+      <!-- Cocktail hour and dinner each get a mood he picks (BL #12340), filled in with Llano's
+           suggestion so he only changes what he dislikes (his 2026-11-14 "pre-populate suggestions"). -->
+      <p class="hint">Cocktail hour and dinner play a soft wash in this mood, whatever the song. Llano filled in a suggestion; change only what you want different. The same two choices are on the Live screen on the night.</p>
+      <div class="moods" id="moods"></div>
+      <p class="hint" id="rules">Always, whatever any look says: cocktail hour and dinner never have moving heads on people, spotlights, strobe or laser, and the moving heads run by themselves only in the dances (gently, on the dance floor, in the first dance and the parent dances). Stop heads and Take over on the Live screen are always yours, like any button you press yourself on the night.</p>
+    </section>
+
+    <section class="stepsec" id="step-5" aria-labelledby="h-step-5">
+      <h2 id="h-step-5"><i>5</i>Review</h2>
+      <!-- What only he can settle (Llano BL #11473): one line per item, saying what to do; one green line when
+           there is nothing. The app fills everything else itself (shows.fill). -->
+      <div id="nopart" role="status" hidden></div>
+      <!-- Three jobs, named for what they change (his 2026-11-13 "I can't tell these four apart"): the
+           ORDER the songs play in, and the LIGHTS each song gets. One line under each says what it does. -->
+      <div class="jobs">
+        <div class="job"><h3>Song order</h3>
+          <button id="arrange">Put the songs in a good order</button>
+          <p class="hint">Suggests an order that flows: easy tempo and key steps, energy that rises and rests, the dances in their places. You see it first; nothing changes until you save it.</p>
+        </div>
+        <div class="job"><h3>Lights</h3>
+          <button id="design" class="primary">Pick the lights for every song</button>
+          <p class="hint">Gives each song a light look for its place in the night, on this laptop, in a second. Looks you chose yourself are kept. <button id="designall" class="linkish" title="Also replaces the looks you chose yourself">Start over, my picks too</button></p>
+        </div>
+        <div class="job"><h3>Lights made for this night</h3>
+          <button id="designllano">Have Llano design the lights</button>
+          <p class="hint">You tell Llano about the night (colors, mood) on llano.app and it makes looks only this show has. Needs internet; the show is saved first, and the looks then play with no internet.</p>
+        </div>
+      </div>
+
+      <section id="arranger" aria-label="Set arranger">
+        <div class="top">
+          <b>Song order</b>
+          <label class="opt">Event <select id="event"><option value="wedding">Wedding</option><option value="party">After-party</option></select></label>
+          <button id="arrgo" class="primary">Suggest an order</button>
+          <span class="hint" id="arrline" style="margin:0"></span>
+          <div class="grow"></div>
+          <button id="arrundo" disabled title="Put back the order before the last change">Undo</button>
+          <button id="arruse" class="primary" disabled title="Make this the show's order and save it; the Mixxx playlist follows it">Save as the show's order</button>
+          <button id="arrclose" title="Close the arranger (nothing changes until you save)">Close</button>
+        </div>
+        <p class="hint" id="arrhelp">Drag a song to move it; the curve shows the change against the old one. Every song gets a part of the night (it comes from the playlist, crate or folder name, or pick it below) and a reason for its spot. A wedding runs cocktail hour, dinner, then the dancing: the couple's dances, a hype opener everyone knows, waves with breathers, a slow-dance window, and a big sing-along close.</p>
+        <div class="curves" id="curves"></div>
+        <div class="chips" id="chips"></div>
+        <ul class="warns" id="warns"></ul>
+        <div class="talk">
+          <div class="log" id="log" aria-live="polite"></div>
+        </div>
+        <div class="arrlist" id="arrlist"></div>
+      </section>
+
+      <h3 class="sub">Songs, in play order</h3>
+      <p class="hint">Change a song's part of the night or its look here. Cocktail hour and dinner songs play a soft wash only, whatever look they have.</p>
+      <p class="hint">Starts and Ends: where each song's copy for the night begins and finishes. A dance song starts where the dancing starts (a DJ mixes in past a long intro) and finishes where the dancing stops, so the floor never waits. Cocktail hour, dinner and the moments play whole. Tap a song's times to hear it from there and move it. Your own song files are never changed.</p>
+      <p class="hint" id="cutsum" role="status"></p>
+      <div id="songs"></div>
+    </section>
+
+    <section class="stepsec" id="step-6" aria-labelledby="h-step-6">
+      <h2 id="h-step-6"><i>6</i>Build the night</h2>
+      <div id="night" class="card" aria-label="The wedding night">
+        <b>Build the whole night for Mixxx</b>
+        <p>Turns this show into one folder you play from: every song level-matched with a clean start and finish, a silent "hold" for each live moment (toasts, cake, the dances), a few numbered playlists in the order of the night, and a one-page run sheet. Mixxx's Auto DJ plays it; when a moment is over you press the second button at the top of Mixxx's Auto DJ page (Fade Now). Your original files are never changed.</p>
+        <div class="row"><button id="nightbrowse" title="Opens the Windows folder picker">Browse...</button><input id="nightfolder" placeholder="The folder your song files are in, like C:\Users\you\Music\Wedding" style="flex:1" autocomplete="off"></div>
+        <p class="hint" id="nightfrom" style="margin:4px 0 0"></p>
+        <div class="row" style="margin-top:10px">
+          <button id="nightbuild" class="primary">Build the night</button>
+          <button id="nightload" disabled title="With Mixxx closed: saves a copy of Mixxx's library, adds this night's songs and numbered playlists, puts playlist 1 in the Auto DJ queue, sets Auto DJ to Full Track, then opens Mixxx. It never changes your own songs or playlists.">Load Mixxx</button>
+          <button id="nightcheck" title="Reads Mixxx's settings and says whether Auto DJ is set the way these files expect. It changes nothing.">Check Mixxx's Auto DJ</button>
+          <button id="nightopen" disabled>Open the folder</button>
+          <button id="nightsheet" disabled>Open the run sheet</button>
+          <span class="hint" id="nightwake" style="margin:0">These wake up once the night is built.</span>
+          <span class="hint" id="nightline" style="margin:0"></span>
+        </div>
+        <p class="hint">It builds into your Music folder, under Llano Lights shows, in a folder named for this show. Building the same show again replaces that folder's songs, so close Mixxx first.</p>
+        <p class="hint" id="nightwhere" style="display:none"></p>
+        <ul class="warns" id="nightchecks"></ul>
+        <details id="nightcuts" style="display:none;margin-top:6px"><summary class="hint" style="cursor:pointer;margin:0"></summary>
+          <p class="hint">Every song is played whole unless it is listed here. A dance song starts where the dancing starts and finishes where it stops, so the floor never goes quiet between songs. To change where one starts or ends, tap its times in Review (step 5), then build again.</p>
+          <div id="nightcutlist"></div></details>
+        <ul class="warns" id="nightmixxx"></ul>
+        <div id="nightnext" style="display:none">
+          <!-- Mixxx 2.5.4 shows no words on Enable Auto DJ or Fade Now: they are the first and second icon
+               buttons at the top of its Auto DJ page (the lead's proof run, Llano BL #11473) -->
+          <p class="hint" style="margin-top:8px">After the build: close Mixxx (if it asks whether to exit while a deck is playing, click Yes) and press <b style="display:inline">Load Mixxx</b>. It saves a copy of Mixxx's library first, adds this night's songs and numbered playlists, lines up playlist 1 in Auto DJ, sets Auto DJ to Full Track with <span id="nightsecs2">2</span> seconds, and opens Mixxx. On the night, click <b style="display:inline">Auto DJ</b> in Mixxx's list on the left. The first button at the top of that page starts the music (Enable Auto DJ). The second button moves on each time a moment is over (Fade Now). Neither has words on it; the run sheet has a picture.</p>
+          <details id="nighthand"><summary class="hint" style="cursor:pointer;margin:6px 0 0">If Load Mixxx can't do it: the same thing by hand</summary>
+          <ol>
+            <li>Preferences, Library: add the folder above (<span id="nightpath"></span>) and let it scan.</li>
+            <li>Playlists, right click, Import Playlist: import each numbered playlist from that folder.</li>
+            <li>Auto DJ: pick <b>Full Track</b> and set the box marked sec. beside it to <b id="nightsecs">2</b>. Press "Check Mixxx's Auto DJ" here to confirm.</li>
+            <li>On the night: right click playlist 1, <b>Add to Auto DJ Queue (replace)</b>, then the first button at the top of Mixxx's Auto DJ page (Enable Auto DJ). The run sheet says the rest.</li>
+          </ol></details>
+        </div>
+      </div>
+    </section>
+
+    <section class="stepsec" id="step-7" aria-labelledby="h-step-7">
+      <h2 id="h-step-7"><i>7</i>Rehearse</h2>
+      <p class="hint"><b style="color:var(--text)">Music plays in Mixxx. Llano Lights follows it.</b> This is a preview: it runs the show's lights on the picture (tick Also on the lights for your real rig) so you can check each song's look. It is not where the music plays on the night. Then do the full <a href="https://llano.app/llano-lights-show-designer.html#dress-rehearsal-at-home" target="_blank" rel="noopener">dress rehearsal at home</a>.</p>
+      <div class="stage">
+        <div>
+          <div id="timeline" title="The whole show front to back. Click to preview from there."><div id="playhead"></div></div>
+          <div id="timeinfo"><span>0:00</span><span id="total">0:00</span></div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="player">
+          <button id="play" class="primary" title="Runs the show's lights on the picture. Music on the night plays in Mixxx.">&#9654; Preview the lights</button>
+          <button id="prev" disabled>&#9664;&#9664; Song</button>
+          <button id="pause" disabled>Pause</button>
+          <button id="next" disabled>Song &#9654;&#9654;</button>
+          <button id="stop" class="danger" disabled title="Click twice to stop">Stop</button>
+          <label class="opt"><input type="checkbox" id="onlights">Also on the lights</label>
+          <span id="nowline"></span>
+        </div>
+        <p class="hint" id="soundline"></p>
+        <iframe id="view" src="/preview?embed=1" title="The lights and the room"></iframe>
+      </div>
+      <label class="opt card" style="margin-top:12px"><input type="checkbox" id="livefollow">
+        <span><b style="color:var(--text);display:inline">Use this show's looks in the Live show.</b>
+        When Mixxx, Spotify or YouTube Music plays one of this show's songs, the lights play its look from here. One show at a time; save the show first.</span></label>
+      <details class="else" id="elsewhere">
+        <summary>Play it somewhere else</summary>
+        <div class="elsewhere">
+          <div class="card"><b>DJ it in Mixxx</b><p>Saves the show's order as a playlist file. In Mixxx: Playlists, right click, Import Playlist. Then start the Live show and the lights follow each song, with its look when the box above is ticked.</p>
+            <button id="m3u">Make the Mixxx playlist</button><p id="m3uline" style="margin:6px 0 0"></p></div>
+          <div class="card"><b>Play it from Spotify</b><p>Play the same songs in Spotify and start the Live show. The lights find the beat by listening and match each song by its name, so with the box above ticked each song plays its look.</p>
+            <button id="copylist">Copy the song list</button></div>
+        </div>
+      </details>
+    </section>
+  </main>
+</div>
+<script>
+const TOKEN = document.querySelector('meta[name="llano-token"]').content;
+const $ = (s) => document.querySelector(s);
+const KINDS = ["intro", "verse", "build", "drop", "main", "breakdown", "outro"];
+const KIND_LABEL = {intro: "Intro", verse: "Verse", build: "Build", drop: "Drop", main: "Main", breakdown: "Breakdown", outro: "Outro"};
+const LOOK_TINT = {"slow-dance": "#a9c7ff", "warm-up": "#ffb454", groove: "#7cf0c8", peak: "#ff4d8d", "sing-along": "#ffd166", house: "#c8ccd8"};
+let H = {shows: [], looks: [], lists: [], mixxx: false, live_show: "", most: 120};
+let show = {name: "", title: "", note: "", looks: {}, songs: [], moods: null};
+let dirty = false, busy = false, app = null;
+
+function esc(t) { return String(t ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+function mmss(s) { s = Math.max(0, Math.round(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${x}` : `${m}:${x}`; }
+// The header line (Llano BL #11473): a line about one action clears after 10 seconds or when he moves to
+// another step, whichever is first; a line that says something is wrong stays until he acts.
+let msgTimer = 0, msgWarn = false, msgStep = 0, curStep = 0;
+function clearMsg() { clearTimeout(msgTimer); $("#msg").textContent = ""; msgWarn = false; }
+function say(t, warn = true) { const m = $("#msg"); m.textContent = t; m.style.color = warn ? "var(--warn)" : "var(--accent)";
+  msgWarn = !!warn; msgStep = curStep; clearTimeout(msgTimer); if (!warn) msgTimer = setTimeout(clearMsg, 10000); }
+const stepOf = (el) => { const a = el && el.closest && el.closest("#steps [data-step]"); if (a) return +a.dataset.step;
+  const sec = el && el.closest && el.closest(".stepsec"); return sec ? +sec.id.replace("step-", "") : 0; };
+// He acts: a press or a key in any control. A warning ends there (the press that fixes it may say
+// something new); a line about an action ends when the press is in another step.
+function acted(e) {
+  const el = e.target; if (!el || !el.closest || !el.closest("button, a, select, input, textarea, summary, label, [data-step]")) return;
+  if (e.type === "keydown" && ["Tab", "Shift", "Control", "Alt", "Meta"].includes(e.key)) return;
+  const k = stepOf(el); if (k) curStep = k;
+  if (!$("#msg").textContent) return;
+  if (msgWarn || (k && k !== msgStep)) clearMsg();
+}
+// on click, not pointerdown: a long line wraps the header, and taking it away between press and release
+// would move the page under his pointer so the press lands on nothing
+document.addEventListener("click", acted, true);
+document.addEventListener("keydown", acted, true);
+document.addEventListener("input", acted, true);   // a paste or a pick fills a box with no key pressed
+async function api(action, body) {
+  try {
+    const r = await fetch("/api/shows-" + action, {method: "POST", headers: {"Content-Type": "application/json", "X-Llano-Token": TOKEN},
+                                                    body: JSON.stringify(body || {})});
+    const s = await r.json().catch(() => ({}));
+    if (!r.ok) { say(s.error || "That didn't work."); return null; }
+    return s;
+  } catch (e) { say("Llano Lights isn't answering. Is it still open?"); return null; }
+}
+async function post(path, body) {
+  try { const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json", "X-Llano-Token": TOKEN}, body: JSON.stringify(body || {})});
+        const s = await r.json().catch(() => ({})); if (!r.ok && s.error) say(s.error); return r.ok; } catch (e) { return false; }
+}
+const songLen = (s) => s.secs || (s.sections && s.sections.length ? s.sections[s.sections.length - 1].end : 210);
+const totalLen = () => show.songs.reduce((a, s) => a + songLen(s), 0);
+const startOf = (i) => show.songs.slice(0, i).reduce((a, s) => a + songLen(s), 0);
+function touch() { dirty = true; renderAll(); }
+
+// --- Starts at and Ends at (Llano PM #23751) -----------------------------------------------------------------
+// Every song's copy for the night starts and ends somewhere: a dance song where the dancing starts (I Gotta
+// Feeling has 30 seconds before it does) and where it stops; the rest whole. The app reads each song's own
+// file once (the "points" action) and Review shows both times, flags a long intro or ending, and lets him
+// hear it from there and move it. His own times are kept in the show (start_at / end_at) and the build
+// cuts the copy there; his files are never changed.
+const PT = {pts: {}, busy: false, again: false, off: false, now: "", folder: "", timer: 0};
+let cutOpen = "";       // the song (keyOf) whose times are open for changing
+const partOf = (s) => s.moment ? "moment" : s.part || "";
+// the first song of cocktail hour, of dinner and of the dancing (in the show's order, not a moment's song)
+// opens its set and plays from its first note (Llano PM #23864); Llano's cut past its intro stays on offer
+const opensSet = (s) => !s.moment && ["cocktail", "dinner", "dancing"].includes(s.part) &&
+  show.songs.find(o => !o.moment && o.part === s.part) === s;
+const ptKey = (s) => keyOf(s) + "|" + partOf(s) + (opensSet(s) ? "|opens" : "");
+const songFolder = () => cleanPath($("#nightfolder").value) || cleanPath($("#folder").value);
+function fmtAt(t) { t = Math.max(0, +t || 0); const m = Math.floor(t / 60), x = t - m * 60; return `${m}:${x.toFixed(1).padStart(4, "0")}`; }
+function parseAt(v) {
+  v = String(v || "").trim();
+  const m = v.match(/^(\d{1,3}):(\d{1,2}(?:\.\d+)?)$/);
+  if (m && +m[2] < 60) return +m[1] * 60 + +m[2];
+  return /^\d{1,4}(\.\d+)?$/.test(v) ? +v : null;
+}
+const pointsFound = () => show.songs.filter(pointsOf).length;
+function pointsOf(s) { const p = PT.pts[ptKey(s)]; return p && p.source_s ? p : null; }
+const cutStart = (s, p) => s.start_at != null ? Math.min(s.start_at, p.source_s) : p.start_s;
+const cutEnd = (s, p) => s.end_at != null ? Math.min(s.end_at, p.source_s) : p.end_s;
+function schedulePoints() { clearTimeout(PT.timer); PT.timer = setTimeout(findPoints, 400); }
+async function findPoints() {
+  if (PT.off) return;
+  if (PT.busy) { PT.again = true; return; }
+  const folder = songFolder();
+  if (folder !== PT.folder) {   // another folder: a song whose file was not found is looked for again
+    PT.folder = folder;
+    for (const k of Object.keys(PT.pts)) if (!PT.pts[k].source_s) delete PT.pts[k];
+  }
+  const todo = show.songs.filter(s => partOf(s) && !PT.pts[ptKey(s)]);
+  if (!todo.length) return;
+  PT.busy = true;
+  for (const s of todo) {
+    if (!show.songs.includes(s) || PT.pts[ptKey(s)]) continue;     // the show changed while it read
+    PT.now = s.title; renderListen();
+    const r = await api("points", {song: s, folder, opens: opensSet(s)});
+    if (!r) { PT.off = true; break; }    // the app can't (an older one): never a message per song
+    PT.pts[ptKey(s)] = r.points || {why: r.why || "Llano couldn't read this file."};
+    renderSongs();
+  }
+  PT.now = ""; PT.busy = false; renderListen();
+  if (PT.again) { PT.again = false; schedulePoints(); }
+}
+function cutCell(s, i) {
+  if (!partOf(s)) return `<span class="hint" style="margin:0">needs its part</span>`;
+  const p = pointsOf(s), r = PT.pts[ptKey(s)];
+  if (!p) return r ? `<span class="badge" title="${esc(r.why || "")}">plays whole</span>` : PT.off ? "" : `<span class="badge">reading...</span>`;
+  const a = cutStart(s, p), b = cutEnd(s, p);
+  const time = (t, mine) => mine ? `<span class="mine" title="You set this">${mmss(t)}</span>` : mmss(t);
+  const flags = [];
+  if (p.long_intro) flags.push(`<span class="flag" title="Llano hears the dancing start ${Math.round(p.intro_s)} seconds into it${p.opens ? " (the first song of its set: it plays from the top unless you move it)" : p.follows ? "" : " (a line dance: it plays from the top unless you move it)"}">intro ${Math.round(p.intro_s)} s</span>`);
+  if (p.long_outro) flags.push(`<span class="flag" title="The dancing stops ${Math.round(p.outro_s)} seconds before the music does">ending ${Math.round(p.outro_s)} s</span>`);
+  return `<button class="cutbtn" data-cut="${i}" title="Hear it and move where it starts or ends" aria-label="Starts at ${fmtAt(a)}, ends at ${fmtAt(b)}: change">${time(a, s.start_at != null)} &middot; ${time(b, s.end_at != null)}</button>` +
+    (flags.length ? "<br>" + flags.join(" ") : "");
+}
+function cutEditor(s, i) {
+  const p = pointsOf(s);
+  if (!p) return "";
+  const a = cutStart(s, p), b = cutEnd(s, p), step = p.bar_s > 0.8 && p.bar_s < 6 ? p.bar_s : 2;
+  const unit = p.bar_s > 0.8 && p.bar_s < 6 ? "1 bar" : "2 s";
+  const btn = (what, label, title) => `<button class="small" data-cutdo="${what}" data-cuti="${i}"${title ? ` title="${esc(title)}"` : ""}>${label}</button>`;
+  const llanoStart = p.follows && !p.opens ? p.start_s : p.suggest_start_s, llanoEnd = p.follows ? p.end_s : p.suggest_end_s;
+  const kind = !p.dancing ? "It is not a dance song, so it plays whole unless you change it."
+    : !p.follows ? `A line dance plays whole, so its calls are all there${p.suggest_start_s > p.start_s + 1 ? `; Llano hears the dancing start at ${fmtAt(p.suggest_start_s)}` : ""}.`
+    : p.opens ? `It is the first song of its set, so it plays from the top${p.suggest_start_s > p.start_s + 1 ? `; Llano hears the dancing start at ${fmtAt(p.suggest_start_s)}, and Llano's button cuts there` : ""}. It stops at ${fmtAt(p.suggest_end_s)}.`
+    : `Llano hears the dancing start at ${fmtAt(p.suggest_start_s)}${p.intro_s >= 1 ? ` (after a ${Math.round(p.intro_s)} second intro)` : ""} and stop at ${fmtAt(p.suggest_end_s)}.`;
+  const cutA = Math.max(0, a), cutB = Math.max(0, p.source_s - b);
+  return `<tr class="cutedit"><td colspan="8"><div class="cutgrid">
+    <b>Starts at</b><div class="ctl"><input data-cutat="start" data-cuti="${i}" value="${fmtAt(a)}" aria-label="Starts at, for ${esc(s.title)}">
+      ${btn("playstart", "&#9654; Play from here")} ${btn("start-", "&minus; " + unit, "Earlier")} ${btn("start+", "+ " + unit, "Later")}
+      ${btn("starttop", "From the top", "Every note of it, from its first sound")} ${btn("startllano", `Llano's (${fmtAt(llanoStart)})`)}</div>
+    <b>Ends at</b><div class="ctl"><input data-cutat="end" data-cuti="${i}" value="${fmtAt(b)}" aria-label="Ends at, for ${esc(s.title)}">
+      ${btn("playend", "&#9654; Play the end", "The last 10 seconds, fading out as the copy does")} ${btn("end-", "&minus; " + unit, "Earlier")} ${btn("end+", "+ " + unit, "Later")}
+      ${btn("endall", "To the end", "Every note, to its last")} ${btn("endllano", `Llano's (${fmtAt(llanoEnd)})`)}</div>
+    <span></span><p class="hint" style="margin:0">${esc(kind)} The copy for the night plays ${mmss(b - a)} of its ${mmss(p.source_s)}: ${Math.round(cutA)} s off the start and ${Math.round(cutB)} s off the end, with a short fade at each cut. The lights follow the copy. Press Save show to keep your times, then build the night again.</p>
+  </div></td></tr>`;
+}
+function cutSet(s, p, which, t) {
+  if (which === "start") {
+    if (t === null) { delete s.start_at; return true; }
+    t = Math.round(Math.max(0, t) * 100) / 100;
+    if (t > cutEnd(s, p) - 15) { say("It has to start at least 15 seconds before it ends."); return false; }
+    s.start_at = t; return true;
+  }
+  if (t === null) { delete s.end_at; return true; }
+  t = Math.round(Math.min(p.source_s, t) * 100) / 100;
+  if (t < cutStart(s, p) + 15) { say("It has to end at least 15 seconds after it starts."); return false; }
+  s.end_at = t; return true;
+}
+function cutDo(i, what) {
+  const s = show.songs[i], p = s && pointsOf(s); if (!p) return;
+  const step = p.bar_s > 0.8 && p.bar_s < 6 ? p.bar_s : 2, a = cutStart(s, p), b = cutEnd(s, p);
+  if (what === "playstart") return cutPlay(p, a, null);
+  if (what === "playend") return cutPlay(p, Math.max(a, b - 10), b);
+  const ok = what === "start-" ? cutSet(s, p, "start", a - step) : what === "start+" ? cutSet(s, p, "start", a + step)
+    : what === "starttop" ? cutSet(s, p, "start", 0) : what === "startllano" ? cutSet(s, p, "start", p.follows && !p.opens ? null : p.suggest_start_s)
+    : what === "end-" ? cutSet(s, p, "end", b - step) : what === "end+" ? cutSet(s, p, "end", b + step)
+    : what === "endall" ? cutSet(s, p, "end", p.source_s) : what === "endllano" ? cutSet(s, p, "end", p.follows ? null : p.suggest_end_s) : false;
+  if (!ok) return;
+  touch();
+  if (what.startsWith("start") && what !== "starttop") cutPlay(p, cutStart(s, p), null);   // hear the new start at once
+  if (what === "end-" || what === "end+") cutPlay(p, Math.max(cutStart(s, p), cutEnd(s, p) - 6), cutEnd(s, p));
+}
+function cutTyped(i, which, v) {
+  const s = show.songs[i], p = s && pointsOf(s); if (!p) return;
+  const t = parseAt(v);
+  if (t === null) { say("Type a time like 0:29 or 29."); renderSongs(); return; }
+  if (cutSet(s, p, which, t)) touch(); else renderSongs();
+}
+// the preview: his own file, from the cut's start (faded in as the copy is) or to its end (faded out)
+const cutAudio = new Audio(); cutAudio.preload = "auto";
+let cutTimer = 0;
+function cutStop() { cutAudio.pause(); clearInterval(cutTimer); cutTimer = 0; }
+function cutPlay(p, from, to) {
+  cutStop();
+  if (!audio.paused) audio.pause();
+  if (cutAudio.dataset.src !== p.audio) { cutAudio.src = p.audio; cutAudio.dataset.src = p.audio; }
+  cutAudio.currentTime = Math.max(0, from);
+  cutAudio.volume = 0;
+  cutAudio.play().catch(() => say("This window couldn't play that song's file."));
+  const began = performance.now();
+  cutTimer = setInterval(() => {
+    const t = cutAudio.currentTime, inn = Math.min(1, (performance.now() - began) / 250);
+    const out = to == null ? 1 : Math.max(0, Math.min(1, (to - t) / 1.5));
+    cutAudio.volume = 0.9 * Math.min(inn, out);
+    if ((to != null && t >= to) || (to == null && t > from + 20)) cutStop();   // 20 seconds is enough to judge a start
+  }, 40);
+}
+function renderCutSum() {
+  const el = $("#cutsum"); if (!el) return;
+  const rows = show.songs.map(s => [s, pointsOf(s)]).filter(([, p]) => p);
+  if (!rows.length) { el.textContent = ""; return; }
+  const li = rows.filter(([, p]) => p.long_intro), lo = rows.filter(([, p]) => p.long_outro);
+  const n = (k) => `${k} song${k === 1 ? "" : "s"}`;
+  el.textContent = (li.length ? `Long intros (${n(li.length)}): ${li.map(([s, p]) => `${s.title} ${Math.round(p.intro_s)} s`).join(", ")}. ` : "No long intros. ") +
+    (lo.length ? `Long endings (${n(lo.length)}): ${lo.map(([s, p]) => `${s.title} ${Math.round(p.outro_s)} s`).join(", ")}. ` : "No long endings. ") +
+    "Tap a song's times to hear them.";
+}
+
+// --- home: saved shows, Mixxx lists, looks ---------------------------------------------------------
+let homeSeq = 0;   // a save or delete since the home read asked: its list is newer, keep it
+async function loadHome() {
+  const seq = homeSeq, h = await api("home"); if (!h) return;
+  if (seq !== homeSeq) h.shows = H.shows;
+  H = h;
+  renderSaved();
+  const sel = $("#lists"); sel.innerHTML = "";
+  if (!h.mixxx) { $("#mixxxhint").textContent = "Mixxx's music library wasn't found on this laptop. Search, paste or a Spotify link still work."; }
+  else if (!h.lists.length) { $("#mixxxhint").textContent = "No playlists or crates in Mixxx yet. Search your music instead."; }
+  for (const l of h.lists) sel.append(new Option(`${l.kind === "crate" ? "Crate" : "Playlist"}: ${l.name} (${l.count})`, `${l.kind}:${l.id}`));
+  renderAddButtons();
+  renderSongs();
+}
+function renderSaved() {
+  const box = $("#saved"); box.innerHTML = "";
+  if (!H.shows.length) box.innerHTML = `<p class="hint">None yet. Add songs, name the show and save it.</p>`;
+  for (const s of H.shows) {
+    const b = document.createElement("button"); b.className = s.name === show.name ? "on" : "";
+    b.innerHTML = `<b>${esc(s.title)}</b><span>${s.songs} songs, ${mmss(s.secs)}</span>`;
+    b.addEventListener("click", () => openShow(s.name));
+    box.append(b);
+  }
+}
+async function openShow(name) {
+  if (dirty && show.songs.length && !confirm("Open another show? Changes to this one that aren't saved will be lost.")) return;
+  sendPlan();   // the last show's step 2, kept before this one is asked for
+  // its folder on this laptop, remembered from when it was loaded: a show opens with every length its files hold.
+  // The app keeps each show's night plan (BL #12426); this window's own copy goes along only for a plan the app
+  // has not kept yet (one kept before BL #12426), and the app keeps it from then on.
+  let kept = null; try { kept = JSON.parse(localStorage.getItem("llano-night:" + name) || "null"); } catch (e) { kept = null; }
+  kept = kept || {};
+  // only this show's own folder: the Folder box can hold another show's, whose songs of the same name would lend it their parts
+  const s = await api("open", {name, folder: kept.folder || "", moments: kept.moments || null, keep: kept.keep || [], times: kept.times || {},
+                               unplaced: Array.isArray(kept.unplaced) ? kept.unplaced : []}); if (!s) return;
+  // the app's plan is the one step 2 shows: another port's window (a restart) has nothing of its own to go on
+  if (s.night) { try { localStorage.setItem("llano-night:" + s.name, JSON.stringify(s.night)); } catch (e) { /* a private window */ } }
+  show = {name: s.name, title: s.title, note: s.note, looks: s.looks || {}, songs: s.songs, moods: s.moods || null}; renderMoods();
+  NEEDS = s.needs || []; needsSig = ""; needsErr = false; needsSeq++;
+  dirty = !!(s.fixed || s.lengths); $("#title").value = s.title; titleMade = false; renderAll(); renderSaved();
+  nightForShow();                               // this show's moment songs, folder and times; nothing of the last show's
+  const missing = s.songs.filter(x => !x.playable).length;
+  $("#savedline").textContent = missing ? `${missing} of ${s.songs.length} songs aren't in your Mixxx library yet, so they show estimated sections and preview silently here.` : "";
+  if (s.fixed || s.lengths) say(`Opened "${s.title}" and filled it in:` + (s.fixed ? ` ${s.fixed} song${s.fixed === 1 ? " was" : "s were"} missing a part of the night or a look.` : "") +
+    (s.lengths ? ` Read the length of ${s.lengths} song${s.lengths === 1 ? "" : "s"} from ${s.lengths === 1 ? "its file" : "their files"}.` : "") + " Press Save show to keep it.", false);
+}
+$("#new").addEventListener("click", () => {
+  if (dirty && show.songs.length && !confirm("Start a new show? Changes to this one that aren't saved will be lost.")) return;
+  show = {name: "", title: "", note: "", looks: {}, songs: [], moods: null}; dirty = false; $("#title").value = ""; titleMade = false; $("#savedline").textContent = "";
+  renderAll(); renderSaved(); nightForShow(); $("#title").focus();
+});
+$("#title").addEventListener("input", () => { show.title = $("#title").value; titleMade = false; dirty = true; });
+// The app named the show (a folder's, playlist's or Spotify list's name): the first save says so.
+let titleMade = false;
+function madeTitle(t) { if (show.title || !t) return; show.title = t; $("#title").value = t; titleMade = true; }
+
+// --- adding songs --------------------------------------------------------------------------------
+for (const t of document.querySelectorAll("[data-tab]")) t.addEventListener("click", () => {
+  for (const x of document.querySelectorAll("[data-tab]")) x.setAttribute("aria-selected", x === t ? "true" : "false");
+  for (const p of document.querySelectorAll(".tabpane")) p.classList.toggle("on", p.id === "tab-" + t.dataset.tab);
+});
+// One song, however its name is written: the same words as the app's track key, so "Killin_ Time" (a
+// Drive zip turns an apostrophe into an underscore) and "Killin' Time" are never two songs in one show.
+function songKey(s) {
+  const k = ((s.artist || "") + " " + (s.title || "")).toLowerCase().match(/[a-z0-9]+/g)?.join("-");
+  if (k) return k;
+  // a name with no a-z or 0-9 (a Korean or Russian title): its own words, so two such songs are never one (shows.song_key)
+  const raw = ((s.artist || "") + " " + (s.title || "")).toLowerCase().split(/\s+/).filter(Boolean).join(" ");
+  return raw ? "~" + raw : "";
+}
+// The one guarantee (Llano BL #11473): the app gives every song a look where it has none, its part where its
+// folder names one, a Dancing tag where it has none (shows.fill), and says what only he can settle.
+const noLook = (s) => !s.look && s.why !== "your pick";
+function mergeFilled(s, b) {   // only what was blank here: an edit made while the app was filling is kept
+  if (noLook(s)) Object.assign(s, {look: b.look || "", why: b.why || "", tag: b.tag || s.tag || "", tag_mine: !!b.tag_mine});
+  if (!s.tag && b.tag && !s.moment && s.part === "dancing") Object.assign(s, {tag: b.tag, tag_mine: !!b.tag_mine});
+  if (needsPart(s) && (b.part || b.moment)) Object.assign(s, {part: b.part || "", moment: b.moment || ""});
+  if (!(s.secs > 0) && (b.secs > 0 || b.trouble)) Object.assign(s, {secs: b.secs || 0, trouble: b.trouble || ""});
+}
+async function fillShow(fresh = []) {
+  const f = await api("fill", {songs: [...show.songs, ...fresh], looks: show.looks, ...needsAsk()}); if (!f) return null;
+  const back = new Map(f.songs.map(x => [songKey(x), x]));
+  for (const s of show.songs) { const b = back.get(songKey(s)); if (b) mergeFilled(s, b); }
+  const here = new Set(show.songs.map(songKey));
+  for (const s of fresh) if (!here.has(songKey(s))) { show.songs.push(back.get(songKey(s)) || s); here.add(songKey(s)); }
+  NEEDS = f.needs; needsSig = ""; needsErr = false; needsSeq++; touch(); return f;
+}
+// One add at a time: a second press while songs are coming in would read them twice.
+let adding = false;
+let picking = false;   // Browse's own picker is open: it stays off even if an add ends meanwhile
+function renderAddButtons() {
+  for (const id of ["#addfolder", "#addpaste", "#addspot"]) $(id).disabled = adding;
+  $("#browse").disabled = adding || picking;
+  $("#addlist").disabled = adding || !H.lists.length;
+}
+function oneAdd(fn) {
+  return async (...a) => {
+    if (adding) { say("Still adding the last songs. Wait for them, then add more."); return; }
+    adding = true; renderAddButtons();
+    try { return await fn(...a); } finally { adding = false; renderAddButtons(); }
+  };
+}
+// placed: keys of songs already in the show that just took their part of the night from the folder.
+// lengths: how many songs already in the show just took their length from it. notes: what the add has to
+// say (songs left out, a song in two folders, Moments songs with no moment), said before reading starts.
+async function addSongs(songs, from, {placed = new Set(), lengths = 0, notes = []} = {}) {
+  if (!songs || !songs.length) { say("No songs to add."); return; }
+  const most = H.most || 120, room = most - show.songs.length, wasDirty = dirty;
+  const have = new Set(show.songs.map(songKey));
+  const fresh = room > 0 ? songs.filter(s => !have.has(songKey(s))).filter((s, i, a) => a.findIndex(x => songKey(x) === songKey(s)) === i).slice(0, room) : [];
+  const lookless = new Set(show.songs.filter(noLook).map(songKey)), partless = new Set(show.songs.filter(needsPart).map(songKey));
+  // the new songs come in already filled, before a single one is read: a Save pressed while they load keeps
+  // lights for every song. If the app can't fill them just now, they come in anyway and Save fills them.
+  const f = await fillShow(fresh);
+  if (!f) { show.songs.push(...fresh); touch(); }
+  // a song is fixed when a gap it had is closed: a look it lacked, or a part of the night it lacked
+  const fixed = new Set([...placed, ...show.songs.filter(s => (lookless.has(songKey(s)) && !noLook(s)) ||
+                                                              (partless.has(songKey(s)) && !needsPart(s))).map(songKey)]).size;
+  const repaired = (fixed ? ` Fixed ${fixed} song${fixed === 1 ? "" : "s"} that ${fixed === 1 ? "was" : "were"} missing a part of the night or a look.` : "") +
+    (lengths ? ` Read the length of ${lengths} song${lengths === 1 ? "" : "s"} from ${lengths === 1 ? "its file" : "their files"}.` : "");
+  const extra = notes.length ? " " + notes.join(" ") : "";
+  // Nothing new and nothing to repair: say so and stop, and the show is no more unsaved than it was.
+  if (!fresh.length && !repaired) {
+    dirty = wasDirty; renderButtons();
+    const nothing = (room <= 0 ? `A show holds ${most} songs.` : `No new songs: ${songs.length === 1 ? "that one was" : `all ${songs.length} were`} already in the show.`) + extra;
+    say(nothing, !!notes.length || room <= 0); return nothing;
+  }
+  const line = (fresh.length ? `Added ${fresh.length} song${fresh.length === 1 ? "" : "s"}${from ? " from " + from : ""}.` +
+      (fresh.length < songs.length ? ` ${songs.length - fresh.length} were already in the show or past ${most}.` : "") + repaired
+      : "No new songs." + repaired) + extra;
+  say(line, !!notes.length ? true : false);
+  if (!fresh.length && !placed.size) return line;   // only lengths or looks were filled: the night's arc did not move
+  await analyzeAll();
+  // The night's arc moved: looks the design picked are redone, looks he picked himself stay. Sent as a copy,
+  // so the show never holds a blank look while the design is on its way.
+  const redo = show.songs.map(s => s.why === "your pick" ? s : {...s, look: "", why: ""});
+  // the design writes its own line over this one: after songs were repaired, what happened is said again
+  if (await design(true, redo) && (placed.size || fixed || notes.length)) {
+    const again = line + (placed.size || fixed ? " The lights were picked again to match." : "");
+    say(again, !!notes.length); return again;
+  }
+  return line;
+}
+$("#addlist").addEventListener("click", oneAdd(async () => {
+  const [kind, id] = $("#lists").value.split(":");
+  const r = await api("from-mixxx", {kind, id: +id}); if (!r) return;
+  { const o = $("#lists").selectedOptions[0]; madeTitle(o ? o.text.replace(/^(Playlist|Crate): /, "").replace(/ \(\d+\)$/, "") : ""); }
+  await addSongs(r.songs, "Mixxx");
+}));
+async function doSearch() {
+  const r = await api("search", {q: $("#q").value}); if (!r) return;
+  const box = $("#results"); box.innerHTML = r.songs.length ? "" : `<p class="hint">Nothing in your Mixxx music matches.</p>`;
+  for (const s of r.songs) {
+    const d = document.createElement("div");
+    d.innerHTML = `<span><b>${esc(s.title)}</b> <span class="hint">${esc(s.artist)} &middot; ${mmss(s.secs)}${s.bpm ? " &middot; " + Math.round(s.bpm) + " BPM" : ""}</span></span><button class="small">Add</button>`;
+    d.querySelector("button").addEventListener("click", oneAdd(async (e) => { e.target.disabled = true; await addSongs([s]); }));
+    box.append(d);
+  }
+}
+$("#go").addEventListener("click", doSearch);
+$("#q").addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(); });
+$("#addpaste").addEventListener("click", oneAdd(async () => {
+  const r = await api("paste", {text: $("#paste").value}); if (!r) return;
+  // the lines that are not a song are left out and named, so he can type one that is (Llano BL #11473)
+  const left = r.left_out || [], n = left.length, notes = [];
+  if (n) notes.push(`${n} line${n === 1 ? " did not look like a song and was" : "s did not look like songs and were"} left out: ` +
+    left.slice(0, 5).join(", ") + (n > 5 ? ` and ${n - 5} more` : "") + `. If ${n === 1 ? "it is a song" : "one is a song"}, type it as Title by Artist.`);
+  $("#paste").value = ""; await addSongs(r.songs, "your list", {notes});
+}));
+// Every path that starts an add calls the oneAdd-wrapped function itself, never
+// click() on a button that may be disabled mid-add (a disabled button ignores
+// click(), so the add would do nothing and say nothing; BL #12438).
+const addSpot = oneAdd(async () => {
+  $("#progress").textContent = "Reading the Spotify playlist...";
+  const r = await api("spotify", {url: $("#spot").value}); $("#progress").textContent = "";
+  if (!r) return;
+  madeTitle(r.title);
+  $("#spot").value = ""; await addSongs(r.songs, "Spotify");
+});
+$("#addspot").addEventListener("click", addSpot);
+
+// --- analysis and design ---------------------------------------------------------------------------
+const listen = {now: "", note: ""};
+function renderListen() {   // step 3: how many of the show's songs have been read
+  const m = show.songs.length, n = show.songs.filter(s => s.sections && s.sections.length).length;
+  $("#listenbar").style.width = m ? `${Math.round(n / m * 100)}%` : "0";
+  $("#listenline").textContent = !m ? "No songs yet: load them in step 1." :
+    `Read ${n} of ${m} song${m === 1 ? "" : "s"}.` + (listen.now ? ` Reading ${listen.now}...` : n === m && listen.note ? " " + listen.note : "") +
+    (PT.now ? ` Finding where ${PT.now} starts and ends...` : pointsFound() ? ` Found where ${pointsFound()} song${pointsFound() === 1 ? "" : "s"} start and end.` : "");
+}
+async function analyzeAll() {
+  const todo = show.songs.filter(s => !s.sections || !s.sections.length);
+  if (!todo.length) return;
+  busy = true; renderButtons();
+  let n = 0;
+  for (const s of todo) {
+    n += 1;
+    listen.now = s.title;
+    const r = await api("analyze", {song: s});
+    const live = show.songs.find(x => songKey(x) === songKey(s)) || s;
+    if (r && r.song) Object.assign(live, r.song, {look: live.look || r.song.look, why: live.why || r.song.why, secs: live.secs || r.song.secs, trouble: live.trouble});
+    renderAll();
+  }
+  const est = show.songs.filter(s => s.source !== "mixxx").length;
+  listen.now = ""; listen.note = est ? `${est} song${est === 1 ? "" : "s"} with estimated sections (not in your Mixxx library).` : "Every song's sections came from its file.";
+  busy = false; renderButtons(); renderListen();
+}
+async function design(keep, songs) {
+  if (!show.songs.length) { say("Add some songs first."); return; }
+  const r = await api("design", {songs: songs || show.songs, keep}); if (!r) return false;
+  show.songs = r.songs; touch();
+  say(keep ? "Every song has its lights. The looks you chose yourself were kept." : "Started over: every song has a new look for its place in the night.", false);
+  return true;
+}
+// Pick the lights for every song: the looks he chose himself stay, every other song gets a look for
+// where it now sits in the night (what two look-alike buttons used to do, as one press).
+$("#design").addEventListener("click", () => {
+  if (!show.songs.length) { say("Add some songs first."); return; }
+  design(true, show.songs.map(s => s.why === "your pick" ? s : {...s, look: "", why: ""}));
+});
+$("#designall").addEventListener("click", () => {
+  if (!show.songs.length) { say("Add some songs first."); return; }
+  if (show.songs.some(s => s.why === "your pick") && !confirm("Start over? This also replaces the looks you chose yourself.")) return;
+  design(false);
+});
+
+// --- Set the mood (BL #12340): one color or a slow fade for cocktail hour and dinner ----------------
+// Llano's suggestion (settings_contract.SUGGESTED_MOODS, from the app) fills every show that has none.
+const MOOD = {suggested: null, swatches: {}, every: [2, 5, 10]};
+const MOOD_PARTS = [["cocktail", "Cocktail hour"], ["dinner", "Dinner"]];
+const curMoods = () => show.moods || (MOOD.suggested && JSON.parse(JSON.stringify(MOOD.suggested)));
+function setMood(part, change) {
+  show.moods = curMoods(); if (!show.moods) return;
+  show.moods[part] = {...show.moods[part], ...change}; dirty = true; renderMoods(); renderButtons();
+}
+function moodStrip(m) {
+  return m.kind === "fade" ? `linear-gradient(90deg, ${m.colors.concat([m.colors[0]]).join(", ")})` : m.colors[0];
+}
+function renderMoods() {
+  const moods = curMoods(), box = $("#moods"); if (!moods) { box.innerHTML = ""; return; }
+  box.innerHTML = MOOD_PARTS.map(([part, label]) => {
+    const m = moods[part], fade = m.kind === "fade";
+    const sw = Object.entries(MOOD.swatches).map(([n, c]) => `<button class="sw${m.colors.includes(c) ? " on" : ""}" style="background:${c}" title="${esc(n)}" aria-label="${esc(n)}" data-mpart="${part}" data-mcolor="${c}"></button>`).join("");
+    const own = m.colors.filter(c => !Object.values(MOOD.swatches).includes(c)).map(c => `<button class="sw on" style="background:${c}" title="your color ${c}" data-mpart="${part}" data-mcolor="${c}"></button>`).join("");
+    return `<div class="mood" data-part="${part}"><b>${label}</b>
+      <div class="row kind"><button class="small${fade ? "" : " on"}" data-mpart="${part}" data-mkind="color">One color</button>
+        <button class="small${fade ? " on" : ""}" data-mpart="${part}" data-mkind="fade">Slow fade</button></div>
+      <div class="row">${sw}${own}<label class="hint" style="margin:0" title="Pick your own color">Your own <input type="color" data-mpart="${part}" data-mown value="${m.colors[0]}"></label></div>
+      <div class="row hint" style="margin:0">${fade ? `Two to four colors, each melting into the next over a minute. A change every
+        <select data-mpart="${part}" data-mevery>${MOOD.every.map(e => `<option value="${e}"${e === m.every ? " selected" : ""}>${e} minutes</option>`).join("")}</select>` : "One color, held the whole time."}</div>
+      <div class="row hint" style="margin:0">Brightness <input type="range" min="10" max="100" step="5" value="${Math.round(m.bright * 100)}" data-mpart="${part}" data-mbright aria-label="${label} brightness"> <span>${Math.round(m.bright * 100)}%</span></div>
+      <div class="strip" style="background:${moodStrip(m)};opacity:${0.35 + 0.65 * m.bright}" title="The mood's colors"></div>
+      <div class="row"><button class="small" data-mpart="${part}" data-mpreview>See it on the room picture</button></div></div>`;
+  }).join("");
+}
+function pickColor(part, c) {
+  const m = curMoods()[part];
+  if (m.kind !== "fade") return setMood(part, {colors: [c]});
+  if (m.colors.includes(c)) { if (m.colors.length > 2) setMood(part, {colors: m.colors.filter(x => x !== c)}); else say("A slow fade needs at least two colors.", false); }
+  else if (m.colors.length < 4) setMood(part, {colors: [...m.colors, c]});
+  else say("A slow fade has at most four colors: tap one to take it out first.", false);
+}
+$("#moods").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-mpart]"); if (!b) return;
+  const part = b.dataset.mpart, m = curMoods()[part];
+  if (b.dataset.mcolor) pickColor(part, b.dataset.mcolor);
+  else if (b.dataset.mkind === "color") setMood(part, {kind: "color", colors: [m.colors[0]]});
+  else if (b.dataset.mkind === "fade") {
+    const more = Object.values(MOOD.swatches).filter(c => !m.colors.includes(c));
+    setMood(part, {kind: "fade", colors: m.colors.length > 1 ? m.colors : [...m.colors, ...more.slice(0, 2)]});
+  } else if (b.dataset.mpreview !== undefined) {   // play the show from this part's first song: the picture shows the mood
+    const i = show.songs.findIndex(s => s.part === part && !s.moment);
+    if (i < 0) { say(`No song is in ${part === "cocktail" ? "cocktail hour" : "dinner"} yet: add one, then see the mood.`); return; }
+    $("#step-7").scrollIntoView({behavior: "smooth", block: "start"}); playFrom(i, 0);
+  }
+});
+$("#moods").addEventListener("change", (e) => {
+  const d = e.target.dataset, part = d.mpart; if (!part) return;
+  if (d.mevery !== undefined) setMood(part, {every: +e.target.value});
+  else if (d.mown !== undefined) pickColor(part, e.target.value.toLowerCase());
+});
+$("#moods").addEventListener("input", (e) => {
+  const d = e.target.dataset; if (d.mbright === undefined) return;
+  setMood(d.mpart, {bright: +e.target.value / 100});
+});
+async function loadMoods() {
+  const r = await api("moods"); if (!r) return;
+  MOOD.suggested = r.suggested; MOOD.swatches = r.swatches; MOOD.every = r.every; renderMoods();
+}
+
+// --- the set arranger (1.18.0): an order that flows, a reason per spot, talked through in plain words ---
+const PARTS = [["cocktail", "Cocktail hour"], ["dinner", "Dinner"], ["dancing", "Dancing"]];
+const MOMENTS = [["", "No moment"], ["first-dance", "First dance"], ["father-daughter", "Father-daughter"],
+                 ["mother-son", "Mother-groom"], ["last-dance", "Last dance"], ["exit-prep", "Grand exit sing-along"],
+                 ["exit", "Bride and groom exit"], ["background", "Quiet background"],
+                 ["toasts-background", "Under the toasts"]];
+let arr = {songs: [], curves: {}, was: null, undo: [], roles: [], focus: -1, event: "wedding"};
+const keyOf = (s) => (s.artist + "|" + s.title).toLowerCase();
+
+function openArranger() {
+  if (!show.songs.length) { say("Add some songs first."); return; }
+  $("#arranger").classList.add("on");
+  arr.songs = JSON.parse(JSON.stringify(show.songs)); arr.undo = []; arr.was = null; arr.curves = {}; arr.focus = -1;
+  $("#log").innerHTML = "";
+  arrCall("evaluate").then(() => { if (!show.songs.some(s => s.reason)) arrCall("arrange", null, true); });
+  $("#arranger").scrollIntoView({behavior: "smooth", block: "start"});
+}
+async function arrCall(action, text, fresh) {
+  const body = {songs: arr.songs, event: $("#event").value};
+  if (text !== undefined && text !== null) body.text = text;
+  $("#arrline").textContent = action === "arrange" ? "Arranging..." : "";
+  const r = await api(action, body); $("#arrline").textContent = "";
+  if (!r) return null;
+  if (action === "arrange" || r.changed) { arr.undo.push(arr.songs); arr.was = arr.curves; }
+  arr.songs = r.songs; arr.curves = r.curves; arr.roles = r.roles || []; arr.focus = r.focus ?? -1;
+  arr.suggestions = r.suggestions || []; arr.warnings = r.warnings || [];
+  if (action === "arrange") {
+    arr.focus = -1;
+    const n = arr.songs.length, parts = Object.keys(r.curves).length;
+    $("#arrline").textContent = `Arranged ${n} song${n === 1 ? "" : "s"} in ${parts} part${parts === 1 ? "" : "s"}.`;
+  }
+  renderArranger(); $("#arrundo").disabled = !arr.undo.length; $("#arruse").disabled = false;
+  return r;
+}
+function curveSvg(pts, was, focusN) {
+  const W = 300, H = 90, pad = 6;
+  const x = (i) => pts.length < 2 ? W / 2 : pad + i * (W - 2 * pad) / (pts.length - 1);
+  const y = (e) => H - pad - e * (H - 2 * pad);
+  const line = (vals) => vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  let g = `<path class="tgt" d="${line(pts.map(p => p.target))}"/>`;
+  if (was && was.length) g += `<path class="was" d="${line(was.map(p => p.energy))}"><title>before the last change</title></path>`;
+  g += `<path class="now" d="${line(pts.map(p => p.energy))}"/>`;
+  g += pts.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.energy).toFixed(1)}" r="3.5" data-n="${p.n}"
+        class="${p.n - 1 === focusN ? "focus" : ""} ${p.role === "moment" ? "moment" : ""}"><title>${p.n}. ${esc(p.title)}: energy ${Math.round(p.energy * 10)} of 10</title></circle>`).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="energy curve">${g}</svg>`;
+}
+function renderArranger() {
+  const names = Object.fromEntries(PARTS);
+  $("#curves").innerHTML = PARTS.filter(([p]) => arr.curves[p]).map(([p, label]) => {
+    const pts = arr.curves[p];
+    return `<div class="curve"><b>${label} <span>&middot; ${pts.length} songs &middot; energy, dashed = the plan</span></b>${curveSvg(pts, arr.was && arr.was[p], arr.focus)}</div>`;
+  }).join("");
+  $("#chips").innerHTML = (arr.suggestions || []).map(c => c.say
+    ? `<button class="chip" data-say="${esc(c.say)}" title="Say: ${esc(c.say)}">${esc(c.text)}</button>`
+    : `<span class="chip note badge">${esc(c.text)}</span>`).join("");
+  $("#warns").innerHTML = (arr.warnings || []).map(w => `<li>${esc(w)}</li>`).join("");
+  let html = "", part = null;
+  arr.songs.forEach((s, i) => {
+    if (s.part !== part) { part = s.part; html += `<h3>${esc(names[part] || "Dancing")}</h3>`; }
+    const parts = PARTS.map(([v, l]) => `<option value="${v}"${v === s.part ? " selected" : ""}>${l}</option>`).join("");
+    const moms = MOMENTS.map(([v, l]) => `<option value="${v}"${v === (s.moment || "") ? " selected" : ""}>${l}</option>`).join("");
+    html += `<div class="arow${i === arr.focus ? " focus" : ""}" data-i="${i}" draggable="true" title="Drag to move">
+      <span class="n">${i + 1}</span>
+      <span class="t"><b>${esc(s.title)}</b><span>${esc(s.artist || "Unknown artist")}${s.year ? " &middot; " + s.year : ""}</span></span>
+      <span class="m">${s.bpm ? Math.round(s.bpm) + " BPM" : "no tempo"}${s.camelot ? " " + esc(s.camelot) : ""}<br>energy ${Math.round((s.energy || 0) * 10)}</span>
+      <select data-part="${i}" aria-label="Part of the night for ${esc(s.title)}">${parts}</select>
+      <select data-moment="${i}" aria-label="Wedding moment for ${esc(s.title)}">${moms}</select>
+      <span class="r">${s.pinned ? `<span class="pin" title="You placed it: arranging again leaves it here">&#9679; placed by you</span> ` : ""}${esc(s.reason || "")}
+        <button class="small" data-why="${i}" title="Why is it here?">Why?</button></span></div>`;
+  });
+  $("#arrlist").innerHTML = html;
+}
+function logTurn(q, a) {
+  const log = $("#log");
+  if (q) log.insertAdjacentHTML("beforeend", `<div class="q">${esc(q)}</div>`);
+  if (a) log.insertAdjacentHTML("beforeend", `<div class="a">${esc(a)}</div>`);
+  log.scrollTop = log.scrollHeight;
+}
+async function ask(text) {
+  text = String(text || "").trim(); if (!text) return;
+  logTurn(text);
+  const r = await arrCall("ask", text);
+  if (r) logTurn(null, r.answer);
+}
+$("#arrange").addEventListener("click", openArranger);
+$("#arrgo").addEventListener("click", () => arrCall("arrange"));
+$("#event").addEventListener("change", () => arrCall("evaluate"));
+$("#arrclose").addEventListener("click", () => $("#arranger").classList.remove("on"));
+$("#chips").addEventListener("click", (e) => { const b = e.target.closest("[data-say]"); if (b) ask(b.dataset.say); });
+$("#curves").addEventListener("click", (e) => { const c = e.target.closest("circle"); if (c) ask(`why is song ${c.dataset.n} here`); });
+$("#arrlist").addEventListener("click", (e) => { const b = e.target.closest("[data-why]"); if (b) ask(`why is song ${+b.dataset.why + 1} here`); });
+$("#arrlist").addEventListener("change", (e) => {
+  const d = e.target.dataset, s = arr.songs[+(d.part ?? d.moment)]; if (!s) return;
+  arr.undo.push(JSON.parse(JSON.stringify(arr.songs))); arr.was = arr.curves;
+  if (d.part !== undefined) { s.part = e.target.value; if (s.moment && s.part !== "dancing") s.moment = ""; }
+  else {
+    for (const o of arr.songs) if (e.target.value && o.moment === e.target.value) o.moment = "";
+    s.moment = e.target.value; if (s.moment) s.part = "dancing";
+  }
+  s.pinned = true;
+  arrCall("evaluate", "").then(() => { $("#arrundo").disabled = !arr.undo.length; });
+});
+// drag a row onto another: it lands before that song, in that song's part, and stays where he put it
+let dragFrom = -1;
+$("#arrlist").addEventListener("dragstart", (e) => { const r = e.target.closest(".arow"); if (!r) return;
+  dragFrom = +r.dataset.i; r.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", r.dataset.i); });
+$("#arrlist").addEventListener("dragend", () => { dragFrom = -1; document.querySelectorAll(".arow").forEach(r => r.classList.remove("dragging", "drop")); });
+$("#arrlist").addEventListener("dragover", (e) => { const r = e.target.closest(".arow"); if (!r || dragFrom < 0) return;
+  e.preventDefault(); document.querySelectorAll(".arow.drop").forEach(x => x.classList.remove("drop")); r.classList.add("drop"); });
+$("#arrlist").addEventListener("drop", (e) => {
+  const r = e.target.closest(".arow"); if (!r || dragFrom < 0) return;
+  e.preventDefault();
+  const to = +r.dataset.i, from = dragFrom; dragFrom = -1;
+  if (to === from) return;
+  arr.undo.push(JSON.parse(JSON.stringify(arr.songs))); arr.was = arr.curves;
+  const target = arr.songs[to], [s] = arr.songs.splice(from, 1);
+  s.part = target.part; s.pinned = true; if (s.moment && s.part !== "dancing") s.moment = "";
+  arr.songs.splice(arr.songs.indexOf(target), 0, s);
+  arrCall("evaluate", "").then(() => { arr.focus = arr.songs.findIndex(x => keyOf(x) === keyOf(s)); renderArranger(); $("#arrundo").disabled = !arr.undo.length; });
+});
+$("#arrundo").addEventListener("click", async () => {
+  if (!arr.undo.length) return;
+  arr.songs = arr.undo.pop(); const was = arr.curves;
+  const r = await api("evaluate", {songs: arr.songs, event: $("#event").value}); if (!r) return;
+  arr.songs = r.songs; arr.curves = r.curves; arr.was = was; arr.suggestions = r.suggestions; arr.warnings = r.warnings; arr.focus = -1;
+  renderArranger(); $("#arrundo").disabled = !arr.undo.length; logTurn(null, "Put back the order from before the last change.");
+});
+$("#arruse").addEventListener("click", async () => {
+  // keep each song's look, sections and file from the show; take the order, part, moment and reason
+  const by = new Map(show.songs.map(s => [keyOf(s), s]));
+  show.songs = arr.songs.map(a => ({...(by.get(keyOf(a)) || a), part: a.part, moment: a.moment || "", reason: a.reason || "",
+                                    pinned: !!a.pinned, energy: a.energy, camelot: a.camelot, year: a.year, bpm: a.bpm || (by.get(keyOf(a)) || {}).bpm}));
+  // the lights follow the new order: looks the design picked are redone for each song's new spot
+  for (const s of show.songs) if (s.why !== "your pick") { s.look = ""; s.why = ""; }
+  await design(true);
+  if (!$("#title").value.trim()) { say("This is the show's order now. Name the show and press Save show to keep it.", true); $("#title").focus(); return; }
+  if (await saveShow()) logTurn(null, "Saved as the show's order. Make the Mixxx playlist below to DJ it in this order.");
+});
+// A pasted path: Windows' "Copy as path" wraps it in quotes, and a stray space or line break can ride along.
+const cleanPath = (t) => String(t || "").trim().replace(/^["']+|["']+$/g, "").trim();
+for (const id of ["#folder", "#nightfolder"]) {
+  $(id).addEventListener("paste", (e) => {
+    const t = (e.clipboardData || window.clipboardData || {getData: () => ""}).getData("text");
+    if (!t) return;   // nothing readable: let the browser do its own paste
+    e.preventDefault(); e.target.value = cleanPath(t); e.target.dispatchEvent(new Event("change", {bubbles: true}));
+  });
+}
+$("#folder").addEventListener("keydown", (e) => { if (e.key === "Enter") addFolder(); });
+$("#spot").addEventListener("keydown", (e) => { if (e.key === "Enter") addSpot(); });
+// Browse: the app opens Windows' own folder picker (a web page is never told a folder's real path).
+async function browseFor(box, title) {
+  const btn = this; btn.disabled = true; const was = btn.textContent; btn.textContent = "Choosing...";
+  const r = await api("pick-folder", {title, start: cleanPath(box.value)});
+  btn.disabled = false; btn.textContent = was; renderAddButtons();   // still adding: Browse stays off
+  if (!r || !r.path) return "";   // Cancel, or the reason is already on screen
+  box.value = r.path; box.dispatchEvent(new Event("change", {bubbles: true}));
+  return r.path;
+}
+$("#browse").addEventListener("click", async (e) => {
+  picking = true; let path = "";
+  try { path = await browseFor.call(e.target, $("#folder"), "Choose the folder your songs are in"); }
+  finally { picking = false; renderAddButtons(); }
+  if (path) addFolder();
+});
+$("#nightbrowse").addEventListener("click", (e) => browseFor.call(e.target, $("#nightfolder"), "Choose the folder your song files are in"));
+const addFolder = oneAdd(async () => {
+  const path = cleanPath($("#folder").value);
+  if (!path) { say("Press Browse and choose the folder, or paste its path in the box."); return; }
+  $("#progress").textContent = "Reading the folder...";
+  const have = show.songs.map(s => ({artist: s.artist, title: s.title, part: s.part || "", moment: s.moment || "", secs: s.secs || 0}));
+  const r = await api("folder", {path, have}); $("#progress").textContent = "";
+  if (!r) return;
+  madeTitle(r.title);
+  // A song already in the show with no part takes its folder's (BL #12338); a part he chose is never undone.
+  const placed = new Set();
+  for (const p of r.placed || []) {
+    const s = show.songs[p.i]; if (!s || songKey(s) !== songKey(have[p.i] || {}) || !needsPart(s)) continue;
+    s.part = p.part; s.moment = p.moment || ""; placed.add(songKey(s));
+  }
+  // and its length, from this same read of the folder (the folder is read once per add)
+  let lengths = 0;
+  for (const l of r.lengths || []) {
+    const s = show.songs[l.i]; if (!s || songKey(s) !== songKey(have[l.i] || {}) || s.secs > 0) continue;
+    s.secs = l.secs || 0; s.trouble = l.trouble || ""; if (s.secs > 0) lengths++;
+  }
+  // the Moments songs no dance is known for are in the show now; they are listed under Review until each has its moment
+  if (!$("#nightfolder").value.trim()) { $("#nightfolder").value = path; renderNightFrom(); }   // the show's folder from now on
+  N.unplaced = [...new Set([...(N.unplaced || []), ...(r.unplaced || [])])]; renderMomentList(); nightRemember();
+  const notes = [];
+  if (r.left_out) notes.push(`That folder has ${r.left_out} more song${r.left_out === 1 ? "" : "s"} than a show holds (${r.most}), so ${r.left_out === 1 ? "it was" : "they were"} left out. The dances' songs were kept.`);
+  notes.push(...(r.twins || []));
+  if ((r.unplaced || []).length) notes.push(`In the Moments folder, ${r.unplaced.join(" and ")} ${r.unplaced.length === 1 ? "is" : "are"} in the show with no moment yet: pick ${r.unplaced.length === 1 ? "its moment" : "each one's moment"} in step 2.`);
+  await addSongs(r.songs, "the folder", {placed, lengths, notes});
+});
+$("#addfolder").addEventListener("click", addFolder);
+
+// --- saving -----------------------------------------------------------------------------------------
+// Every save, by any button, comes here: one at a time (two quick presses never make two shows), and the
+// saved list on the left shows the show the moment the app has it. true when it was saved.
+let saving = Promise.resolve(true);
+function saveShow() { const run = saving.then(saveOnce, saveOnce); saving = run.catch(() => false); return run; }
+async function saveOnce() {
+  if (!show.songs.length) { say("There is nothing to save yet: add the songs first (a Mixxx playlist, a folder, a pasted list), then Save show keeps them under this name."); return false; }
+  if (busy) say("Saving now. The songs still being read keep loading; save again when they are done to keep their sections.", false);
+  show.title = $("#title").value.trim();
+  if (!show.title) { say("Give the show a name first, like Megan's birthday party."); $("#title").focus(); return false; }
+  const made = titleMade && !show.name, wasNamed = !!show.name;
+  const r = await api("save", {title: show.title, name: show.name, note: show.note, looks: show.looks, moods: curMoods(), songs: show.songs}); if (!r) return false;
+  // the app filled what was still blank (a song being read, a design that failed): the page shows what was kept
+  const kept = new Map((r.songs || []).map(x => [songKey(x), x]));
+  for (const s of show.songs) {
+    const k = kept.get(songKey(s)); if (!k) continue;
+    if (!s.look && s.why !== "your pick") Object.assign(s, {look: k.look || "", why: k.why || "", tag: k.tag || "", tag_mine: !!k.tag_mine});
+    if (needsPart(s) && (k.part || k.moment)) Object.assign(s, {part: k.part || "", moment: k.moment || ""});
+  }
+  show.name = r.name; dirty = false; H.shows = r.shows; homeSeq++; renderSaved(); renderAll();
+  if (!wasNamed) nightKeep();   // a new show's step 2, kept under its saved name (a re-save leaves the app's plan alone:
+                               // another window may have changed it since this one opened)
+  say(made ? `Saved as "${show.title}". Change the name at the top any time.` : `Saved "${show.title}".`, false);
+  titleMade = false;
+  return true;
+}
+$("#save").addEventListener("click", () => saveShow());
+$("#designllano").addEventListener("click", async () => {
+  if (!show.songs.length) { say("Add some songs first."); return; }
+  if (!show.name || dirty) {   // saved for him: Llano designs the saved show
+    if (!$("#title").value.trim()) { say("Name the show at the top first: Llano designs the saved show."); $("#title").focus(); return; }
+    if (!await saveShow() || !show.name) return;   // the save said why it didn't go through
+  }
+  if (!await api("design-with-llano", {})) return;
+  say(`llano.app/lights is opening: open "${show.title}" under Shows and press Design it with Llano. When it's done, open the show here again to see Llano's looks; it plays with no internet.`, false);
+});
+$("#del").addEventListener("click", async () => {
+  if (!show.name || !confirm(`Delete the saved show "${show.title}"?`)) return;
+  const r = await api("delete", {name: show.name}); if (!r) return;
+  H.shows = r.shows; homeSeq++; show.name = ""; dirty = true; renderSaved(); renderButtons(); say("Deleted. The songs are still here until you start a new show.", false);
+});
+
+// --- the song list ----------------------------------------------------------------------------------
+function lookOptions(cur) {
+  const opts = [`<option value=""${cur ? "" : " selected"}>House show</option>`];
+  for (const [n, l] of Object.entries(show.looks || {})) {   // Llano's looks for this show (lights_show_design)
+    opts.push(`<option value="${esc(n)}" title="${esc(l.note || "")}"${n === cur ? " selected" : ""}>Llano: ${esc(n.replace(/-/g, " "))}</option>`);
+  }
+  for (const l of H.looks.filter(l => l.name !== "house")) {
+    opts.push(`<option value="${esc(l.name)}" title="${esc(l.note)}"${l.name === cur ? " selected" : ""}>${esc(l.builtin ? l.name.replace("-", " ") : "Style: " + l.name)}</option>`);
+  }
+  return opts.join("");
+}
+// A Dancing song's energy (Llano BL #12341): Llano reads it from the song (never from where it sits),
+// it picks the look, and a tap on the chip changes it to the next one and keeps it as his.
+const TAGS = {hype: ["Hype", "Hype plays the peak look: full color on the beat, heads moving fast."],
+              dance: ["Dance", "Dance plays the groove look: steady color and motion with the beat."],
+              slow: ["Slow", "Slow plays the slow-dance look: soft, pale and slow, no strobe."]};
+const NEXT_TAG = {hype: "dance", dance: "slow", slow: "hype"};
+const TAG_LOOK = {hype: "peak", dance: "groove", slow: "slow-dance"};
+let partChain = Promise.resolve();
+const SOFT = new Set(["cocktail", "dinner"]);   // shows.is_soft: a soft warm wash, nothing moves or flashes
+function partOptions(s) {
+  return (s.part ? "" : `<option value="" selected>Not set</option>`) +
+    PARTS.map(([v, l]) => `<option value="${v}"${v === s.part ? " selected" : ""}>${l}</option>`).join("");
+}
+// --- what only he can settle, at the top of Review (Llano BL #11473) ----------------------------------
+// The app writes the lines (shows.needs), so the page and the app never disagree about what is missing.
+let NEEDS = [], needsSig = "", needsTimer = 0, needsSeq = 0, needsErr = false;
+function needsAsk() {
+  return {moments: N.moments.length ? nightForm().moments : null, unplaced: N.unplaced || [], folder: $("#nightfolder").value.trim()};
+}
+function askNeeds() {   // asked a moment later, once the step 2 boxes have followed the songs
+  clearTimeout(needsTimer);
+  needsTimer = setTimeout(async () => {
+    const body = {songs: show.songs.map(s => ({artist: s.artist, title: s.title, part: s.part || "", moment: s.moment || "",
+                                               secs: s.secs || 0, trouble: s.trouble || "", look: s.look || "", why: s.why || ""})), ...needsAsk()};
+    const sig = JSON.stringify(body); if (sig === needsSig && !needsErr) return;
+    const seq = ++needsSeq;   // answers are numbered: one that comes back after a newer question is dropped
+    try {
+      const r = await fetch("/api/shows-needs", {method: "POST", headers: {"Content-Type": "application/json", "X-Llano-Token": TOKEN}, body: sig});
+      const got = r.ok ? await r.json() : null;
+      if (seq !== needsSeq) return;
+      if (!got) throw new Error("refused");
+      NEEDS = got.needs || []; needsSig = sig; needsErr = false;
+    } catch (e) {
+      if (seq !== needsSeq) return;
+      needsErr = true; needsSig = "";   // never the green line on a check that did not happen
+    }
+    renderNeeds();
+  }, 150);
+}
+function renderNeeds() {
+  const np = $("#nopart");
+  np.hidden = !show.songs.length;
+  if (!show.songs.length) { np.innerHTML = ""; return; }
+  if (needsErr) { np.innerHTML = `<ul class="warns"><li data-kind="error">Could not check the show: press Save show to check again.</li></ul>`; return; }
+  if (!NEEDS.length) { np.innerHTML = `<p class="ok">Every song has its part, its lights and its length.</p>`; return; }
+  const sort = NEEDS.some(n => n.kind === "part") ? ` <button class="small" id="sortparts">Sort them from the folder</button>` : "";
+  np.innerHTML = `<ul class="warns">${NEEDS.map(n => `<li data-kind="${esc(n.kind)}">${esc(n.text)}</li>`).join("")}</ul>` + sort;
+}
+// A song with no part of the night and no moment to play at waits under Needs a part: it is never
+// built or filed as Dancing by default, and Build the night waits for it (BL #12338).
+const needsPart = (s) => !s.part && !s.moment;
+function renderSongs() {
+  const box = $("#songs");
+  renderNeeds(); askNeeds(); renderCutSum(); schedulePoints();
+  if (!show.songs.length) { box.innerHTML = `<div class="empty">No songs yet. Pick a Mixxx playlist, search, paste a list or a Spotify link above.</div>`; return; }
+  const row = (s, i) => `<tr data-i="${i}" class="${playing.index === i && isRunning() ? "now" : ""}">
+    <td class="num">${i + 1}</td>
+    <td class="song"><b>${esc(s.title)}</b><span>${esc(s.artist || "Unknown artist")}</span><div class="cut">${cutCell(s, i)}</div></td>
+    <td class="meta">${mmss(songLen(s))}${s.bpm ? "<br>" + Math.round(s.bpm) + " BPM" : ""}</td>
+    <td>${!s.sections || !s.sections.length ? `<span class="badge">reading...</span>` : s.source === "mixxx" ? `<span class="badge ok" title="Worked out from the song's file">exact sections</span>`
+         : `<span class="badge est" title="Not in your Mixxx library: a typical song shape from its tempo and length">estimated</span>`}
+         ${s.playable ? "" : `<br><span class="badge" title="No file on this laptop: plays silently here">not on laptop</span>`}</td>
+    <td class="part"><select data-part="${i}" aria-label="Part of the night for ${esc(s.title)}">${partOptions(s)}</select>
+         ${SOFT.has(s.part) && !s.moment ? `<br><span class="chip soft" title="A hard limit: no moving heads, spotlights, strobe or laser, whatever the look">soft wash only</span>` : ""}
+         ${s.part === "dancing" && !s.moment && TAGS[s.tag] ? `<br><button class="chip tag ${s.tag}" data-tag="${i}" title="${esc(TAGS[s.tag][1])} ${s.tag_mine ? "You chose it." : "Llano read it from the song: " + esc((s.why || "").replace(/^[A-Za-z]+: /, ""))}. Tap to change it to ${TAGS[NEXT_TAG[s.tag]][0]}." aria-label="${TAGS[s.tag][0]} for ${esc(s.title)}, tap to change">${TAGS[s.tag][0]}</button>` : ""}</td>
+    <td><select data-look="${i}" aria-label="Look for ${esc(s.title)}">${lookOptions(s.look)}</select></td>
+    <td class="why">${esc(s.why || "")}</td>
+    <td class="acts"><button class="small" data-up="${i}" ${i ? "" : "disabled"} title="Earlier">&#9650;</button>
+      <button class="small" data-down="${i}" ${i < show.songs.length - 1 ? "" : "disabled"} title="Later">&#9660;</button>
+      <button class="small" data-play="${i}" title="Preview the lights from this song (music on the night plays in Mixxx)">&#9654;</button>
+      <button class="small danger" data-rm="${i}" title="Take it out of the show">&times;</button></td></tr>${cutOpen === keyOf(s) ? cutEditor(s, i) : ""}`;
+  const head = `<thead><tr><th></th><th title="Under each song: where its copy for the night starts and ends">Song &middot; Starts &middot; Ends</th><th>Length</th><th>Sections</th><th>Part</th><th>Look</th><th>Why</th><th></th></tr></thead>`;
+  const all = show.songs.map((s, i) => [s, i]), wait = all.filter(([s]) => needsPart(s)), rest = all.filter(([s]) => !needsPart(s));
+  box.innerHTML = (wait.length ? `<h3 class="sub" id="needspart" style="color:var(--warn)">Needs a part &middot; ${wait.length}</h3>
+      <table class="needspart">${head}<tbody>${wait.map(([s, i]) => row(s, i)).join("")}</tbody></table>
+      ${rest.length ? `<h3 class="sub">Placed</h3>` : ""}` : "") +
+    (rest.length ? `<table>${head}<tbody>${rest.map(([s, i]) => row(s, i)).join("")}</tbody></table>` : "");
+}
+$("#nopart").addEventListener("click", (e) => {
+  if (!e.target.closest("#sortparts")) return;
+  if (cleanPath($("#folder").value)) { addFolder(); return; }
+  $("#h-step-1").scrollIntoView({behavior: "smooth", block: "start"}); $("#folder").focus();
+  say("Press Browse and choose the wedding folder: each song takes the part of the folder it sits in.", false);
+});
+$("#songs").addEventListener("change", (e) => {
+  const d = e.target.dataset;
+  if (d.cutat !== undefined) { cutTyped(+d.cuti, d.cutat, e.target.value); return; }
+  if (d.part !== undefined) {   // a song moved to another part of the night: the lights the design picked are redone
+    const want = show.songs[+d.part], value = e.target.value; if (!want) return;
+    const key = keyOf(want);
+    // One change at a time, in order; one that fails puts the songs back as they were.
+    partChain = partChain.then(async () => {
+      const s = show.songs.find(x => keyOf(x) === key); if (!s) return;
+      const before = JSON.parse(JSON.stringify(show.songs));
+      s.part = value; if (s.moment && s.part !== "dancing") s.moment = "";
+      s.pinned = true;
+      // his own picks and the looks Llano designed for this show stay; the rest follow the new parts
+      for (const x of show.songs) if (x.why !== "your pick" && !(x.look && (show.looks || {})[x.look])) { x.look = ""; x.why = ""; }
+      if (!await design(true)) { show.songs = before; renderAll(); say("The part was put back: the lights couldn't be picked again just now. Try once more."); }
+    });
+    return;
+  }
+  const i = d.look; if (i === undefined) return;
+  show.songs[+i].look = e.target.value; show.songs[+i].why = "your pick"; touch();
+});
+$("#songs").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  const d = b.dataset, list = show.songs;
+  if (d.up !== undefined) { const i = +d.up; [list[i - 1], list[i]] = [list[i], list[i - 1]]; touch(); }
+  else if (d.down !== undefined) { const i = +d.down; [list[i + 1], list[i]] = [list[i], list[i + 1]]; touch(); }
+  else if (d.rm !== undefined) { list.splice(+d.rm, 1); touch(); }
+  else if (d.play !== undefined) playFrom(+d.play, 0);
+  else if (d.cut !== undefined) { const s = list[+d.cut]; cutOpen = s && cutOpen !== keyOf(s) ? keyOf(s) : ""; cutStop(); renderSongs(); }
+  else if (d.cutdo !== undefined) cutDo(+d.cuti, d.cutdo);
+  else if (d.tag !== undefined) {
+    const s = list[+d.tag]; if (!s || !TAGS[s.tag]) return;
+    s.tag = NEXT_TAG[s.tag]; s.tag_mine = true;
+    s.look = TAG_LOOK[s.tag]; s.why = `${TAGS[s.tag][0]}: you tagged it`; touch();
+  }
+});
+
+// --- the whole show, front to back --------------------------------------------------------------------
+function renderTimeline() {
+  const tl = $("#timeline"), total = totalLen();
+  tl.querySelectorAll(".song").forEach(n => n.remove());
+  $("#total").textContent = mmss(total) + (show.songs.length ? ` · ${show.songs.length} songs` : "");
+  for (const [i, s] of show.songs.entries()) {
+    const len = songLen(s), d = document.createElement("div");
+    d.className = "song" + (playing.index === i && isRunning() ? " now" : "");
+    d.style.flex = `${len} 0 0`;
+    const secs = (s.sections || []).map(x => `<i style="flex:${Math.max(0.1, x.end - x.start)} 0 0;background:var(--${KINDS.includes(x.kind) ? x.kind : "intro"});opacity:${0.55 + 0.45 * (x.energy ?? 0.5)}" title="${KIND_LABEL[x.kind] || x.kind} ${mmss(x.start)}-${mmss(x.end)}"></i>`).join("");
+    d.innerHTML = `<div class="secs">${secs || `<i style="flex:1;background:var(--raise)"></i>`}</div>
+      <div style="height:5px;background:${LOOK_TINT[s.look || "house"] || "#c8ccd8"}" title="Look: ${esc(s.look || "house show")}"></div>
+      <div class="lbl">${i + 1}. ${esc(s.title)}<small>${esc(s.look ? s.look.replace("-", " ") : "house")}</small></div>`;
+    tl.insertBefore(d, $("#playhead"));
+  }
+  $("#legend").innerHTML = KINDS.map(k => `<span><i style="background:var(--${k})"></i>${KIND_LABEL[k]}</span>`).join("") +
+    `<span style="margin-left:8px">Thin bar under each song: its look</span>`;
+}
+$("#timeline").addEventListener("click", (e) => {
+  if (!show.songs.length) return;
+  const r = $("#timeline").getBoundingClientRect(), t = (e.clientX - r.left) / r.width * totalLen();
+  let acc = 0;
+  for (const [i, s] of show.songs.entries()) { const len = songLen(s); if (t < acc + len) return playFrom(i, t - acc); acc += len; }
+});
+
+// --- playing it here: the window plays each song and tells the app where it is ---------------------------
+const audio = new Audio(); audio.preload = "auto"; audio.volume = 0.9;
+const playing = {index: -1, silentStart: 0, silentAt: 0, paused: false, songs: null};
+let stopArmed = 0;
+const isRunning = () => app && app.running === "show";
+function curTime() {
+  const s = playing.songs && playing.songs[playing.index]; if (!s) return 0;
+  if (s.playable) return audio.currentTime || 0;
+  return playing.paused ? playing.silentAt : playing.silentAt + (performance.now() - playing.silentStart) / 1000;
+}
+function loadSong(i, at) {
+  const s = playing.songs[i]; playing.index = i; playing.paused = false;
+  if (s.playable) {
+    audio.src = `/show-audio/${s.track_id}`;
+    audio.currentTime = at || 0;
+    audio.play().catch(() => {   // a file it can't play (moved, odd format): carry on silently, never stall
+      s.playable = false; playing.silentAt = at || 0; playing.silentStart = performance.now();
+      say(`The window couldn't play ${s.title}; the lights carry on with its sections, silently.`);
+    });
+  } else { audio.pause(); audio.removeAttribute("src"); playing.silentAt = at || 0; playing.silentStart = performance.now(); }
+  renderAll();
+}
+async function playFrom(i, at) {
+  if (!show.songs.length) { say("Add some songs first."); return; }
+  cutStop();
+  if (show.songs.some(s => !s.sections || !s.sections.length)) await analyzeAll();
+  // Running already: the show takes this list as it is now (edits included), so the song number
+  // the page reports always means the same song to the lights.
+  starting = true;
+  const ok = await api("play", {songs: show.songs, looks: show.looks, moods: curMoods(), title: show.title || "this show", lights: $("#onlights").checked});
+  starting = false;
+  if (!ok) return;
+  playing.songs = show.songs.map(s => ({...s}));
+  loadSong(i, at);
+  report();
+}
+audio.addEventListener("ended", () => nextSong());
+function nextSong() { if (!playing.songs) return; if (playing.index + 1 < playing.songs.length) loadSong(playing.index + 1, 0); else { say("That was the whole show.", false); stopShow(); } }
+async function stopShow() { audio.pause(); playing.index = -1; playing.songs = null; await post("/api/stop"); renderAll(); }
+function report() {
+  if (playing.index < 0 || !playing.songs) return;
+  const s = playing.songs[playing.index];
+  if (!s.playable && !playing.paused && curTime() >= songLen(s)) return nextSong();
+  post("/api/demo-clock", {song: String(playing.index), t: curTime(), playing: s.playable ? !audio.paused : !playing.paused});
+}
+setInterval(report, 250);
+$("#play").addEventListener("click", () => playFrom(isRunning() && playing.index >= 0 ? playing.index : 0, 0));
+$("#next").addEventListener("click", () => nextSong());
+$("#prev").addEventListener("click", () => { if (playing.songs) loadSong(Math.max(0, curTime() > 5 ? playing.index : playing.index - 1), 0); });
+$("#pause").addEventListener("click", () => {
+  if (!playing.songs) return;
+  const s = playing.songs[playing.index];
+  if (s.playable) { audio.paused ? audio.play() : audio.pause(); }
+  else if (playing.paused) { playing.paused = false; playing.silentStart = performance.now(); }
+  else { playing.silentAt = curTime(); playing.paused = true; }
+  report(); renderButtons();
+});
+$("#stop").addEventListener("click", () => {
+  if (Date.now() - stopArmed < 3000) { stopArmed = 0; stopShow(); return; }
+  stopArmed = Date.now(); $("#stop").textContent = "Click again to stop"; setTimeout(() => { $("#stop").textContent = "Stop"; }, 3000);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest("input, textarea, select")) return;
+  if (e.code === "Space" && playing.songs) { e.preventDefault(); $("#pause").click(); }
+});
+
+// --- the Mixxx playlist and the song list for Spotify ----------------------------------------------------
+$("#m3u").addEventListener("click", async () => {
+  if (!show.songs.length) { say("Add some songs first."); return; }
+  const r = await api("mixxx-playlist", {songs: show.songs, title: show.title || "show"}); if (!r) return;
+  $("#m3uline").textContent = "Saved: " + r.path;
+});
+$("#copylist").addEventListener("click", async () => {
+  const text = show.songs.map(s => [s.artist, s.title].filter(Boolean).join(" - ")).join("\n");
+  try { await navigator.clipboard.writeText(text); say("Copied the song list. Search each song in Spotify, or paste the list into a playlist tool.", false); }
+  catch (e) { say("Couldn't reach the clipboard."); }
+});
+
+$("#livefollow").addEventListener("change", async (e) => {
+  const r = await api("live", {name: e.target.checked ? show.name : ""});
+  if (!r) { e.target.checked = !e.target.checked; return; }
+  H.live_show = r.live_show; renderButtons();
+  say((r.live_show ? `The Live show now follows "${show.title}".` : "The Live show plays each song's usual look.") + (r.note || ""), false);
+});
+
+// --- the wedding night (1.19.0): the show built into one folder Mixxx's Auto DJ plays -------------------------
+let N = {moments: [], optional: [], building: false, typed: {}, miss: 0, unplaced: [], state: null};
+const nightKey = () => "llano-night:" + (show.name || show.title || "");
+// run_of_show.parse_clock's rule, so the page and the app agree on what a time is ("6", "6:30", "6.30",
+// "6:30 pm", "18:30"); a test checks the two give the same answers.
+function readableTime(text) {
+  let t = String(text || "").trim().toLowerCase(); if (!t) return true;
+  const mark = /^\s*\d/.test(t) ? t.match(/([ap])\.?\s*(?:m\.?)?\s*$/) : null;
+  if (mark) t = t.slice(0, mark.index);
+  t = t.trim().replace(/\./g, ":");
+  const i = t.indexOf(":"), h = i < 0 ? t : t.slice(0, i), m = i < 0 ? "" : t.slice(i + 1);
+  const num = (x) => /^\s*[+-]?\d+\s*$/.test(x) ? parseInt(x, 10) : NaN;
+  const hh = num(h), mm = m.trim() === "" ? 0 : num(m);
+  return Number.isInteger(hh) && Number.isInteger(mm) && hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59;
+}
+const timeOf = (box) => box && readableTime(box.value) ? box.value.trim() : "";   // one that can't be read is not used
+function checkTimes() {
+  let bad = 0;
+  for (const box of document.querySelectorAll("#step-2 input.t, #step-2 input[id^=nt-]")) {
+    const ok = readableTime(box.value); box.classList.toggle("bad", !ok); if (!ok) bad++;
+    box.title = ok ? "" : "Type it like 6:30.";
+  }
+  $("#timebad").hidden = !bad;
+}
+function nightForm() {
+  const moments = {};
+  for (const m of N.moments) {
+    const on = $(`#nm-on-${m.key}`), at = $(`#nm-at-${m.key}`), song = $(`#nm-song-${m.key}`);
+    moments[m.key] = {on: on ? on.checked : true, at: timeOf(at), song: song ? song.value.trim() : ""};
+  }
+  const keep = [...document.querySelectorAll("#nightcutlist input:checked")].map(x => x.dataset.key);
+  return {folder: $("#nightfolder").value.trim(), moments, keep,
+          times: {cocktail: timeOf($("#nt-cocktail")), dinner: timeOf($("#nt-dinner")), dancing: timeOf($("#nt-dancing"))}};
+}
+function nightKeep() {
+  // the Moments songs are this show's: a show with no name yet keeps them only while the page is open,
+  // so they never turn up in the next new show
+  const named = nightKey() !== "llano-night:";
+  const plan = {...nightForm(), ...(named ? {unplaced: N.unplaced} : {})};
+  try { localStorage.setItem(nightKey(), JSON.stringify(plan)); } catch (e) { /* a private window: nothing to keep */ }
+  // a saved show's plan is kept by the app too (BL #12426): this window's storage is per port, and the app
+  // can come back on another one. Sent a moment later (typing a time is one send), and at once when the
+  // page closes or another show opens. Quiet: a plan that didn't reach the app is still in this window.
+  if (show.name && N.moments.length) { planBody = JSON.stringify({name: show.name, plan}); clearTimeout(planTimer); planTimer = setTimeout(sendPlan, 300); }
+}
+let planBody = null, planTimer = 0;
+function sendPlan() {
+  clearTimeout(planTimer); if (!planBody) return;
+  const body = planBody; planBody = null;
+  fetch("/api/shows-night-remember", {method: "POST", keepalive: true, body,   // keepalive: it still goes as the window closes
+                                      headers: {"Content-Type": "application/json", "X-Llano-Token": TOKEN}}).catch(() => {});
+}
+window.addEventListener("pagehide", sendPlan);
+function nightRemember() { nightKeep(); renderSteps(); askNeeds(); }
+function nightRecall() { try { return JSON.parse(localStorage.getItem(nightKey()) || "null"); } catch (e) { return null; } }
+function momentSongsOfShow() {   // a song the arranger (or a Moments folder) gave a moment fills that moment's box
+  const out = {};
+  for (const s of show.songs) if (s.moment) out[s.moment] = [s.artist, s.title].filter(Boolean).join(" - ");
+  return out;
+}
+function syncMomentSongs() {     // the songs changed: boxes he has not typed in follow the show
+  if (!N.moments.length) return;
+  const fromShow = momentSongsOfShow(), kept = (nightRecall() || {moments: {}}).moments || {};
+  for (const m of N.moments) {
+    const box = $(`#nm-song-${m.key}`);
+    if (box && N.typed[m.key] === undefined && box !== document.activeElement) box.value = fromShow[m.key] || (kept[m.key] || {}).song || "";
+  }
+}
+function nightForShow() {        // another show (or a new one): its own remembered boxes, nothing typed for the last
+  N.typed = {};
+  const kept = nightRecall() || {};
+  N.unplaced = Array.isArray(kept.unplaced) ? kept.unplaced.map(String) : [];
+  // only this show's own folder: the Folder box in step 1 can hold another show's
+  $("#nightfolder").value = kept.folder || "";
+  for (const p of ["cocktail", "dinner", "dancing"]) $("#nt-" + p).value = (kept.times || {})[p] || "";
+  if (N.moments.length) renderNightMoments();
+  renderNightFrom(); checkTimes();
+  askNeeds();
+}
+function renderNightMoments() {
+  const kept = nightRecall() || {moments: {}, times: {}};
+  const fromShow = momentSongsOfShow();
+  $("#nightmoments").innerHTML = N.moments.map(m => {
+    const k = kept.moments[m.key] || {};
+    const on = k.on !== undefined ? k.on : !(N.optional || []).includes(m.key);
+    // the show's own song for a moment wins over a box remembered from an earlier visit (a stale name
+    // would take the moment and leave the show's song with nowhere to play); what he typed this visit wins over both
+    const song = N.typed[m.key] !== undefined ? N.typed[m.key] : (fromShow[m.key] || k.song || "");
+    return `<input type="checkbox" id="nm-on-${m.key}" ${on ? "checked" : ""} aria-label="${esc(m.name)} is happening">
+      <span class="nm" title="${esc(m.say)}">${esc(m.name)}</span>
+      <input type="text" class="t" id="nm-at-${m.key}" placeholder="time" value="${esc(k.at || "")}" autocomplete="off" aria-label="${esc(m.name)} time">
+      ${m.song ? `<input type="text" class="sg" id="nm-song-${m.key}" list="momentsongs" placeholder="Pick its song" value="${esc(song)}" autocomplete="off" aria-label="${esc(m.name)} song">`
+               : `<span class="none sg">no song: the music stops for it</span>`}`;
+  }).join("");
+  if (!$("#nightfolder").value) $("#nightfolder").value = kept.folder || "";
+  renderNightFrom(); checkTimes();
+  for (const p of ["cocktail", "dinner", "dancing"]) if (!$("#nt-" + p).value) $("#nt-" + p).value = (kept.times || {})[p] || "";
+  renderMomentList();
+}
+// The list every moment's song box picks from: the Moments folder's songs first (placed or not), then the show's.
+function renderMomentList() {
+  const name = (s) => [s.artist, s.title].filter(Boolean).join(" - ");
+  const names = Object.fromEntries(N.moments.map(m => [m.key, m.name]));
+  const moms = show.songs.filter(s => s.moment);
+  const all = [...new Set([...moms.map(name), ...(N.unplaced || []), ...show.songs.map(name)])].filter(Boolean);
+  $("#momentsongs").innerHTML = all.map(t => `<option value="${esc(t)}"></option>`).join("");
+  const from = moms.map(s => `<b style="display:inline;color:var(--text)">${esc(name(s))}</b> (${esc(names[s.moment] || s.moment)})`)
+    .concat((N.unplaced || []).map(t => `<b style="display:inline;color:var(--text)">${esc(t)}</b> (not placed yet: pick its moment below)`));
+  $("#momentsfrom").innerHTML = from.length ? "From the Moments folder: " + from.join(", ") + "." :
+    show.songs.length ? "No Moments folder came in. Pick each moment's song from the show's songs." : "Load the songs in step 1 first; their names fill this list.";
+}
+function renderNightFrom() {   // which folder Build the night reads, said before he presses it
+  const f = $("#nightfolder").value.trim();
+  $("#nightfrom").textContent = f ? `It builds from the songs in ${f}.` : "Choose the folder your song files are in, then press Build the night.";
+}
+$("#nightfolder").addEventListener("input", renderNightFrom);
+$("#nightfolder").addEventListener("change", renderNightFrom);
+function renderNight(n) {
+  n = n || {state: "idle"};
+  N.state = n; renderSteps();
+  N.building = n.state === "building";
+  $("#nightbuild").disabled = N.building || !show.songs.length;
+  // The run sheet is a file in the night's folder. Say where, and keep both buttons working for the
+  // last night built on this laptop after the app was closed (his 2026-11-13 "I can't find the run sheet").
+  const where = n.state === "done" ? {folder: n.folder, sheet: n.sheet} : n.state === "idle" ? n.last : null;
+  $("#nightopen").disabled = $("#nightsheet").disabled = !where;
+  $("#nightload").disabled = !where || N.loading;
+  $("#nightwake").style.display = where ? "none" : "";
+  $("#nightwhere").style.display = where ? "block" : "none";
+  if (where) $("#nightwhere").innerHTML = `<b style="display:inline;color:var(--text)">The run sheet</b> is the file <b style="display:inline;color:var(--text)">Run of show.html</b> in ${n.state === "done" ? "this night's folder" : "the last night you built"}: <span>${esc(where.folder || "")}</span>. Open the run sheet shows it in your browser; press <b style="display:inline;color:var(--text)">Print this page</b> at its top.`;
+  if (n.state === "building") $("#nightline").textContent = `${n.what || "Working"}${n.n ? ` (${n.i} of ${n.n})` : ""}`;
+  else if (n.state === "failed") $("#nightline").textContent = "It didn't finish: " + (n.error || "unknown error");
+  else if (n.state === "done" && n.report) {
+    const r = n.report, mins = r.playlists.reduce((a, p) => a + p.music_min, 0);
+    $("#nightline").textContent = `Built ${r.built}: ${r.playlists.length} playlists, ${Math.round(mins)} minutes of music.`;
+    const lines = r.checks.map(c => `<li>${esc(c.text)}</li>`).concat((n.notes || []).map(t => `<li>${esc(t)}</li>`));
+    $("#nightchecks").innerHTML = lines.length ? lines.join("") : `<li class="ok">Every song was read and built. Nothing to fix.</li>`;
+    const ch = r.changed || [], kept = new Set(r.kept || []);
+    $("#nightcuts").style.display = ch.length ? "block" : "none";
+    $("#nightcuts summary").textContent = `${ch.length} song${ch.length === 1 ? "" : "s"} start late or leave early. Look them over.`;
+    $("#nightcutlist").innerHTML = ch.map(c => {
+      const name = esc([c.artist, c.title].filter(Boolean).join(" - "));
+      const cut = (c.cut_start_s >= 1 || c.cut_end_s >= 1) ? ` (${[c.cut_start_s >= 1 ? `${Math.round(c.cut_start_s)} s off the start` : "", c.cut_end_s >= 1 ? `${Math.round(c.cut_end_s)} s off the end` : ""].filter(Boolean).join(", ")})` : "";
+      return `<p class="opt" style="display:block;margin:3px 0"><b style="display:inline;color:var(--text)">${name}</b>: ${esc(kept.has(c.key) ? "its intro is kept" : c.why)}${esc(cut)}</p>`;
+    }).join("");
+  } else $("#nightline").textContent = "";
+  // what to do after the build, whenever a night is built: right after it, and after the app is opened again
+  $("#nightnext").style.display = where ? "block" : "none";
+  $("#nightpath").textContent = where ? where.folder || "" : "";
+}
+async function nightPoll() {
+  const n = await api("night-status");
+  if (!n) {   // one missed answer must not leave the button off for good: ask again, a little later each time
+    N.miss += 1; setTimeout(nightPoll, Math.min(10000, 1500 * N.miss)); return;
+  }
+  N.miss = 0;
+  renderNight(n);
+  if (n.state === "building") { N.watching = true; setTimeout(nightPoll, 1200); }
+  else {
+    if (n.state === "done" && N.watching) say("The night is built. Press Open the run sheet, then Print this page at its top.", false);
+    N.watching = false;      // "built" is said once, for a build this page watched finish
+  }
+}
+async function loadNight() {
+  const r = await api("night-home"); if (!r) return;
+  // only the moments the night plays in its order: every box shown changes the built night (Llano BL #11473)
+  const order = r.order || [];
+  N.moments = r.moments.filter(m => order.includes(m.key)); N.optional = r.optional || [];
+  $("#nightsecs").textContent = $("#nightsecs2").textContent = r.transition_s;
+  renderNightMoments(); renderNight(r.night);
+  if (r.night && r.night.state === "building") { N.watching = true; setTimeout(nightPoll, 1200); }
+}
+$("#nightbuild").addEventListener("click", async () => {
+  if (!show.songs.length) { say("Add the songs first."); return; }
+  const wait = show.songs.filter(needsPart);   // the app refuses these too (wedding_night.needs_part)
+  if (wait.length) {
+    const names = wait.slice(0, 8).map(s => [s.artist, s.title].filter(Boolean).join(" - ")).join(", ") + (wait.length > 8 ? ` and ${wait.length - 8} more` : "");
+    say(`Build waits: ${wait.length} song${wait.length === 1 ? " has" : "s have"} no part of the night yet (${names}). Pick each one's part under Needs a part in Review, or add their folder again in step 1.`);
+    const at = $("#needspart"); if (at) at.scrollIntoView({behavior: "smooth", block: "start"});
+    return;
+  }
+  const f = nightForm();
+  if (!f.folder && !show.songs.some(s => s.playable)) { say("Press Browse and choose the folder your song files are in."); $("#nightfolder").focus(); return; }
+  nightRemember();
+  N.building = true; $("#nightbuild").disabled = true;   // off at once: a second click must not start a second build
+  $("#nightline").textContent = "Starting";
+  const r = await api("night-build", {songs: show.songs, title: show.title || "Wedding", moods: curMoods(), ...f});
+  if (!r) {                                              // refused (the reason is on screen): show what is true now, say nothing more
+    const n = await api("night-status"); renderNight(n || {state: "idle"});
+    if (n && n.state === "building") { N.watching = true; setTimeout(nightPoll, 1200); }
+    return;
+  }
+  $("#nightchecks").innerHTML = ""; renderNight(r); N.watching = true; setTimeout(nightPoll, 800);
+});
+$("#nightcheck").addEventListener("click", async () => {
+  const r = await api("night-check"); if (!r) return;
+  if (r.found === false) { $("#nightmixxx").innerHTML = `<li>Llano Lights could not find Mixxx's settings. Open Mixxx once, close it, then press Check Mixxx's Auto DJ again.</li>`; return; }
+  $("#nightmixxx").innerHTML = r.items.map(i => i.ok ? `<li class="ok">${esc(i.name)}: ${esc(i.is)}. Good.</li>`
+    : `<li>${esc(i.name)} is ${esc(i.is)}; it should be ${esc(i.want)}. ${esc(i.fix)}</li>`).join("");
+});
+// Load Mixxx (BL #12343): the built night into Mixxx's library, then Mixxx opens. A refusal stays on screen.
+$("#nightload").addEventListener("click", async () => {
+  N.loading = true; $("#nightload").disabled = true; $("#nightmixxx").innerHTML = "<li class=\"ok\">Loading Mixxx...</li>";
+  let r, s;
+  try {
+    r = await fetch("/api/shows-night-load-mixxx", {method: "POST", headers: {"Content-Type": "application/json", "X-Llano-Token": TOKEN}, body: "{}"});
+    s = await r.json().catch(() => ({}));
+  } catch (e) { r = null; s = {error: "Llano Lights isn't answering. Is it still open?"}; }
+  N.loading = false; renderNight(N.state);
+  if (!r || !r.ok) { $("#nightmixxx").innerHTML = `<li>Mixxx wasn't loaded: ${esc(s.error || "that didn't work.")}</li>`; return; }
+  const lists = s.playlists.map(p => `${p.name} (${p.songs})`).join(", ");
+  $("#nightmixxx").innerHTML = [
+    `Added ${s.added} song${s.added === 1 ? "" : "s"} to Mixxx's library${s.known ? ` (${s.known} were already there)` : ""}.`,
+    `Playlists: ${lists}.`,
+    `Auto DJ queue: playlist 1, ${s.autodj} songs${s.queue_had ? ` (it replaced the ${s.queue_had} that were queued)` : ""}. Auto DJ is set to Full Track, ${s.transition_s} seconds.`,
+    s.opened ? "Mixxx is opening. When the night starts, press the first button at the top of Mixxx's Auto DJ page (Enable Auto DJ)."
+             : "Open Mixxx. When the night starts, press the first button at the top of Mixxx's Auto DJ page (Enable Auto DJ).",
+    `A copy of Mixxx's library from before is saved at ${s.backup}.`,
+  ].map(t => `<li class="ok">${esc(t)}</li>`).join("");
+  say("Mixxx is loaded.", false);
+});
+$("#nightopen").addEventListener("click", () => api("night-open", {what: "folder"}));
+$("#nightsheet").addEventListener("click", () => api("night-open", {what: "sheet"}));
+$("#night").addEventListener("change", nightRemember);
+$("#step-2").addEventListener("change", nightRemember);
+$("#step-2").addEventListener("input", checkTimes);
+$("#nightmoments").addEventListener("input", e => {
+  const id = (e.target.id || ""); if (id.startsWith("nm-song-")) N.typed[id.slice(8)] = e.target.value.trim();
+  renderSteps(); askNeeds();
+});
+
+// --- state ------------------------------------------------------------------------------------------------
+// Who makes the sound, said before he presses (Llano BL #12410: nothing played, 70 songs, none a Mixxx
+// file, so the preview ran silent with no word why). Only songs that are files in his Mixxx library
+// have sound here; the music on the night always plays in Mixxx.
+function soundLine(songs) {
+  const n = songs.length, k = songs.filter(s => s.playable).length;
+  if (!n) return "";
+  if (k === n) return "Every song makes sound in this preview, from its file in your Mixxx library. On the night the music plays in Mixxx.";
+  if (!k) return `This preview is silent: none of these ${n} songs is a file in your Mixxx library yet. The picture still shows each song's lights. To hear them, Load Mixxx (step 6) and play them in Mixxx.`;
+  return `${k} of ${n} songs make sound in this preview (the ones in your Mixxx library); the other ${n - k} preview silently. On the night the music plays in Mixxx.`;
+}
+function renderButtons() {
+  const run = isRunning(), any = show.songs.length > 0;
+  $("#play").disabled = !any || busy || (app && app.running && !run);
+  $("#play").innerHTML = run ? "&#9654; This song again" : "&#9654; Preview the lights";
+  $("#soundline").textContent = soundLine(show.songs);
+  for (const id of ["#prev", "#next", "#pause", "#stop"]) $(id).disabled = !run;
+  $("#pause").textContent = playing.songs && ((playing.songs[playing.index] || {}).playable ? audio.paused : playing.paused) ? "Resume" : "Pause";
+  $("#design").disabled = $("#designall").disabled = !any || busy;
+  $("#design").title = !any ? "Add some songs first" : busy ? "Wait for the songs to finish loading" : "";
+  // Save show is never a dead button (his 2026-11-13 report): with no songs it says why, here and on a press.
+  $("#savewhy").style.display = any ? "none" : "block"; $("#del").disabled = !show.name;
+  $("#m3u").disabled = $("#copylist").disabled = !any;
+  $("#nightbuild").disabled = N.building || !any;
+  $("#livefollow").disabled = !show.name;
+  $("#livefollow").checked = !!show.name && H.live_show === show.name;
+  renderSteps();
+}
+function renderNow() {
+  const run = isRunning();
+  if (app && app.running && !run) $("#runline").textContent = `${app.running_label} is running. Stop it on the main screen to preview a show here.`;
+  else $("#runline").textContent = run ? `Previewing: ${app.show_title}` : "";
+  const s = playing.songs && playing.songs[playing.index];
+  $("#nowline").textContent = run && s ? `${playing.index + 1}/${playing.songs.length}  ${s.title}  ${mmss(curTime())} / ${mmss(songLen(s))}  look: ${s.look || "house"}${s.playable ? "" : "  (no sound here)"}` : "";
+  const ph = $("#playhead");
+  if (run && s) { ph.style.display = "block"; ph.style.left = `${(startOf(playing.index) + curTime()) / Math.max(1, totalLen()) * 100}%`; }
+  else ph.style.display = "none";
+}
+// The step strip: a step is done when its part of the show is, and the first one left is marked next.
+function stepsDone() {
+  const songs = show.songs, any = songs.length > 0;
+  const momentsSet = any && N.moments.length > 0 && N.moments.every(m => {
+    if (!m.song) return true;
+    const on = $(`#nm-on-${m.key}`), box = $(`#nm-song-${m.key}`);
+    return (on && !on.checked) || (box && box.value.trim());
+  });
+  const n = N.state || {}, where = n.state === "done" ? n.folder : n.state === "idle" && n.last ? n.last.folder : "";
+  const built = !!(where && show.name && String(where).replace(/[\\/]+$/, "").split(/[\\/]/).pop() === show.name + "-night");
+  return {1: any, 2: momentsSet, 3: any && songs.every(s => s.sections && s.sections.length), 4: any,
+          5: any && songs.every(s => s.why) && !!show.name && !dirty, 6: built, 7: !!show.name && H.live_show === show.name};
+}
+function renderSteps() {
+  const done = stepsDone(); let next = 0;
+  for (let k = 1; k <= 7; k++) {
+    if (!done[k] && !next) next = k;
+    const a = document.querySelector(`#steps [data-step="${k}"]`);
+    a.classList.toggle("done", !!done[k]); a.classList.toggle("next", k === next);
+    a.title = done[k] ? "Done" : k === next ? "Next" : "";
+    $("#step-" + k).classList.toggle("done", !!done[k]);
+  }
+}
+function renderAll() { renderTimeline(); renderSongs(); renderButtons(); renderNow(); syncMomentSongs(); renderListen(); renderMomentList(); renderSteps(); }
+async function poll() {
+  try { const r = await fetch("/api/app"); app = await r.json(); }
+  catch (e) { app = null; $("#runline").textContent = "Llano Lights has closed."; }
+  if (app && app.running !== "show" && playing.songs) { audio.pause(); playing.songs = null; playing.index = -1; renderAll(); }
+  renderButtons(); renderNow();
+}
+setInterval(poll, 1000);
+setInterval(renderNow, 250);
+// Leaving the page ends the rehearsal it started, the way the line-up page ends its line-up: a request
+// marked keepalive still goes out while the page closes. A show the main screen runs is not this page's.
+let starting = false;
+window.addEventListener("pagehide", () => {
+  if (!playing.songs && !starting) return;
+  audio.pause(); playing.songs = null; playing.index = -1;
+  fetch("/api/stop", {method: "POST", headers: {"Content-Type": "application/json", "X-Llano-Token": TOKEN}, body: "{}", keepalive: true}).catch(() => {});
+});
+window.addEventListener("beforeunload", (e) => { if (dirty && show.songs.length) { e.preventDefault(); e.returnValue = ""; } });
+loadHome(); poll(); renderAll(); loadNight(); loadMoods();
+
+// --- Get my songs from Drive, and Add a song from this laptop (Llano BL #12342) --------------------------
+// The app keeps a copy of his Drive song folder on this laptop (drive_songs.py); this puts it into the show:
+// new songs come in, a song taken out of Drive leaves the show, and each song takes its part of the night
+// from the folder it sits in. The order, the parts and the looks stay in the show, never as files in Drive.
+const songWords = (s) => ((s.artist || "") + " " + (s.title || "")).toLowerCase().match(/[a-z0-9]+/g)?.join("-") || "";
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+function driveLine(t, warn = false) { const e = $("#driveline"); e.textContent = t; e.style.color = warn ? "var(--warn)" : ""; }
+function renderDrive(con) {
+  const on = !!(con && con.id);
+  $("#driveconnect").hidden = on; $("#driveget").hidden = !on;
+  $("#drivepick").hidden = $("#drivepickgo").hidden = true;
+  $("#drivename").textContent = on ? `Connected to ${con.name}` : "";
+}
+function driveSummary(g) {
+  const n = (k) => (g[k] || []).length, bits = [`${n("new")} new, ${n("removed")} removed`];
+  if (n("changed")) bits.push(`${n("changed")} changed`);
+  if (n("moved")) bits.push(`${n("moved")} moved to another part`);
+  let t = bits.join(", ") + (g.at ? ` (at ${g.at})` : "") + ".";
+  if (n("failed")) t += ` ${n("failed")} could not be downloaded and ${n("failed") === 1 ? "is" : "are"} tried again next time: ` +
+    g.failed.slice(0, 3).map(f => f.file.split("/").pop()).join(", ") + ".";
+  return t;
+}
+async function driveHome() {
+  const r = await api("drive-home"); if (!r) return;
+  $("#addfilepart").innerHTML = PARTS.map(([v, l]) => `<option value="part:${v}">${l}</option>`).join("") +
+    MOMENTS.filter(([v]) => v).map(([v, l]) => `<option value="moment:${v}">${l}</option>`).join("");
+  renderDrive(r.connected);
+  if (!r.linked) { driveLine("Link this laptop to Llano first (Set up, Llano link), then connect your Drive folder."); return; }
+  if (!r.connected || !r.connected.id) { driveLine("Connect once, then Get my songs brings your Drive folder's songs here."); return; }
+  if (r.get && r.get.state === "getting") { drivePoll(false); return; }
+  if (r.get && r.get.state === "done") driveLine(`Your Drive songs are on this laptop: ${driveSummary(r.get)} Press Get my songs to put them in this show.`);
+  else if (r.get && r.get.state === "failed") driveLine(r.get.error, true);
+  else if (r.last && r.last.files) driveLine(`${r.last.files} songs from Drive are on this laptop (last got ${r.last.got_at}).`);
+}
+async function drivePoll(apply) {
+  $("#driveget").disabled = true;
+  try {
+    for (;;) {
+      const r = await api("drive-status"); if (!r) return;
+      const g = r.get || {};
+      if (g.state === "getting") { driveLine(g.n ? `${g.what} (${g.i} of ${g.n})` : g.what || "Getting your songs..."); await wait(700); continue; }
+      if (g.state === "failed") { driveLine(g.error || "Get my songs didn't work.", true); return; }
+      if (g.state === "done") { driveLine(driveSummary(g)); if (apply) await driveApply(g); }
+      return;
+    }
+  } finally { $("#driveget").disabled = false; }
+}
+async function driveApply(g) {
+  // a song taken out of the Drive folder leaves the show (only that song: one added any other way stays)
+  const gone = new Set((g.removed || []).map(songWords).filter(Boolean));
+  const before = show.songs.length;
+  if (gone.size) show.songs = show.songs.filter(s => !gone.has(songWords(s)));
+  const removed = before - show.songs.length;
+  const have = show.songs.map(s => ({artist: s.artist, title: s.title, part: s.part || "", moment: s.moment || ""}));
+  const r = await api("drive-read", {have}); if (!r) return;
+  $("#folder").value = r.folder;                       // the folder this show's songs are in, for the build too
+  $("#nightfolder").value = r.folder; nightRemember();
+  if (!show.title && r.title) { show.title = r.title; $("#title").value = r.title; }
+  let placed = 0;                                      // songs already in the show follow their folder's part
+  for (const p of r.placed || []) {
+    const s = show.songs[p.i]; if (!s || songWords(s) !== songWords(have[p.i] || {})) continue;
+    s.part = p.part; s.moment = p.moment || ""; placed++;
+  }
+  if (removed || placed) touch();
+  const fresh = new Set(show.songs.map(songWords)), adding = (r.songs || []).filter(s => !fresh.has(songWords(s)));
+  if (adding.length) await addSongs(adding, "Drive");
+  const more = [driveSummary(g)];
+  if (adding.length) more.push(`${adding.length} song${adding.length === 1 ? "" : "s"} added to the show.`);
+  if (removed) more.push(`${removed} song${removed === 1 ? "" : "s"} taken out of the show.`);
+  if (placed) more.push(`${placed} song${placed === 1 ? "" : "s"} moved to the part of ${placed === 1 ? "its" : "their"} folder.`);
+  if (!adding.length && !removed && !placed) more.push("The show already matches your Drive folder.");
+  if ((r.aside || []).length) more.push(`Left out of the night (in a folder that is no part of it): ${r.aside.join(", ")}.`);
+  N.unplaced = [...new Set([...(N.unplaced || []), ...(r.unplaced || [])])]; renderMomentList(); nightRemember();
+  if ((r.unplaced || []).length) more.push(`In the Moments folder, ${r.unplaced.join(" and ")} ${r.unplaced.length === 1 ? "is" : "are"} not tied to a dance yet: pick ${r.unplaced.length === 1 ? "it" : "each"} beside its moment in step 2.`);
+  if (r.left_out) more.push(`${r.left_out} more song${r.left_out === 1 ? "" : "s"} than a show holds (${r.most}) ${r.left_out === 1 ? "was" : "were"} left out.`);
+  driveLine(more.join(" ")); say(more.join(" "), false);
+}
+$("#driveconnect").addEventListener("click", async (e) => {
+  e.target.disabled = true; const r = await api("drive-connect", {}); e.target.disabled = false;
+  if (!r) return;
+  if (r.pick) {                                         // more than one folder: he picks which
+    $("#drivepick").innerHTML = r.pick.map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("");
+    $("#drivepick").hidden = $("#drivepickgo").hidden = false; driveLine("Pick your song folder, then Connect this one."); return;
+  }
+  renderDrive(r.connected); drivePoll(true);
+});
+$("#drivepickgo").addEventListener("click", async () => {
+  const r = await api("drive-connect", {id: $("#drivepick").value}); if (!r || !r.connected) return;
+  renderDrive(r.connected); drivePoll(true);
+});
+$("#driveget").addEventListener("click", async () => { const r = await api("drive-get", {}); if (r) drivePoll(true); });
+$("#addfilebrowse").addEventListener("click", async (e) => {
+  e.target.disabled = true; const r = await api("pick-file", {start: cleanPath($("#folder").value)}); e.target.disabled = false;
+  if (r && r.path) $("#addfile").value = r.path;
+});
+$("#addfilego").addEventListener("click", async () => {
+  const path = cleanPath($("#addfile").value);
+  if (!path) { say("Press Choose the song, or paste the song file's path in the box."); return; }
+  const [kind, val] = $("#addfilepart").value.split(":");
+  const r = await api("add-file", {path, part: kind === "part" ? val : "", moment: kind === "moment" ? val : "",
+                                   folder: cleanPath($("#folder").value)});
+  if (!r) return;
+  if (!cleanPath($("#folder").value)) $("#folder").value = r.folder;
+  if (!$("#nightfolder").value) { $("#nightfolder").value = r.folder; nightRemember(); }
+  const where = $("#addfilepart").selectedOptions[0].text, k = songWords(r.song);
+  const same = show.songs.find(s => songWords(s) === k);
+  if (same) { same.part = r.song.part; same.moment = r.song.moment || ""; touch(); }
+  else await addSongs([r.song], "this laptop");
+  $("#addfile").value = "";
+  say(`${[r.song.artist, r.song.title].filter(Boolean).join(" - ")} is in ${where}${same ? " now" : ""}.`, false);
+});
+$("#addfile").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#addfilego").click(); });
+driveHome();
+</script>
+<script>/* the window's "not running" screen instead of Edge's error page (sw.js, Llano BL #12377) */
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});</script>
+</body>
+</html>
