@@ -27,7 +27,10 @@ jobs:
   # The Mac (Llano BL #12517). The app and its disk image are built on Linux, as a release is
   # (ad-hoc signed here: no Apple account in CI); a real macOS then mounts the image, checks the
   # signatures with Apple's codesign, loads both chips, and launches the app. Free here: a public repo.
+  # ON HOLD (operator order 2026-11-17): no Mac work until he is ready to monetize. Both Mac jobs
+  # are switched off; the code stays. Turning Mac back on is HIS call, so ask him first.
   macbuild:
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -49,6 +52,7 @@ jobs:
           retention-days: 3
 
   macos:
+    if: false  # ON HOLD, see macbuild above
     needs: macbuild
     runs-on: macos-latest
     timeout-minutes: 20
